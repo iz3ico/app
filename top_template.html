@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>あそびば — ふたつの扉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#070a1c;--ink:#f3eedf;--sub:#b9b3cf;--gold:#e8c97a;--gold2:#b8924a;--gold3:#fff3c9;
+  --mc:"Zen Old Mincho","Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;--en:"Cinzel","Times New Roman",serif}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--mc)}
+body{overflow-x:hidden}
+#sky{position:fixed;inset:0;width:100%;height:100%;image-rendering:pixelated;z-index:0}
+.veil{position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse 60% 40% at 50% 8%,rgba(120,100,220,.28),rgba(120,100,220,0) 70%),
+             radial-gradient(ellipse 80% 50% at 50% 110%,rgba(40,120,170,.3),rgba(40,120,170,0) 70%)}
+/* magic circle */
+.circle{position:fixed;left:50%;top:clamp(110px,22vh,200px);width:min(760px,130vw);aspect-ratio:1;transform:translate(-50%,-50%);z-index:0;pointer-events:none;opacity:.22}
+.circle svg{width:100%;height:100%;animation:spin 180s linear infinite}
+.circle .in{animation:spin 120s linear infinite reverse;transform-origin:50% 50%}
+@keyframes spin{to{transform:rotate(360deg)}}
+main{position:relative;z-index:1;max-width:1040px;margin:0 auto;padding:clamp(48px,9vh,96px) clamp(18px,4vw,40px) 56px}
+header{text-align:center;margin-bottom:clamp(36px,6vh,64px)}
+.orn{display:flex;align-items:center;justify-content:center;gap:14px;color:var(--gold);opacity:.85;font-size:13px}
+.orn i{display:block;width:clamp(40px,10vw,110px);height:1px;background:linear-gradient(90deg,rgba(232,201,122,0),var(--gold))}
+.orn i:last-child{background:linear-gradient(90deg,var(--gold),rgba(232,201,122,0))}
+h1{margin:18px 0 0;font-weight:700;font-size:clamp(46px,8vw,78px);letter-spacing:.32em;text-indent:.32em;line-height:1.1;
+  background:linear-gradient(180deg,var(--gold3) 10%,var(--gold) 55%,var(--gold2) 95%);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 18px rgba(232,201,122,.35))}
+.en{font-family:var(--en);letter-spacing:.38em;text-indent:.38em;color:var(--sub);font-size:clamp(11px,1.4vw,13px);text-transform:uppercase}
+.lead{margin:14px 0 10px;color:var(--ink);opacity:.9;font-size:clamp(14px,1.8vw,17px);letter-spacing:.42em;text-indent:.42em}
+.gates{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:clamp(28px,5vw,64px);justify-items:center}
+/* a gate */
+.gate{--a:#8fd6ff;position:relative;display:flex;flex-direction:column;align-items:center;width:100%;max-width:420px;text-decoration:none;color:inherit;
+  animation:rise 1s cubic-bezier(.2,.8,.2,1) both}
+.gate:nth-child(2){animation-delay:.15s}
+.arch{position:relative;width:100%;aspect-ratio:4/5;border-radius:999px 999px 18px 18px;padding:10px;
+  background:linear-gradient(180deg,rgba(255,243,201,.9),var(--gold) 30%,var(--gold2) 70%,#7a5f2c);
+  box-shadow:0 0 0 1px rgba(0,0,0,.6),0 30px 60px -30px rgba(0,0,0,.9),0 0 40px -12px var(--a);transition:box-shadow .5s,transform .5s cubic-bezier(.2,.8,.2,1)}
+.arch::before{content:"";position:absolute;inset:5px;border-radius:inherit;border:1px solid rgba(60,40,10,.55);pointer-events:none;z-index:2}
+.win{position:relative;width:100%;height:100%;border-radius:999px 999px 10px 10px;overflow:hidden;background:#000;
+  box-shadow:inset 0 0 0 2px rgba(20,14,4,.8),inset 0 0 40px rgba(0,0,0,.6)}
+.win img{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.02);transition:transform 1.2s cubic-bezier(.2,.8,.2,1),filter .6s;filter:saturate(1.05)}
+.win::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 40%,rgba(0,0,0,0) 50%,rgba(6,8,24,.55)),
+  linear-gradient(rgba(0,0,0,0) 60%,rgba(6,8,24,.75))}
+.glint{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(115deg,rgba(255,255,255,0) 35%,rgba(255,255,255,.18) 48%,rgba(255,255,255,0) 60%);
+  transform:translateX(-120%);transition:transform 1.4s cubic-bezier(.2,.8,.2,1)}
+.key{position:absolute;left:50%;top:-14px;transform:translateX(-50%);z-index:3;width:30px;height:30px}
+.key svg{width:100%;height:100%;filter:drop-shadow(0 0 8px var(--a))}
+.corner{position:absolute;bottom:-8px;width:26px;height:26px;z-index:3}
+.corner.l{left:-8px}.corner.r{right:-8px;transform:scaleX(-1)}
+.rune{position:absolute;left:0;right:0;bottom:16px;z-index:2;text-align:center;font-family:var(--en);font-size:11px;letter-spacing:.45em;text-indent:.45em;color:var(--gold3);opacity:.75;text-shadow:0 0 8px rgba(0,0,0,.9)}
+.gate:hover .arch,.gate:focus-visible .arch{transform:translateY(-8px);box-shadow:0 0 0 1px rgba(0,0,0,.6),0 40px 70px -30px rgba(0,0,0,.9),0 0 70px -6px var(--a)}
+.gate:hover .win img,.gate:focus-visible .win img{transform:scale(1.08);filter:saturate(1.2) brightness(1.06)}
+.gate:hover .glint,.gate:focus-visible .glint{transform:translateX(120%)}
+.gate:focus-visible{outline:none}
+.plate{margin-top:22px;text-align:center}
+.ttl{margin:0;font-weight:700;font-size:clamp(24px,3vw,30px);letter-spacing:.26em;text-indent:.26em;color:var(--ink);text-shadow:0 0 18px color-mix(in srgb,var(--a) 50%,transparent)}
+.sub{margin-top:6px}
+.desc{margin:12px auto 0;max-width:22em;color:var(--sub);font-size:14px;line-height:1.95;letter-spacing:.06em}
+.btn{display:inline-flex;align-items:center;gap:10px;margin-top:18px;padding:10px 26px 10px 30px;border-radius:999px;font-size:14px;letter-spacing:.36em;
+  color:#1b1406;background:linear-gradient(180deg,var(--gold3),var(--gold) 60%,var(--gold2));box-shadow:0 0 0 1px rgba(0,0,0,.5),0 6px 20px -8px var(--a);transition:box-shadow .4s,transform .4s}
+.btn::after{content:"✦";font-size:11px;letter-spacing:0}
+.gate:hover .btn{box-shadow:0 0 0 1px rgba(0,0,0,.5),0 8px 30px -6px var(--a);transform:translateY(-1px)}
+footer{position:relative;z-index:1;text-align:center;padding:8px 0 40px}
+@keyframes rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.circle svg,.circle .in,.gate{animation:none}.arch,.win img,.glint{transition:none}}
+</style>
+</head>
+<body>
+<canvas id="sky"></canvas>
+<div class="veil"></div>
+<div class="circle" aria-hidden="true">
+<svg viewBox="0 0 400 400" fill="none" stroke="#e8c97a">
+  <defs><path id="ring" d="M200,200 m-168,0 a168,168 0 1,1 336,0 a168,168 0 1,1 -336,0"/></defs>
+  <circle cx="200" cy="200" r="190" stroke-width=".8"/><circle cx="200" cy="200" r="182" stroke-width=".4"/>
+  <text font-family="Cinzel,serif" font-size="11" letter-spacing="6" fill="#e8c97a" stroke="none"><textPath href="#ring">ARCANA · LUX · AQUA · STELLA · OBLIVIO · SOMNIUM · VIA · PORTA · ARCANA · LUX · AQUA · STELLA · OBLIVIO ·</textPath></text>
+  <circle cx="200" cy="200" r="150" stroke-width=".6"/>
+  <g class="in"><polygon points="200,58 323,271 77,271" stroke-width=".7"/><polygon points="200,342 77,129 323,129" stroke-width=".7"/>
+  <circle cx="200" cy="200" r="70" stroke-width=".5"/><circle cx="200" cy="200" r="36" stroke-width=".5"/></g>
+</svg>
+</div>
+<main>
+  <header>
+    <div class="orn"><i></i>✦<i></i></div>
+    <h1>あそびば</h1>
+    <p class="lead">ふたつの扉</p>
+    <div class="en">Two Gates</div>
+  </header>
+  <section class="gates" id="gates"></section>
+</main>
+<footer><div class="orn"><i></i><span class="en" id="foot" style="letter-spacing:.3em"></span><i></i></div></footer>
+<script>
+'use strict';
+/* ==========================================================
+   扉の一覧 — 新しいゲームはここに 1 行ふやすだけで並びます
+   path     : GitHub Pages など同じサイト内での場所
+   artifact : claude.ai の公開ページ
+   ========================================================== */
+const GAMES=[
+  {id:'bokyaku',  title:'忘却の都市',  en:'The Forgotten City', rune:'AQUA · OBLIVIO', accent:'#8fd6ff',
+   desc:'しずんだ街を、ただ、あるく。ツタと水におおわれた廃墟を、ひとりの少女がゆく。',
+   path:'bokyaku/',  artifact:'https://claude.ai/artifact/Ka8zunhBm5PJm44mM8ujf8', thumb:'__THUMB_bokyaku__'},
+  {id:'hoshiyomi',title:'星詠みガチャ',en:'Arcana Stellarum',   rune:'STELLA · SILVA', accent:'#f2c46a',
+   desc:'星霊と魔女の森。星霊をよび、ふれあい、市場をめぐり、森で野生の星霊に出会う。',
+   path:'hoshiyomi/',artifact:'https://claude.ai/artifact/MBFgPmLZx1huMBeBUV7uBc', thumb:'__THUMB_hoshiyomi__'},
+];
+const LOCAL=location.protocol==='file:'||/github\.io$/.test(location.hostname)||/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+const hrefOf=g=>LOCAL?(location.protocol==='file:'?g.path+'index.html':g.path):g.artifact;
+const KEY='<svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="13" fill="#1a1430" stroke="#e8c97a" stroke-width="1.5"/><path d="M15 5 L17.4 12.6 L25 15 L17.4 17.4 L15 25 L12.6 17.4 L5 15 L12.6 12.6Z" fill="#fff3c9"/></svg>';
+const CORNER='<svg viewBox="0 0 26 26" fill="none" stroke="#e8c97a" stroke-width="1.4"><path d="M2 24 L2 10 Q2 2 10 2 M2 24 L16 24"/><circle cx="6" cy="20" r="2" fill="#e8c97a"/></svg>';
+const gates=document.getElementById('gates');
+for(const g of GAMES){const a=document.createElement('a');a.className='gate';a.href=hrefOf(g);a.style.setProperty('--a',g.accent);
+  if(!LOCAL){a.target='_blank';a.rel='noopener';}
+  a.innerHTML=`<div class="arch"><span class="key">${KEY}</span><span class="corner l">${CORNER}</span><span class="corner r">${CORNER}</span>
+    <div class="win"><img alt=""><span class="glint"></span><div class="rune"></div></div></div>
+    <div class="plate"><h2 class="ttl"></h2><div class="en sub"></div><p class="desc"></p><span class="btn">扉をひらく</span></div>`;
+  a.querySelector('img').src=g.thumb;a.querySelector('img').alt=g.title;a.querySelector('.rune').textContent=g.rune;
+  a.querySelector('.ttl').textContent=g.title;a.querySelector('.sub').textContent=g.en;a.querySelector('.desc').textContent=g.desc;
+  gates.appendChild(a);}
+document.getElementById('foot').textContent=GAMES.length+' gates';
+
+/* ---- pixel night sky: twinkling stars, a few constellations, rising motes ---- */
+const cv=document.getElementById('sky'),cx=cv.getContext('2d');let W=0,H=0,stars=[],cons=[],motes=[];
+function rnd(s){return()=>{s=(s*16807)%2147483647;return(s-1)/2147483646;};}
+function size(){W=Math.ceil(innerWidth/3);H=Math.ceil(innerHeight/3);cv.width=W;cv.height=H;const r=rnd(7);
+  stars=Array.from({length:Math.round(W*H/150)},()=>({x:r()*W|0,y:r()*H|0,p:r()*6.28,s:.4+r()*1.6,b:r()<.1,c:r()<.3?'255,226,170':r()<.5?'190,200,255':'232,236,255'}));
+  cons=[];for(let k=0;k<3;k++){const ox=r()*W,oy=r()*H*.6,pts=[];for(let i=0;i<5;i++)pts.push({x:ox+(r()-.5)*W*.22,y:oy+(r()-.5)*H*.2});cons.push(pts);}
+  motes=Array.from({length:Math.round(W/8)},()=>({x:r()*W,y:r()*H,v:.05+r()*.15,p:r()*6.28,c:r()<.5?'232,201,122':'143,214,255'}));}
+addEventListener('resize',size);size();
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function draw(t){const T=t/1000;cx.fillStyle='#070a1c';cx.fillRect(0,0,W,H);
+  cx.strokeStyle='rgba(232,201,122,.13)';cx.lineWidth=1;for(const p of cons){cx.beginPath();p.forEach((q,i)=>i?cx.lineTo(q.x|0,q.y|0):cx.moveTo(q.x|0,q.y|0));cx.stroke();
+    for(const q of p){cx.fillStyle='rgba(255,236,190,.8)';cx.fillRect(q.x|0,q.y|0,1,1);}}
+  for(const s of stars){const a=reduce?.7:.3+.7*Math.pow(Math.sin(T*s.s+s.p),2);cx.fillStyle=`rgba(${s.c},${a.toFixed(2)})`;cx.fillRect(s.x,s.y,1,1);
+    if(s.b&&a>.75){cx.fillStyle=`rgba(${s.c},${(a-.55).toFixed(2)})`;cx.fillRect(s.x-1,s.y,1,1);cx.fillRect(s.x+1,s.y,1,1);cx.fillRect(s.x,s.y-1,1,1);cx.fillRect(s.x,s.y+1,1,1);}}
+  for(const m of motes){if(!reduce){m.y-=m.v;m.x+=Math.sin(T*.6+m.p)*.08;if(m.y<-2){m.y=H+2;}}const a=.25+.6*Math.pow(Math.sin(T*1.4+m.p),2);
+    cx.fillStyle=`rgba(${m.c},${a.toFixed(2)})`;cx.fillRect(m.x|0,m.y|0,1,1);}
+  if(!reduce)requestAnimationFrame(draw);}
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
