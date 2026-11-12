@@ -2,7 +2,14 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="忘却の都市">
+<meta name="theme-color" content="#0a1322">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>忘却の都市</title>
 <style>
 html,body{margin:0;height:100%;background:#0a1322;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
@@ -23,14 +30,14 @@ html,body{margin:0;height:100%;background:#0a1322;overflow:hidden;touch-action:n
   text-shadow:0 0 calc(var(--u)*1) rgba(10,40,90,.9);animation:blink 3.2s ease-in-out infinite}
 @keyframes blink{0%,100%{opacity:.25}50%{opacity:.95}}
 #hud{position:absolute;inset:0;pointer-events:none;color:#fff;opacity:0;transition:opacity 2s ease}
-#area{position:absolute;left:4.2%;top:7%;opacity:0;transition:opacity 2.4s ease;text-shadow:0 0 calc(var(--u)*.9) rgba(10,40,90,.85)}
+#area{position:absolute;left:calc(4.2% + env(safe-area-inset-left,0px));top:7%;opacity:0;transition:opacity 2.4s ease;text-shadow:0 0 calc(var(--u)*.9) rgba(10,40,90,.85)}
 #area .no{font-size:calc(var(--u)*1.7);letter-spacing:.3em;opacity:.8}
 #area .ln{width:calc(var(--u)*7);height:1px;background:rgba(255,255,255,.75);margin:calc(var(--u)*1.1) 0}
 #area .nm{font-size:calc(var(--u)*3.3);letter-spacing:.32em}
-#dist{position:absolute;right:4%;bottom:5.5%;font-size:calc(var(--u)*2);letter-spacing:.2em;opacity:.8;text-shadow:0 0 calc(var(--u)*.8) rgba(10,40,90,.9)}
-#auto{position:absolute;left:4.2%;bottom:5.5%;font-size:calc(var(--u)*1.8);letter-spacing:.25em;opacity:0;transition:opacity .8s;text-shadow:0 0 calc(var(--u)*.8) rgba(10,40,90,.9)}
+#dist{position:absolute;right:calc(4% + env(safe-area-inset-right,0px));bottom:calc(5.5% + env(safe-area-inset-bottom,0px));font-size:calc(var(--u)*2);letter-spacing:.2em;opacity:.8;text-shadow:0 0 calc(var(--u)*.8) rgba(10,40,90,.9)}
+#auto{position:absolute;left:calc(4.2% + env(safe-area-inset-left,0px));bottom:calc(5.5% + env(safe-area-inset-bottom,0px));font-size:calc(var(--u)*1.8);letter-spacing:.25em;opacity:0;transition:opacity .8s;text-shadow:0 0 calc(var(--u)*.8) rgba(10,40,90,.9)}
 #hint{position:absolute;left:0;right:0;bottom:12%;text-align:center;font-size:calc(var(--u)*2);letter-spacing:.3em;opacity:0;transition:opacity 1.5s;text-shadow:0 0 calc(var(--u)*.9) rgba(10,40,90,.95)}
-#menu{position:absolute;right:2.2%;top:3.4%;z-index:6;pointer-events:auto;font-family:inherit}
+#menu{position:absolute;right:calc(2.2% + env(safe-area-inset-right,0px));top:calc(3.4% + env(safe-area-inset-top,0px));z-index:6;pointer-events:auto;font-family:inherit}
 #mbtn{display:block;margin-left:auto;width:calc(var(--u)*4.6);height:calc(var(--u)*4.6);padding:calc(var(--u)*1);border:none;border-radius:50%;background:none;cursor:pointer;
   opacity:.32;transition:opacity .4s,background .4s}
 #mbtn:hover,#menu.open #mbtn{opacity:.95;background:rgba(10,30,64,.3)}
@@ -94,6 +101,7 @@ html,body{margin:0;height:100%;background:#0a1322;overflow:hidden;touch-action:n
       </div>
       <div class="msep"></div>
       <button class="mbtn2" id="mauto">おまかせで あるく<span class="chk" id="mautoChk"></span></button>
+      <button class="mbtn2" id="mfull" style="display:none">全画面に する</button>
       <button class="mbtn2" id="mhome">家に かえる</button>
       <button class="mbtn2" id="mtitle">タイトルに もどる</button>
       <a class="mbtn2" id="mtop" href="../" style="display:none;text-decoration:none">あそびばの トップへ</a>
@@ -108,7 +116,8 @@ html,body{margin:0;height:100%;background:#0a1322;overflow:hidden;touch-action:n
    忘却の都市 — a walk through the forgotten city
    すべてのドット絵はコードで生成しています
    ========================================================= */
-const W=384,H=216,H0=126,YG=180,CX=W/2,S0=0.56,FF=1.3;
+const WIDE=a=>a>1.8?Math.min(480,Math.round(216*a/2)*2):384;
+const W=(()=>{try{return WIDE(innerWidth/innerHeight);}catch(e){return 384;}})(),H=216,H0=126,YG=180,CX=W/2,S0=0.56,FF=1.3;
 const sOf=y=>S0+(1-S0)*(y-H0)/(YG-H0);
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -1353,7 +1362,7 @@ function drawTitleFrame(k){
    isometric "diorama" seen from above, overlooking the city
    ========================================================= */
 const HM={built:false,bg:null,room:null,vines:[],tufts:[],leaves:[],spark:[],clouds:[],birds:[],nextBird:3,motes:[]};
-const HT={x:200,y:84},HA={x:136,y:68};               // top corner, iso axes (2:1)
+const HT={x:Math.round(W/2)+8,y:84},HA={x:136,y:68};               // top corner, iso axes (2:1)
 const isoP=(a,b)=>({x:HT.x+HA.x*(a-b),y:HT.y+HA.y*(a+b)});
 const isoAB=(x,y)=>{const u=(x-HT.x)/HA.x,v=(y-HT.y)/HA.y;return{a:(u+v)/2,b:(v-u)/2};};
 function polyMask(pts){const cv=mk(W,H),c=cv.getContext('2d');c.fillStyle='#fff';c.beginPath();c.moveTo(pts[0].x,pts[0].y);
@@ -1661,14 +1670,24 @@ function render(dt){
    DISPLAY / INPUT / BOOT
    ========================================================= */
 let SPLASH=true;
-function openSplash(){if(!SPLASH)return;SPLASH=false;document.getElementById('press').style.visibility='visible';AU.init();AU.resume();AU.setScene('title');const ld=document.getElementById('load');ld.style.opacity=0;ld.style.pointerEvents='none';setTimeout(()=>ld.remove(),1700);}
+const FSAPI=(()=>{const d=document.documentElement;return!!(d.requestFullscreen||d.webkitRequestFullscreen);})();
+const isFull=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
+function tryFullscreen(){if(!FSAPI||isFull())return;const d=document.documentElement,f=d.requestFullscreen||d.webkitRequestFullscreen;
+  try{const p=f.call(d,{navigationUI:'hide'});const lock=()=>{try{if(screen.orientation&&screen.orientation.lock)screen.orientation.lock('landscape').catch(()=>{});}catch(e){}};
+    if(p&&p.then)p.then(lock).catch(()=>{});else lock();}catch(e){}}
+function exitFullscreen(){try{(document.exitFullscreen||document.webkitExitFullscreen).call(document);}catch(e){}}
+function fullLabel(){const b=document.getElementById('mfull');if(!FSAPI){b.style.display='none';return;}b.style.display='block';b.textContent=isFull()?'全画面を やめる':'全画面に する';}
+document.addEventListener('fullscreenchange',()=>{fullLabel();resize();});document.addEventListener('webkitfullscreenchange',()=>{fullLabel();resize();});
+// rotating the phone before the first tap: reload so the picture is laid out for the new shape
+let ORI=innerWidth>innerHeight;addEventListener('resize',()=>{const o=innerWidth>innerHeight;if(o===ORI)return;ORI=o;if(SPLASH&&Math.abs(WIDE(innerWidth/innerHeight)-W)>=16)location.reload();});
+function openSplash(){if(!SPLASH)return;SPLASH=false;if(IS_TOUCH&&innerWidth>innerHeight)tryFullscreen();document.getElementById('press').style.visibility='visible';AU.init();AU.resume();AU.setScene('title');const ld=document.getElementById('load');ld.style.opacity=0;ld.style.pointerEvents='none';setTimeout(()=>ld.remove(),1700);}
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
 function resize(){const vw=innerWidth,vh=innerHeight,dpr=window.devicePixelRatio||1;
   const s=Math.min(vw/W,vh/H);const cw=Math.floor(W*s),ch=Math.floor(H*s);
   stage.style.width=cw+'px';stage.style.height=ch+'px';stage.style.setProperty('--u',(ch/100)+'px');
   const k=Math.max(1,Math.ceil(s*dpr));screen.width=W*k;screen.height=H*k;}
 addEventListener('resize',resize);resize();
-function start(){if(S.mode!=='title'||busy||SPLASH)return;setMenu(false);S.mode='walk';S.started=0;S.startX=S.girlX;
+function start(){if(S.mode!=='title'||busy||SPLASH)return;setMenu(false);if(IS_TOUCH)tryFullscreen();S.mode='walk';S.started=0;S.startX=S.girlX;
   document.getElementById('title').style.opacity=0;document.getElementById('hud').style.opacity=1;AU.init();AU.resume();AU.setScene('game');}
 const sndBtn=document.getElementById('snd'),volEl=document.getElementById('vol'),vpct=document.getElementById('vpct'),sndp=document.getElementById('menu');
 const ICON_ON='<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="#fff"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>';
@@ -1704,6 +1723,8 @@ function leaveHome(){if(busy||S.mode!=='home')return;busy=true;const f=document.
   AU.setScene('game');
   setTimeout(()=>{S.mode='walk';if(S.homeFrom==='title'){S.started=0;S.startX=S.girlX;}S.mv=0;homeLabel();document.getElementById('hud').style.opacity=1;document.getElementById('dist').style.opacity='';
     f.style.opacity=0;setTimeout(()=>busy=false,600);},1000);}
+document.getElementById('mfull').addEventListener('click',e=>{setMenu(false);e.currentTarget.blur();if(isFull())exitFullscreen();else tryFullscreen();});
+fullLabel();
 setAuto(false);
 if(location.protocol!=='file:'&&/\/bokyaku\/?$/.test(location.pathname)||location.protocol==='file:'&&/\/bokyaku\/index\.html$/.test(location.pathname)){const t=document.getElementById('mtop');t.style.display='block';if(location.protocol==='file:')t.href='../index.html';}
 let busy=false;
