@@ -236,6 +236,39 @@ function makeSky(){
   for(const[dx,dy]of[[5,5],[-5,5],[5,-5],[-5,-5]])px(c,SUNX+dx,SUNY+dy,'#fffbea');
   return cv;
 }
+/* ---------- time of day: morning / noon / evening / night ---------- */
+function makeSkyT(def){
+  const cv=mk(W,H),c=cv.getContext('2d'),id=c.createImageData(W,H),d=id.data,st=def.stops,q=12,R=RNG(def.seed||3);
+  for(let y=0;y<H;y++){const t=clamp(y/H0,0,1);let a=st[0],b=st[1];
+    for(let i=0;i<st.length-1;i++)if(t>=st[i][0]&&t<=st[i+1][0]){a=st[i];b=st[i+1];}
+    const u=(t-a[0])/(b[0]-a[0]||1),base=mixA(a[1],b[1],u*u*(3-2*u));
+    for(let x=0;x<W;x++){let col=base.slice();
+      for(const L of def.lights||[]){const dx=x-L.x,dy=(y-L.y)*1.1,dd=Math.sqrt(dx*dx+dy*dy);
+        for(const[rad,lc,amt]of L.glow){const w=Math.pow(Math.max(0,1-dd/rad),2)*amt;col=mixA(col,lc,w);}}
+      if(def.hz){const hb=Math.pow(clamp(1-Math.abs(y-(H0-4))/30,0,1),2)*def.hz[1];col=mixA(col,def.hz[0],hb);}
+      const th=BAYER[(y&3)*4+(x&3)],i=(y*W+x)*4;
+      for(let k=0;k<3;k++){const f=col[k]/q,bb=Math.floor(f),fr=clamp((f-bb-.5)*2.6+.5,0,1);d[i+k]=clamp((bb+(fr>th?1:0))*q,0,255);}d[i+3]=255;}}
+  c.putImageData(id,0,0);
+  if(def.stars)for(let k=0;k<def.stars;k++){const x=R.int(0,W-1),y=R.int(0,H0-8),v=R();px(c,x,y,v<.12?'#ffffff':v<.45?'#c9d4ff':'#7f90cc');
+    if(v<.05){px(c,x-1,y,'#8fa0dc');px(c,x+1,y,'#8fa0dc');px(c,x,y-1,'#8fa0dc');px(c,x,y+1,'#8fa0dc');}}
+  for(const L of def.lights||[]){if(L.disc){const r=L.disc;for(let yy=-r;yy<=r;yy++)for(let xx=-r;xx<=r;xx++){const dd=Math.hypot(xx,yy);if(dd>r+.3)continue;
+      if(L.moon){const d2=Math.hypot(xx-r*.55,yy+r*.3);if(d2<r*.95)continue;}
+      px(c,L.x+xx,L.y+yy,dd>r-1.2?L.rim:L.core);}
+    if(L.moon){px(c,L.x-2,L.y+1,'#d9d2b8');px(c,L.x-3,L.y-2,'#d9d2b8');}}}
+  return cv;
+}
+const TOD_DEF=[
+  {name:'morning',grade:[255,218,202],rays:.24,
+   stops:[[0,[62,92,168]],[.32,[120,146,206]],[.58,[204,186,214]],[.8,[250,196,184]],[1,[255,222,190]]],hz:[[255,214,186],.45],
+   lights:[{x:Math.round(W*.16),y:H0-30,disc:7,core:'#fffbe8',rim:'#ffe6b8',glow:[[210,[255,214,192],.42],[60,[255,238,214],.55],[18,[255,250,236],.7]]}]},
+  null, // noon: the original sky
+  {name:'evening',grade:[255,186,146],rays:.34,
+   stops:[[0,[40,42,108]],[.28,[90,66,148]],[.55,[188,96,132]],[.8,[246,142,96]],[1,[255,200,124]]],hz:[[255,206,140],.4],
+   lights:[{x:Math.round(W*.8),y:H0-18,disc:9,core:'#fff3c4',rim:'#ffc87a',glow:[[230,[255,168,108],.5],[70,[255,210,140],.6],[22,[255,236,190],.75]]}]},
+  {name:'night',grade:[76,94,154],rays:0,seed:41,stars:170,
+   stops:[[0,[6,10,34]],[.45,[14,24,66]],[.8,[30,46,104]],[1,[54,72,132]]],hz:[[72,92,152],.25],
+   lights:[{x:Math.round(W*.22),y:30,disc:6,moon:true,core:'#f6f1dc',rim:'#e4dcc0',glow:[[90,[60,80,150],.5],[24,[120,140,200],.45]]}]}];
+let SKYS=null,RAYSET=null,NIGHTSTARS=[];
 const CLOUD_PAL=[[255,255,255],[245,250,255],[229,240,252],[208,225,245],[184,206,236],[158,185,225],[132,162,210]].map(v=>v);
 function makeCloud(seed,w,h,o={}){
   const R=RNG(seed),Hf=new Float32Array(w*h);
@@ -290,14 +323,13 @@ function makeMist(seed){const w=512,h=16,cv=mk(w,h),c=cv.getContext('2d'),id=c.c
 let MISTS=[];let MKB=null;
 function drawMist(k,y,f,spd,a){const cv=MISTS[k];const off=((S.camX*f+S.t*spd)%512+512)%512;g.globalAlpha=a;
   for(let x=-off;x<W;x+=512)g.drawImage(cv,Math.round(x),Math.round(y-8));g.globalAlpha=1;}
-function makeRays(){
-  const cv=mk(W,H),c=cv.getContext('2d'),id=c.createImageData(W,H),d=id.data;const sx=SUNX,sy=SUNY;
-  const rays=[[1.92,.05,1],[2.05,.035,.75],[2.22,.06,.95],[2.38,.03,.6],[2.55,.045,.8],[1.78,.025,.55],[2.7,.028,.45]];
+function makeRays(sx=SUNX,sy=SUNY,rays=[[1.92,.05,1],[2.05,.035,.75],[2.22,.06,.95],[2.38,.03,.6],[2.55,.045,.8],[1.78,.025,.55],[2.7,.028,.45]],tint=[255,250,230]){
+  const cv=mk(W,H),c=cv.getContext('2d'),id=c.createImageData(W,H),d=id.data;
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){const dx=x-sx,dy=y-sy;if(dy<0)continue;const a=Math.atan2(dy,dx),dist=Math.hypot(dx,dy);
     let v=0;for(const r of rays){const da=Math.abs(a-r[0]);if(da<r[1])v=Math.max(v,r[2]*Math.sqrt(1-da/r[1]));}
     v*=clamp(1-dist/400,0,1)*clamp((dist-8)/20,0,1);if(v<=0)continue;
     const q=Math.floor(v*3+BAYER[(y&3)*4+(x&3)]*.999)/3;if(q<=0)continue;
-    const i=(y*W+x)*4;d[i]=255;d[i+1]=250;d[i+2]=230;d[i+3]=Math.round(q*.85*255);}
+    const i=(y*W+x)*4;d[i]=tint[0];d[i+1]=tint[1];d[i+2]=tint[2];d[i+3]=Math.round(q*.85*255);}
   c.putImageData(id,0,0);return cv;
 }
 
@@ -971,7 +1003,7 @@ const AU={ctx:null,muted:false,scene:'title',srcs:[],vol:.7,level(){return this.
    STATE
    ========================================================= */
 const stage=document.getElementById('stage'),screen=document.getElementById('screen'),sctx=screen.getContext('2d');
-const low=mk(W,H),g=low.getContext('2d',{willReadFrequently:true});
+const low=mk(W,H);let g=low.getContext('2d',{willReadFrequently:true});
 let SKY,RAYS,CLOUDS=[];
 const S={mode:'title',t:0,camX:0,girlX:0,face:1,mv:0,ph:0,bob:0,walked:0,lastStep:0,blinkT:2.5,blink:false,
   dCam:0,auto:false,keyL:false,keyR:false,ptr:0,titleK:1,started:0,zone:-1,hintShown:false,wind:1,startX:0,idle:0};
@@ -1037,7 +1069,7 @@ function drawBirds(dt){
 }
 let IMG=null;
 function waterPass(){
-  const T=S.t,cam=S.camX;
+  const T=S.t,cam=S.camX,GRc=(S.tod||{grade:[255,255,255]}).grade,GR0=GRc[0]/255,GR1=GRc[1]/255,GR2=GRc[2]/255;
   IMG=g.getImageData(0,0,W,H);const d=IMG.data;
   for(let y=H0+1;y<H;y++){const ry=y-H0;rowDX[y]=Math.round(Math.sin(ry*.9+T*2.1)*rowAmp[y]+Math.sin(ry*.23-T*1.1)*rowAmp[y]*.7);
     rowDY[y]=Math.round(Math.sin(ry*.5+T*1.3)*.6*(ry/(H-H0)));}
@@ -1058,7 +1090,7 @@ function waterPass(){
           if(row%5===2&&(col&1)===0&&fv>.32&&fv<.62&&fu>.12&&fu<.88){fr=150;fg=196;fb=192;}}}
       const cs=Math.sin(wx*.31+T*1.6+Math.sin(z*23+T*.9)*2)+Math.sin(wx*.17-T*1.1+z*31);
       if(cs>1.38){fr+=52;fg+=72;fb+=62;}else if(cs>1.12){fr+=22;fg+=34;fb+=30;}
-      fr+=(DEEP[0]-fr)*df;fg+=(DEEP[1]-fg)*df;fb+=(DEEP[2]-fb)*df;
+      fr+=(DEEP[0]-fr)*df;fg+=(DEEP[1]-fg)*df;fb+=(DEEP[2]-fb)*df;fr*=GR0;fg*=GR1;fb*=GR2;
       let sx=x+dx;if(sx<0)sx=0;else if(sx>=W)sx=W-1;const si=sb+sx*4;
       let rr=d[si]*.74+WATER[0]*.2,rg=d[si+1]*.78+WATER[1]*.2,rbb=d[si+2]*.8+WATER[2]*.2;
       let r=fr+(rr-fr)*refl,gg=fg+(rg-fg)*refl,b=fb+(rbb-fb)*refl;
@@ -1319,8 +1351,9 @@ function drawParticles(dt){
   const t=S.t;
   for(const m of motes){m.x+=(S.wind*-3*m.z+Math.sin(t*.5+m.ph)*2)*dt-S.dCam*m.z*.6;m.y+=(-1.5+Math.sin(t*.7+m.ph*2)*2)*dt*m.v;
     if(m.x<-2)m.x+=W+4;if(m.x>W+2)m.x-=W+4;if(m.y<-2)m.y+=H+4;if(m.y>H+2)m.y-=H+4;
-    const a=.25+.75*Math.pow(Math.sin(t*1.7*m.v+m.ph),2);g.fillStyle=`rgba(255,250,222,${a*.85})`;const x=Math.round(m.x),y=Math.round(m.y);g.fillRect(x,y,1,1);
-    if(m.z>1.15&&a>.8){g.fillStyle=`rgba(255,250,222,${a*.35})`;g.fillRect(x-1,y,1,1);g.fillRect(x+1,y,1,1);g.fillRect(x,y-1,1,1);g.fillRect(x,y+1,1,1);}}
+    const nt=(S.tod||{night:0}).night,mc=nt>.5?'200,255,140':'255,250,222';
+    const a=.25+.75*Math.pow(Math.sin(t*1.7*m.v+m.ph),2);g.fillStyle=`rgba(${mc},${a*.85})`;const x=Math.round(m.x),y=Math.round(m.y);g.fillRect(x,y,1,1);
+    if((m.z>1.15||nt>.5&&m.z>.8)&&a>.8){g.fillStyle=`rgba(${mc},${a*.35})`;g.fillRect(x-1,y,1,1);g.fillRect(x+1,y,1,1);g.fillRect(x,y-1,1,1);g.fillRect(x,y+1,1,1);}}
   for(const p of fall){p.ph+=dt*2.5;p.x+=(-8*S.wind*p.z+Math.sin(p.ph)*10)*dt-S.dCam*p.z;p.y+=(9+Math.cos(p.ph*1.3)*5)*dt*p.z;
     if(p.y>H+3||p.x<-6||p.x>W+6){p.y=-4;p.x=Math.random()*W*1.2;}
     g.fillStyle=p.c;g.fillRect(Math.round(p.x),Math.round(p.y),Math.sin(p.ph)>0?2:1,1);}
@@ -1439,6 +1472,10 @@ const zName=i=>{const n=i+1;const no=n<=10?KANJI[n-1]:n<20?'十'+KANJI[n-11]:Str
 let areaTimer=0;
 function showArea(i){const[a,b]=zName(i);document.getElementById('areaNo').textContent=a;document.getElementById('areaNm').textContent=b;
   const el=document.getElementById('area');el.style.opacity=1;clearTimeout(areaTimer);areaTimer=setTimeout(()=>el.style.opacity=0,5200);}
+const TOD_P=180,TOD_HOLD=40;
+function todNow(){const tt=(S.t+TOD_P)%(TOD_P*4),i=Math.floor(tt/TOD_P),f=tt-i*TOD_P,u=f<TOD_HOLD?0:(f-TOD_HOLD)/(TOD_P-TOD_HOLD),k=u*u*(3-2*u),j=(i+1)%4;
+  const gr=i=>TOD_DEF[i]?TOD_DEF[i].grade:[255,255,255],ra=i=>TOD_DEF[i]?TOD_DEF[i].rays:.28;
+  return{i,j,k,grade:mixA(gr(i),gr(j),k),rays:[ra(i)*(1-k),ra(j)*k],night:(i===3?1-k:0)+(j===3?k:0)};}
 function update(dt){
   if(S.mode==='home'){updHome(dt);return;}
   S.t+=dt;
@@ -1482,9 +1519,19 @@ function update(dt){
   updFish(dt);updCat(dt);updFB(dt);updWhale(dt);
   AU.update();
 }
+const SC1=mk(W,H),SC1c=SC1.getContext('2d',{willReadFrequently:true}),SC2=mk(W,H),SC2c=SC2.getContext('2d',{willReadFrequently:true}),MSK=mk(W,H),MSKc=MSK.getContext('2d',{willReadFrequently:true});
+function grade(cv,c,col){if(col[0]>252&&col[1]>252&&col[2]>252)return;MSKc.clearRect(0,0,W,H);MSKc.drawImage(cv,0,0);
+  c.globalCompositeOperation='multiply';c.fillStyle=css(col);c.fillRect(0,0,W,H);c.globalCompositeOperation='destination-in';c.drawImage(MSK,0,0);c.globalCompositeOperation='source-over';}
+function drawRaysTOD(scale,off){const T=S.tod;for(const[idx,a]of[[T.i,T.rays[0]],[T.j,T.rays[1]]]){const r=RAYSET[idx];if(!r||a<=.005)continue;
+  g.save();g.globalCompositeOperation='screen';g.globalAlpha=a*scale;g.drawImage(r,off,0);g.restore();}}
 function render(dt){
   if(S.mode==='home'){renderHome();sctx.imageSmoothingEnabled=false;sctx.drawImage(low,0,0,screen.width,screen.height);return;}
-  g.drawImage(SKY,0,0);
+  const T=S.tod=todNow(),G0=g,off=Math.round(Math.sin(S.t*.07)*6);
+  // sky (already painted for each time of day)
+  g.drawImage(SKYS[T.i],0,0);if(T.k>0){g.globalAlpha=T.k;g.drawImage(SKYS[T.j],0,0);g.globalAlpha=1;}
+  if(T.night>.02)for(const s0 of NIGHTSTARS){const a=Math.pow(Math.sin(S.t*s0.v+s0.p),2)*T.night;if(a<.3)continue;g.fillStyle=`rgba(255,255,255,${a.toFixed(2)})`;g.fillRect(s0.x,s0.y,1,1);}
+  // everything above the water, tinted by the time of day
+  g=SC1c;g.clearRect(0,0,W,H);
   drawClouds();
   drawBirds(dt);
   drawLayer(ULTRA,MKB.ULTRA);hazeBand(H0-80,.4);
@@ -1494,13 +1541,17 @@ function render(dt){
   drawLayer(MID2,MKB.MID2);hazeBand(H0-40,.13);
   drawWhale();
   drawMist(1,H0-12,.2,2.5,.42);
-  g.save();g.globalCompositeOperation='screen';g.globalAlpha=.28+.1*Math.sin(S.t*.31);g.drawImage(RAYS,Math.round(Math.sin(S.t*.07)*6),0);g.restore();
   drawLayer(HWY,makeHighway);hazeBand(H0-30,.09);
   drawLayer(NEAR,MKB.NEAR);hazeBand(H0-18,.07);
   drawMist(2,H0-5,.42,3.5,.3);
   drawLayer(NEAR2,MKB.NEAR2);
   drawLayer(SHORE,makeShore);
+  grade(SC1,SC1c,T.grade);
+  g=G0;g.drawImage(SC1,0,0);
+  drawRaysTOD(1,off);
   waterPass();
+  // things in and near the water, tinted the same way
+  g=SC2c;g.clearRect(0,0,W,H);
   drawMist(0,H0+3,.58,4.5,.28);
   drawProps();
   drawRipples(dt);
@@ -1510,10 +1561,11 @@ function render(dt){
   drawFrontProps();
   drawFore();
   drawFB();
-  drawParticles(dt);
-  // light rays
-  g.save();g.globalCompositeOperation='screen';g.globalAlpha=.17+.07*Math.sin(S.t*.31);g.drawImage(RAYS,Math.round(Math.sin(S.t*.07)*6),0);g.restore();
   if(S.titleK>0)drawTitleFrame(S.titleK);
+  grade(SC2,SC2c,T.grade);
+  g=G0;g.drawImage(SC2,0,0);
+  drawParticles(dt);
+  drawRaysTOD(.6,off);
   sctx.imageSmoothingEnabled=false;sctx.drawImage(low,0,0,screen.width,screen.height);
 }
 
@@ -1613,7 +1665,11 @@ addEventListener('blur',()=>{S.keyL=S.keyR=false;S.ptr=0;ptrs.clear();});
 if(IS_TOUCH)document.getElementById('press').textContent='― タップして はじめる ―';
 
 function boot(){
-  SKY=makeSky();RAYS=makeRays();MISTS=[makeMist(1),makeMist(2),makeMist(3)];MKB={ULTRA:mkB(ULTRA),FAR:mkB(FAR),MID:mkB(MID),MID2:mkB(MID2),NEAR:mkB(NEAR),NEAR2:mkB(NEAR2)};
+  SKY=makeSky();RAYS=makeRays();
+  SKYS=TOD_DEF.map(d=>d?makeSkyT(d):SKY);
+  RAYSET=[makeRays(Math.round(W*.16),H0-30,[[.18,.05,1],[.32,.035,.8],[.47,.06,.95],[.62,.03,.6],[.08,.03,.6],[.76,.04,.5]],[255,232,206]),RAYS,
+    makeRays(Math.round(W*.8),H0-18,[[2.86,.05,1],[3.0,.035,.8],[3.14,.06,.95],[3.3,.03,.6],[2.72,.04,.6],[3.44,.03,.5]],[255,196,140]),null];
+  {const R=RNG(55);for(let k=0;k<26;k++)NIGHTSTARS.push({x:R.int(0,W-1),y:R.int(2,H0-30),p:R()*6.28,v:.6+R()*1.5});}MISTS=[makeMist(1),makeMist(2),makeMist(3)];MKB={ULTRA:mkB(ULTRA),FAR:mkB(FAR),MID:mkB(MID),MID2:mkB(MID2),NEAR:mkB(NEAR),NEAR2:mkB(NEAR2)};
   // find a calm place for the title: no highway, open sky in the middle
   let best=0;for(let gx=0;gx<60000;gx+=37){const cam=gx-CX;
     const hoff=cam*HWY.f;let ok=true;for(let j=Math.floor((hoff+W*.2-60)/48);j<=Math.floor((hoff+W*.8)/48);j++)if(hwyZone(j)){ok=false;break;}
