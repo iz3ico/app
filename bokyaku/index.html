@@ -1300,43 +1300,66 @@ function drawWhale(){if(!WHALE.on)return;const W0=WHALE,cv=W0.cv,L=W0.L,x0=Math.
 /* ---------- jellyfish drifting through the air (front and back) ---------- */
 const JEL_COL=[[255,196,226],[206,198,255],[176,232,255],[214,255,236]];
 const JEL_LAYERS=[
-  {id:'far', f:.24,slot:250,chance:.24,y:[24,86], sc:.55,glow:.35},
-  {id:'mid', f:.56,slot:300,chance:.2, y:[40,112],sc:.8, glow:.6},
-  {id:'girl',f:1,  slot:430,chance:.17,y:[80,150],sc:1,  glow:.85},
-  {id:'near',f:1.32,slot:560,chance:.13,y:[16,128],sc:1.6,glow:1}];
-const JEL_VIS=[];
-function jellyGroup(L,j){return cached('jl:'+L.id+':'+j,()=>{const R=RNG(seedOf(j,L.id.length*131+7));if(R()>L.chance)return[];
-  const n=R.int(1,L.id==='near'?2:4),out=[];
-  for(let i=0;i<n;i++)out.push({x:j*L.slot+R.range(0,L.slot*.7),y:R.range(L.y[0],L.y[1]),ph:R()*6.28,sp:R.range(.7,1.2),
-    sz:L.sc*R.range(.75,1.25),col:R.pick(JEL_COL),dx:R.range(6,18),seed:R.int(1,1e6)});return out;});}
-function drawJellyLayer(id){const L=JEL_LAYERS.find(l=>l.id===id),off=S.camX*L.f,t=S.t,night=(S.tod||{night:0}).night;
-  for(let j=Math.floor((off-60)/L.slot);j<=Math.floor((off+W+60)/L.slot);j++)for(const q of jellyGroup(L,j)){
+  {id:'far', f:.24,y:[24,86], sc:.6, glow:.35},
+  {id:'mid', f:.56,y:[40,110],sc:.85,glow:.6},
+  {id:'girl',f:1,  y:[78,140],sc:1.05,glow:.85},
+  {id:'near',f:1.32,y:[14,96], sc:1.55,glow:1}];
+const JEL_VIS=[],JZ=760;   // jellyfish come in "zones": when a zone has them, 2-3 drift across the scene together
+function jellyZone(k){return cached('jz:'+k,()=>{const R=RNG(seedOf(k,9191));if((k&1)||R()>.72)return[];
+  const n=R()<.55?2:3,out=[],used=new Set();
+  for(let i=0;i<n;i++){let L=R.pick(JEL_LAYERS);if(L.id==='near'&&used.has('near'))L=JEL_LAYERS[1];used.add(L.id);
+    const camC=k*JZ+JZ/2,sx=R.range(W*.12,W*.88);
+    out.push({L,x:camC*L.f+sx,y:R.range(L.y[0],L.y[1]),ph:R()*6.28,sp:R.range(.7,1.15),sz:L.sc*R.range(.85,1.15),col:R.pick(JEL_COL),dx:R.range(6,16),seed:R.int(1,1e6)});}
+  return out;});}
+function drawJellyLayer(id){const t=S.t,night=(S.tod||{night:0}).night,k0=Math.floor(S.camX/JZ);
+  for(let k=k0-1;k<=k0+1;k++)for(const q of jellyZone(k)){if(q.L.id!==id)continue;const off=S.camX*q.L.f;
+    const fade=Math.pow(clamp(1-Math.abs(S.camX-(k*JZ+JZ/2))/JZ,0,1),.6);if(fade<.02)continue;q.fade=fade;
     const pulse=Math.sin(t*1.6*q.sp+q.ph),x=q.x-off+Math.sin(t*.13*q.sp+q.ph)*q.dx,y=q.y+Math.sin(t*.35*q.sp+q.ph*1.7)*6-Math.max(0,pulse)*1.5;
-    if(x<-30||x>W+30)continue;drawJelly(Math.round(x),Math.round(y),q,pulse,night,t);JEL_VIS.push({x,y,q,glow:L.glow});}}
+    if(x<-40||x>W+40)continue;drawJelly(Math.round(x),Math.round(y),q,pulse,night,t);JEL_VIS.push({x,y,q,glow:q.L.glow});}}
 function drawJelly(x,y,q,pulse,night,t){
-  const s=q.sz,w=Math.max(4,Math.round(14*s*(1-.12*Math.max(0,pulse)))),h=Math.max(3,Math.round(8.5*s*(1+.1*Math.max(0,pulse)))),c=q.col;
-  const A=.5+night*.12,col=(a,k=0)=>`rgba(${clamp(c[0]+k,0,255)},${clamp(c[1]+k,0,255)},${clamp(c[2]+k,0,255)},${Math.min(1,a).toFixed(2)})`,rimK=night>.5?40:-55;
-  // tentacles
-  const R=RNG(q.seed),nt=Math.max(3,Math.round(5*s)),tl=Math.round(16*s+4);
-  for(let k=0;k<nt;k++){const bx=x-(w>>1)+1+Math.round(k*(w-2)/(nt-1||1)),len=Math.round(tl*R.range(.6,1.1)),phs=R()*6;
-    for(let i=1;i<len;i++){const wv=Math.sin(t*2.2*q.sp+phs+i*.35)*i*.09*s+Math.sin(t*.7+q.ph)*i*.05;g.fillStyle=col(A*.8*(1-i/len),night>.5?20:-25);g.fillRect(Math.round(bx+wv),y+i,1,1);}}
-  // two frilly oral arms
-  for(const sd of[-1,1]){const bx=x+sd*Math.max(1,Math.round(w*.15));for(let i=1;i<Math.round(tl*.6);i++){const wv=Math.sin(t*1.8*q.sp+q.ph+i*.45+sd)*1.1*s;
-    g.fillStyle=col(A*.75*(1-i/(tl*.6)),20);g.fillRect(Math.round(bx+wv),y+i,Math.max(1,Math.round(s)),1);}}
-  // bell (dome)
-  for(let r=0;r<h;r++){const v=1-r/h,hw=Math.round((w/2)*Math.sqrt(1-v*v*.92)),yy=y-h+r+1;
-    for(let xx=-hw;xx<=hw;xx++){const edge=Math.abs(xx)>=hw-.5||r===0;g.fillStyle=edge?col(A*1.3,rimK):col(A*(.7+v*.3),r<2?25:0);g.fillRect(x+xx,yy,1,1);}}
-  // frill along the rim, inner glow and a highlight
-  for(let xx=-(w>>1);xx<=(w>>1);xx+=2){g.fillStyle=col(A*1.1,rimK*.6);g.fillRect(x+xx,y+1,1,1);}
-  g.fillStyle=col(A*1.2+night*.25,60);const cy=y-Math.round(h*.45);g.fillRect(x-1,cy,1,1);g.fillRect(x+1,cy,1,1);g.fillRect(x,cy-1,1,1);g.fillRect(x,cy+1,1,1);
-  g.fillStyle=`rgba(255,255,255,${(.55+night*.3).toFixed(2)})`;g.fillRect(x-Math.round(w*.25),y-h+Math.max(2,Math.round(h*.3)),1,Math.max(1,Math.round(s)));
+  const s=q.sz,c=q.col,w=Math.max(5,Math.round(17*s*(1-.12*Math.max(0,pulse)))),h=Math.max(4,Math.round(10*s*(1+.1*Math.max(0,pulse))));
+  const F=q.fade==null?1:q.fade,A=(.5+night*.12)*F,rimK=night>.5?40:-55,cache={};
+  const col=(a,k=0)=>{const ai=Math.round(clamp(a,0,1)*12),key=ai+'|'+k;return cache[key]||(cache[key]=`rgba(${clamp(c[0]+k,0,255)},${clamp(c[1]+k,0,255)},${clamp(c[2]+k,0,255)},${(ai/12).toFixed(2)})`);};
+  const P=(xx,yy,st)=>{g.fillStyle=st;g.fillRect(xx,yy,1,1);};
+  const R=RNG(q.seed),tl=Math.round(34*s+8);
+  // fine marginal tentacles, long and drifting
+  const nt=Math.max(5,Math.round(11*s));
+  for(let k=0;k<nt;k++){const bx=x-(w>>1)+1+Math.round(k*(w-2)/(nt-1)),len=Math.round(tl*R.range(.7,1.15)),phs=R()*6,back=k%2===0;
+    for(let i=1;i<len;i++){const wv=Math.sin(t*2*q.sp+phs+i*.22)*i*.06*s+Math.sin(t*.6+q.ph)*i*.045;const fade=1-i/len;
+      P(Math.round(bx+wv),y+i,col(A*(back?.45:.7)*fade,night>.5?20:(back?-10:-30)));
+      if(night>.4&&i%9===4&&Math.sin(t*3+phs+i)>.6)P(Math.round(bx+wv),y+i,`rgba(255,255,255,${(night*.7*fade*F).toFixed(2)})`);}}
+  // four long, ruffled oral arms
+  const al=Math.round(tl*.8);
+  for(const[sd,front]of[[-.32,0],[.32,0],[-.12,1],[.12,1]]){const bx=x+Math.round(sd*w),aw=Math.max(1,Math.round(1.6*s));
+    for(let i=1;i<al;i++){const wv=Math.sin(t*1.5*q.sp+q.ph+i*.3+sd*9)*1.6*s,rf=(i%3===0?1:0)*(i%6===0?-1:1),fade=1-i/al;
+      for(let k=0;k<aw;k++)P(Math.round(bx+wv)+k,y+i,col(A*(front?.95:.6)*fade,front?28:6));
+      if(rf)P(Math.round(bx+wv)+(rf>0?aw:-1),y+i,col(A*.7*fade,front?45:15));}}
+  // the bell
+  const cy0=y-h+1;
+  for(let r=0;r<h;r++){const v=1-r/h,hw=Math.round((w/2)*Math.sqrt(1-v*v*.93)),yy=cy0+r;
+    for(let xx=-hw;xx<=hw;xx++){const nx=hw?xx/hw:0,edge=Math.abs(xx)>=hw-.5||r===0;let st;
+      if(edge)st=col(A*1.3,rimK);
+      else{let k=r<2?28:0,a=A*(.62+v*.3);
+        if(r>h*.55&&Math.abs(nx)<.78){k-=18;a*=1.1;}                                   // the inner cavity under the bell
+        for(const m of[-.62,-.22,.22,.62])if(Math.abs(nx-m*(.55+.45*(1-v)))<.09){k+=34;}   // radial canals
+        st=col(a,k);}
+      P(x+xx,yy,st);}}
+  // four gonad rings (moon-jelly pattern)
+  const gy=cy0+Math.round(h*.42);
+  for(const m of[-.3,-.1,.1,.3]){const gx=x+Math.round(m*w);P(gx,gy,col(A*1.4,70));P(gx+1,gy,col(A*1.4,70));P(gx,gy+1,col(A*1.1,50));if(s>.9){P(gx-1,gy+1,col(A,50));P(gx+1,gy+1,col(A*.9,40));}}
+  // scalloped rim and tentacle bases
+  for(let xx=-(w>>1);xx<=(w>>1);xx++){P(x+xx,y+1,col(A*((xx&1)?.9:1.2),(xx&1)?rimK*.4:rimK*.7));}
+  // highlight arc
+  const hl=`rgba(255,255,255,${((.6+night*.25)*F).toFixed(2)})`;
+  for(let k=0;k<Math.max(2,Math.round(3*s));k++)P(x-Math.round(w*.3)+k,cy0+Math.max(1,Math.round(h*.22))-(k>1?1:0),hl);
+  P(x-Math.round(w*.34),cy0+Math.round(h*.4),hl);
 }
 const JGLOW=(()=>{const n=32,cv=mk(n,n),c=cv.getContext('2d'),id=c.createImageData(n,n),d=id.data;
   for(let y=0;y<n;y++)for(let x=0;x<n;x++){const dd=Math.hypot(x-n/2+.5,y-n/2+.5)/(n/2),a=Math.max(0,1-dd);const q=Math.floor(a*a*4+BAYER[(y&3)*4+(x&3)]*.999)/4;
     const i=(y*n+x)*4;d[i]=255;d[i+1]=255;d[i+2]=255;d[i+3]=Math.round(q*255);}c.putImageData(id,0,0);return cv;})();
 function drawJellyGlow(){const night=(S.tod||{night:0}).night;if(night<.05){JEL_VIS.length=0;return;}
   g.save();g.globalCompositeOperation='lighter';
-  for(const v of JEL_VIS){const r=Math.round(18*v.q.sz),c=v.q.col,p=.75+.25*Math.sin(S.t*1.6*v.q.sp+v.q.ph);
+  for(const v of JEL_VIS){const r=Math.round(18*v.q.sz),c=v.q.col,p=(.75+.25*Math.sin(S.t*1.6*v.q.sp+v.q.ph))*(v.q.fade==null?1:v.q.fade);
     g.globalAlpha=night*v.glow*.42*p;g.drawImage(JGLOW,Math.round(v.x-r),Math.round(v.y-r*.8),r*2,r*2);
     g.globalAlpha=night*v.glow*.5*p;g.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`;g.fillRect(Math.round(v.x)-1,Math.round(v.y-4*v.q.sz),3,2);}
   g.restore();JEL_VIS.length=0;}
