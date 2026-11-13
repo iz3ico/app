@@ -792,7 +792,31 @@ function renderGirl(st){
   gc.clearRect(0,0,GW,GH);
   const ph=st.ph,mv=st.mv,by=-st.bob;
   const sw=Math.sin(ph)*.6*mv;
-  if(st.front){
+  if(st.sit){
+  // ---- sitting on a long seat, facing us ----
+  const by=-st.bob,hy=-29+by,sw=st.swing||0;
+  gr(-5,-23+by,11,12,GCOL.H);for(let y=-22;y<-12;y+=3){gp(-5,y+by,GCOL.h);gp(5,y+by+1,GCOL.h);}
+  // shins hanging from the seat edge, feet swinging a little
+  const fl=sw>0?1:0,fr=sw<0?1:0;
+  gr(-3,-7,2,7-fl,GCOL.S);gp(-3,-7,GCOL.s);gr(-3,-3,1,3-fl,GCOL.s);gr(-3-fl,-fl,2,1,'#6a4a3e');
+  gr(1,-7,2,7-fr,GCOL.S);gp(2,-7,GCOL.s);gr(2,-3,1,3-fr,GCOL.s);gr(1+fr,-fr,2,1,'#6a4a3e');
+  // knees and the skirt spread over the lap
+  gr(-3,-8,2,1,GCOL.S);gr(1,-8,2,1,GCOL.S);
+  const rows=[[-3,3],[-4,4],[-5,5],[-5,5],[-6,6]];
+  for(let i=0;i<rows.length;i++){const y=-13+i+by,[a,b]=rows[i];gr(a,y,b-a+1,1,GCOL.W);gp(a,y,GCOL.w);gp(b,y,GCOL.w);if(i>=2){gp(-1,y,GCOL.w);gp(1,y,GCOL.w);}
+    if(i===rows.length-1){gr(a,y,b-a+1,1,'#dbe5f4');gp(a,y,GCOL.d);gp(b,y,GCOL.d);}}
+  // torso, ribbon, hands resting on the lap
+  for(let y=-19;y<=-14;y++){gr(-2,y+by,5,1,GCOL.W);gp(-2,y+by,GCOL.w);gp(2,y+by,GCOL.w);}gr(-2,-14+by,5,1,GCOL.B);
+  gp(0,-18+by,GCOL.R);gp(-1,-19+by,GCOL.R);gp(1,-19+by,GCOL.R);gp(0,-19+by,GCOL.r);
+  gr(-3,-19+by,1,2,GCOL.W);gr(3,-19+by,1,2,GCOL.W);gline(-3,-17+by,-2,-12+by,GCOL.S);gline(3,-17+by,2,-12+by,GCOL.S);gp(-1,-11+by,GCOL.S);gp(1,-11+by,GCOL.S);gp(0,-11+by,GCOL.s);
+  // head, tilted a little toward the window now and then
+  const tl=st.look||0;
+  for(let r=0;r<HEAD_FRONT.length;r++)for(let c=0;c<11;c++){let ch=HEAD_FRONT[r][c];if(ch==='.')continue;
+    if(st.blink&&(ch==='E'||ch==='e'))ch=ch==='E'?'S':'E';gp(-5+c+(r<5?tl:0),hy+r,GCOL[ch]);}
+  for(const[x,tx]of[[-4,-1],[4,1]]){for(let y=hy+6;y<=hy+10;y++)gp(x,y,y===hy+6?GCOL.h:GCOL.H);gp(x+tx,hy+11,GCOL.H);}
+  gp(-6,hy+2,GCOL.r);gp(-7,hy+1,GCOL.R);gp(-7,hy+3,GCOL.R);gp(-6,hy+1,GCOL.R);gp(-6,hy+3,GCOL.R);gp(-7,hy+2,GCOL.R);
+  }else if(st.front){
+
   // ---- front pose (title screen) ----
   const hy=-32+by;
   // long hair behind the body
@@ -1051,18 +1075,18 @@ const AU={ctx:null,muted:false,scene:'title',srcs:[],vol:.7,level(){return this.
   announce(){const ctx=this.ctx;if(!ctx||this.muted)return;const t=ctx.currentTime+.05;
     const out=ctx.createGain();out.gain.value=1;out.connect(this.master);const rs=ctx.createGain();rs.gain.value=.35;out.connect(rs);rs.connect(this.rev);
     // chime (ding - dong)
-    for(const[fq,dt]of[[659.3,0],[523.3,.45]]){const tt=t+dt;for(const[mul,v,d]of[[1,.03,1.3],[2,.008,.7],[3,.003,.4]]){const o=ctx.createOscillator();o.type='sine';o.frequency.value=fq*mul;
+    for(const[fq,dt]of[[659.3,0],[523.3,.45]]){const tt=t+dt;for(const[mul,v,d]of[[1,.05,1.5],[2,.013,.8],[3,.005,.45]]){const o=ctx.createOscillator();o.type='sine';o.frequency.value=fq*mul;
       const g=ctx.createGain();g.gain.setValueAtTime(0,tt);g.gain.linearRampToValueAtTime(v,tt+.01);g.gain.exponentialRampToValueAtTime(.0001,tt+d);
       const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=1200;bp.Q.value=.5;o.connect(g);g.connect(bp);bp.connect(out);o.start(tt);o.stop(tt+d+.05);}}
     // the voice: a buzz through moving formants, squeezed through an old speaker
-    const t0=t+1.25,D=4.6+Math.random()*1.2,end=t0+D;
+    const t0=t+1.25,D=8.5+Math.random()*3,end=t0+D;
     const src=ctx.createOscillator();src.type='sawtooth';const base=150+Math.random()*40;
     const f1=ctx.createBiquadFilter();f1.type='bandpass';f1.Q.value=5;const f2=ctx.createBiquadFilter();f2.type='bandpass';f2.Q.value=7;
     const vg=ctx.createGain();vg.gain.value=0;src.connect(f1);src.connect(f2);const m1=ctx.createGain();m1.gain.value=1;const m2=ctx.createGain();m2.gain.value=.6;f1.connect(m1);f2.connect(m2);m1.connect(vg);m2.connect(vg);
     const sh=ctx.createWaveShaper();{const n=1024,cv=new Float32Array(n);for(let i=0;i<n;i++){const x=i/(n-1)*2-1;cv[i]=Math.tanh(x*7)*.9;}sh.curve=cv;}
     const pre=ctx.createGain();pre.gain.value=3.2;vg.connect(pre);pre.connect(sh);
     const hp=ctx.createBiquadFilter();hp.type='highpass';hp.frequency.value=520;const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=2700;
-    const gate=ctx.createGain();gate.gain.value=1;const vo=ctx.createGain();vo.gain.value=.022;sh.connect(hp);hp.connect(lp);lp.connect(gate);gate.connect(vo);vo.connect(out);
+    const gate=ctx.createGain();gate.gain.value=1;const vo=ctx.createGain();vo.gain.value=.05;sh.connect(hp);hp.connect(lp);lp.connect(gate);gate.connect(vo);vo.connect(out);
     let tt=t0,k=0;src.frequency.setValueAtTime(base,t0);
     while(tt<end-.15){const d=.08+Math.random()*.13;
       if(Math.random()<.13){vg.gain.setTargetAtTime(0,tt,.02);tt+=.18+Math.random()*.25;continue;}
@@ -1071,21 +1095,26 @@ const AU={ctx:null,muted:false,scene:'title',srcs:[],vol:.7,level(){return this.
       vg.gain.setTargetAtTime(.9,tt,.012);vg.gain.setTargetAtTime(.12,tt+d*.7,.02);tt+=d;k++;}
     vg.gain.setTargetAtTime(0,end,.05);src.start(t0);src.stop(end+.4);
     // dropouts
-    for(let k2=0;k2<7;k2++){const at=t0+Math.random()*D,len=.04+Math.random()*.18;gate.gain.setValueAtTime(1,at);gate.gain.setValueAtTime(.05,at+.005);gate.gain.setValueAtTime(1,at+len);}
+    for(let k2=0;k2<12;k2++){const at=t0+Math.random()*D,len=.04+Math.random()*.18;gate.gain.setValueAtTime(1,at);gate.gain.setValueAtTime(.05,at+.005);gate.gain.setValueAtTime(1,at+len);}
     // the "zaza" noise: steady hiss with bursts
     const ns=ctx.createBufferSource();ns.buffer=this.wb;const nf=ctx.createBiquadFilter();nf.type='bandpass';nf.frequency.value=1900;nf.Q.value=.6;const ng=ctx.createGain();
-    ng.gain.setValueAtTime(0,t0-.35);ng.gain.linearRampToValueAtTime(.05,t0-.3);ng.gain.setValueAtTime(.05,t0-.05);ng.gain.linearRampToValueAtTime(.008,t0+.05);
-    for(let b=0;b<6;b++){const at=t0+.2+Math.random()*(D-.4),len=.12+Math.random()*.35,v=.03+Math.random()*.04;
-      ng.gain.setValueAtTime(.008,at);ng.gain.linearRampToValueAtTime(v,at+.02);
-      for(let q=at+.03;q<at+len;q+=.03)ng.gain.setValueAtTime(v*(.4+Math.random()*.8),q);ng.gain.setValueAtTime(.008,at+len);}
-    ng.gain.setValueAtTime(.008,end);ng.gain.linearRampToValueAtTime(.06,end+.05);ng.gain.linearRampToValueAtTime(0,end+.4);
+    ng.gain.setValueAtTime(0,t0-.35);ng.gain.linearRampToValueAtTime(.08,t0-.3);ng.gain.setValueAtTime(.08,t0-.05);ng.gain.linearRampToValueAtTime(.013,t0+.05);
+    for(let b=0;b<11;b++){const at=t0+.2+Math.random()*(D-.4),len=.12+Math.random()*.45,v=.05+Math.random()*.06;
+      ng.gain.setValueAtTime(.013,at);ng.gain.linearRampToValueAtTime(v,at+.02);
+      for(let q=at+.03;q<at+len;q+=.03)ng.gain.setValueAtTime(v*(.4+Math.random()*.8),q);ng.gain.setValueAtTime(.013,at+len);}
+    ng.gain.setValueAtTime(.013,end);ng.gain.linearRampToValueAtTime(.09,end+.05);ng.gain.linearRampToValueAtTime(0,end+.4);
     ns.connect(nf);nf.connect(ng);ng.connect(out);ns.start(t0-.4,Math.random()*1.5);ns.stop(end+.5);
     // a little hum of the old speaker
     const hm=ctx.createOscillator();hm.type='square';hm.frequency.value=50;const hmf=ctx.createBiquadFilter();hmf.type='lowpass';hmf.frequency.value=300;const hg=ctx.createGain();
-    hg.gain.setValueAtTime(0,t0-.4);hg.gain.linearRampToValueAtTime(.006,t0-.2);hg.gain.setValueAtTime(.006,end);hg.gain.linearRampToValueAtTime(0,end+.4);
+    hg.gain.setValueAtTime(0,t0-.4);hg.gain.linearRampToValueAtTime(.01,t0-.2);hg.gain.setValueAtTime(.01,end);hg.gain.linearRampToValueAtTime(0,end+.4);
     hm.connect(hmf);hmf.connect(hg);hg.connect(out);hm.start(t0-.4);hm.stop(end+.5);
     // let the music step back a little
     if(this.mus){const v=this.mus.gain.value;this.mus.gain.cancelScheduledValues(t);this.mus.gain.setValueAtTime(v,t);this.mus.gain.linearRampToValueAtTime(v*.35,t+.8);this.mus.gain.setValueAtTime(v*.35,end);this.mus.gain.linearRampToValueAtTime(v,end+2.5);}
+    // closing chime (dong - ding)
+    for(const[fq,dt]of[[523.3,0],[659.3,.45]]){const tt=end+.5+dt;for(const[mul,v,d]of[[1,.04,1.4],[2,.01,.7]]){const o=ctx.createOscillator();o.type='sine';o.frequency.value=fq*mul;
+      const g=ctx.createGain();g.gain.setValueAtTime(0,tt);g.gain.linearRampToValueAtTime(v,tt+.01);g.gain.exponentialRampToValueAtTime(.0001,tt+d);
+      const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=1200;bp.Q.value=.5;o.connect(g);g.connect(bp);bp.connect(out);o.start(tt);o.stop(tt+d+.05);}}
+    return D;
   },
   apply(){const L=this.level();if(this.el)this.el.volume=Math.min(1,L);
     if(this.ctx){const t=this.ctx.currentTime,g=this.master.gain;g.cancelScheduledValues(t);g.setValueAtTime(g.value,t);g.linearRampToValueAtTime(L,t+.25);}},
@@ -1814,20 +1843,55 @@ function stationFore(){
 function buildStation(){ST.train=trainSide();ST.front=stationFront();ST.built=true;}
 /* ---------- the shadow conductor ---------- */
 function drawConductor(x,feet,t,face=1,look=0){
-  const P=(xx,yy,a)=>{g.fillStyle=`rgba(6,7,14,${a})`;g.fillRect(x+xx*face,feet+yy,1,1);};
-  const bob=Math.sin(t*1.3)>.6?1:0;
-  const rows=[ // half-widths of the silhouette from the feet up: legs, coat, shoulders, neck, head, cap
-    [-1,2,2],[-2,2,2],[-3,2,2],[-4,2,2],[-5,2,2],[-6,2,2],[-7,2,2],[-8,2,2],[-9,2,2],[-10,3,3],[-11,3,3],[-12,4,4],[-13,4,4],[-14,4,4],[-15,4,4],[-16,4,4],[-17,4,4],[-18,4,4],
-    [-19,4,4],[-20,5,5],[-21,5,5],[-22,5,5],[-23,6,5],[-24,6,6],[-25,6,6],[-26,6,6],[-27,2,2],[-28,3,3],[-29,3,3],[-30,3,3],[-31,3,3],[-32,3,3],[-33,3,3],[-34,4,5],[-35,4,4],[-36,4,4],[-37,3,3]];
-  for(const[yy,l,r]of rows){const y=yy-(yy<-26?bob:0);for(let xx=-l;xx<=r;xx++){const e=xx===-l||xx===r;P(xx+(yy<-26?look:0),y,e?.55+.35*ih(xx,y,Math.floor(t*8)):.94);}
-    if(ih(yy,Math.floor(t*6),3)<.25)P((ih(yy,7,Math.floor(t*6))<.5?-l-1:r+1)+(yy<-26?look:0),y,.35);}
-  for(let k=0;k<4;k++){P((k-2)*2+5,-34-bob,.9);}                                   // cap brim
-  if(ih(1,Math.floor(t*3),5)<.4)P(ih(2,Math.floor(t*3),5)<.5?-2:2,-40-bob-Math.floor((t*3)%4),.3);   // a wisp of shadow
-  P(5,-21,.94);P(6,-20,.94);P(7,-19,.9);                                            // arm toward the controls
+  // a tall, too-thin shadow in a conductor's uniform. it does not speak.
+  const L=look<0?-1:face,px0=Math.round(x),fy=Math.round(feet);
+  const M=new Map(),put=(xx,yy,col)=>M.set(xx+','+yy,{xx,yy,col});
+  const tick=Math.floor(t*8),gy=ih(7,tick,3)<.05?-8-Math.floor(ih(8,tick,3)*36):999,gdx=ih(9,tick,3)<.5?-2:2;
+  const sway=yy=>Math.round(Math.sin(t*.6)*(-yy/46)*1.4);
+  const tilt=look<0?1:0;
+  const BK='#05060c',ED='#0c0f1d',CO='#0a0c18';
+  // legs: long and thin
+  for(let yy=-1;yy>=-17;yy--){for(const lx of[-2,-1,1,2])put(lx,yy,BK);}
+  put(-3,-1,BK);put(3,-1,BK);put(-3+L*0,0,BK);put(-2,0,BK);put(2,0,BK);put(3,0,BK);
+  // the long coat
+  const cw=yy=>yy>-8?5:yy>-17?4-(yy<-12?1:0):yy>-22?3:yy>-27?4+Math.round((-22-yy)/3):yy>-30?6:yy>-31?5:3;
+  for(let yy=-6;yy>=-31;yy--){const w=cw(yy),s=sway(yy);for(let xx=-w;xx<=w;xx++)put(xx+s,yy,CO);}
+  // collar, buttons, a dull badge on the chest
+  for(let k=0;k<4;k++){put(-k+sway(-30+k),-30+k,'#171c33');put(k+sway(-30+k),-30+k,'#171c33');}
+  for(const by of[-25,-21,-17,-13])put(sway(by),by,'#3a3424');put(3*L+sway(-27),-27,'#6e6036');
+  // arms: far too long, fingers dangling
+  {const s=sway(-29);for(let k=0;k<22;k++){const yy=-29+k,xx=-6-Math.round(k*.12)+s;put(xx,yy,BK);put(xx+1,yy,CO);}
+    const hx=-8+s;for(const[fx,len]of[[0,4],[1,5],[2,3]])for(let q=0;q<len;q++)put(hx+fx,-7+q,BK);}
+  {const s=sway(-29);if(look<0){for(let k=0;k<20;k++){const yy=-29+k;put(6+Math.round(k*.12)+s,yy,BK);put(5+s,yy,CO);}for(const[fx,len]of[[0,3],[1,5],[2,4]])for(let q=0;q<len;q++)put(7+s+fx,-9+q,BK);}
+    else{for(let k=0;k<11;k++)put(6+k*face+s,-29+Math.round(k*.9),BK);for(let k=0;k<4;k++)put(6+11*face+s+(k<2?0:face),-20-k*.5|0,BK);}}
+  // neck and head (small, tilting when it looks at you)
+  const hs=sway(-40)-tilt*L;for(let yy=-32;yy>=-33;yy--)for(const xx of[-1,0,1])put(hs+xx-(yy<-32?tilt*L:0),yy,BK);
+  const hw=[1,2,3,3,3,3,3,2];for(let i=0;i<hw.length;i++){const yy=-34-i;for(let xx=-hw[i];xx<=hw[i];xx++)put(xx+hs,yy,BK);}
+  // conductor's cap with a brim and a badge
+  for(let yy=-42;yy>=-45;yy--){const w=yy===-45?3:4;for(let xx=-w;xx<=w;xx++)put(xx+hs,yy,yy===-42?'#151a30':BK);}
+  for(let k=1;k<=3;k++)put(hs+L*(4+k),-42+(k>2?1:0),BK);put(hs,-44,'#8a7a46');
+  // the floor shadow pools out further than it should
+  g.fillStyle='rgba(3,3,8,.5)';g.fillRect(px0-8,fy,17,1);g.fillStyle='rgba(3,3,8,.3)';g.fillRect(px0-12,fy+1,25,1);
+  for(let k=0;k<4;k++){const len=3+Math.floor(ih(k,Math.floor(t*2),5)*6);g.fillStyle='rgba(3,3,8,.35)';g.fillRect(px0+(k<2?-12-len:12),fy+(k&1),len,1);}
+  // draw: soft, smoking edges and an occasional glitch
+  for(const p of M.values()){const n=M.has((p.xx-1)+','+p.yy)&&M.has((p.xx+1)+','+p.yy)&&M.has(p.xx+','+(p.yy-1))&&M.has(p.xx+','+(p.yy+1));
+    let col=p.col;if(!n){if(ih(p.xx,p.yy*7,tick)<.18)continue;col=(!M.has((p.xx-1)+','+p.yy))?'#1a2036':ED;}
+    const dx=Math.abs(p.yy-gy)<2?gdx:0;g.fillStyle=col;g.fillRect(px0+p.xx+dx,fy+p.yy,1,1);
+    if(!n&&ih(p.xx,p.yy,tick+3)<.08){g.fillStyle='rgba(6,7,14,.45)';g.fillRect(px0+p.xx+dx+(p.xx<0?-1:1),fy+p.yy,1,1);}}
+  // smoke rising off the shoulders and the cap
+  for(let k=0;k<8;k++){const ph=(t*.35+k*.137)%1,bx=[-5,5,-2,2,-4,4,0,-1][k],by=k<4?-31:-46;
+    const X=Math.round(px0+bx+hs*(k>5?1:0)+Math.sin(t*1.1+k)*2*ph),Y=Math.round(fy+by-ph*14);g.fillStyle=`rgba(8,9,20,${((1-ph)*.55).toFixed(2)})`;g.fillRect(X,Y,1,1);if(ph<.4)g.fillRect(X+1,Y,1,1);}
+  // pale eyes under the brim, looking
+  const blink=ih(3,Math.floor(t*3),11)<.07;if(!blink){const ey=fy-38,ex=px0+hs+(L>0?0:-2);
+    const glow=look<0?1:.65+.15*Math.sin(t*2);g.fillStyle=`rgba(150,170,230,${(glow*.28).toFixed(2)})`;g.fillRect(ex-1,ey,1,1);g.fillRect(ex+3,ey,1,1);g.fillRect(ex+1,ey,1,1);
+    g.fillStyle=`rgba(236,242,255,${glow.toFixed(2)})`;g.fillRect(ex,ey,1,1);g.fillRect(ex+2,ey,1,1);
+    // when it looks at you, a thin pale crack of a smile
+    if(look<0){g.fillStyle='rgba(120,130,170,.55)';g.fillRect(ex,ey+2,3,1);g.fillRect(ex-1,ey+1,1,1);g.fillRect(ex+3,ey+1,1,1);}}
 }
+
 /* ---------- the train interior: three old cars (drawn at 2x, like the room at home) ---------- */
-const W2=W>>1,H2=H>>1,CARL=200,GAP=12,TL=CARL*3+GAP*2,CW=15,WIT=22,WIB=60,SB=63,ST2=72,SF=76,FLR=81,FEET=100;
-const TR={built:false,x:0,cam:0,speed:0,pos:0,state:'stop',t:0,dest:null,target:null,goal:null,lights:[],straps:[],wins:[],doors:[],cond:TL-14,sp:0,clkT:1,jolt:0,nod:0,annT:null,annNext:0,wait:0,runT:0,arrT:0,acc:0};
+const SITF=86,W2=W>>1,H2=H>>1,CARL=200,GAP=12,TL=CARL*3+GAP*2,CW=15,WIT=22,WIB=60,SB=63,ST2=72,SF=76,FLR=81,FEET=100;
+const TR={built:false,x:0,cam:0,speed:0,pos:0,state:'stop',t:0,dest:null,target:null,goal:null,lights:[],straps:[],wins:[],doors:[],seats:[],sit:false,swing:0,lookW:0,cond:TL-14,sp:0,clkT:1,jolt:0,nod:0,annT:null,annNext:0,wait:0,runT:0,arrT:0,acc:0};
 const TLM=mk(W2,H2),TB=mk(W2,H2),TBc=TB.getContext('2d',{willReadFrequently:true}),TO=mk(W2,H2),TOc=TO.getContext('2d'),TI=mk(W2,H2),TIc=TI.getContext('2d',{willReadFrequently:true}),TM=mk(W2,H2),TMc=TM.getContext('2d');
 const dtB=(x,y,t)=>t>.5+(ih(x>>3,y>>1,5)-.5)*.16;
 const shadeT=(cols,t,x,y)=>{const n=cols.length;return cols[clamp(Math.floor((t+(ih(x>>2,y,13)-.5)*.06)*n),0,n-1)];};
@@ -1876,7 +1940,7 @@ function buildTrain(){
       rect(c,d,CW+5,1,FLR-CW-5,'#4d555a');rect(c,d-12,FLR-1,24,1,'#d8dad2');
       for(let k=0;k<14;k++)px(c,d-11+R.int(0,21),R.int(CW+5,FLR-1),'rgba(138,90,68,.5)');if(R()<.6)for(let k=0;k<3;k++)vine(c,R,d+R.int(-10,10),CW+4,R.int(8,30),.5,FLR);}
     // long seats under the windows
-    const sspans=[[x0+2,doors[0]-14],[doors[0]+14,doors[1]-14],[doors[1]+14,x1-2]];
+    const sspans=[[x0+2,doors[0]-14],[doors[0]+14,doors[1]-14],[doors[1]+14,ci===2?x1-32:x1-2]];TR.seats.push(...sspans);
     for(const[a,b]of sspans){rect(c,a,SB-1,b-a,1,'#7c766a');
       for(let y=SB;y<ST2;y++)for(let x=a;x<b;x++){let col=shadeT(se,(y-SB)/(ST2-SB)*.7,x,y);if(((x-a)%16)===0)col=se[3];const n=fbm2(x,y*1.5,5,91+ci);if(n<.25)col=shadeT(['#e0cc96','#c8b07a'],.4,x,y);px(c,x,y,col);}
       for(let y=ST2;y<SF;y++)for(let x=a;x<b;x++){let col=y===ST2?'#'+'f0f0e8':shadeT(se,.2+(y-ST2)*.12,x,y);if(y===ST2)col=mixC(se[0],'#ffffff',.3);const n=fbm2(x,y*1.5,5,92+ci);if(n<.24)col='#d8c48e';px(c,x,y,col);}
@@ -1956,7 +2020,7 @@ function girlMotion(dt,dir,windK){
   const wl=(-S.wind*26*windK*S.face)-S.mv*70;const gust=Math.sin(S.t*3.1)*12*S.wind*windK;
   simChain(hair,-3,-25-S.bob,1.8,wl+gust,150,1/60,true);
   simChain(tails,-5,-28-S.bob,1.4,wl*1.2+gust*1.5,90,1/60,false);
-  renderGirl({ph:S.ph,mv:S.mv,bob:S.bob,face:S.face,blink:S.blink,wind:S.wind*windK*S.face,front:false,t:S.t,windAbs:S.wind*windK,dry:true});
+  renderGirl({ph:S.ph,mv:S.mv,bob:S.bob,face:S.face,blink:S.blink,wind:S.wind*windK*S.face,front:false,t:S.t,windAbs:S.wind*windK,dry:true,sit:S.mode==='train'&&TR.sit,swing:TR.swing,look:TR.lookW});
   return{step,v:(dir||0)*31*Math.min(1,S.mv*1.4)};
 }
 function inputDir(){let d=0;if(S.keyL&&!S.keyR)d=-1;else if(S.keyR&&!S.keyL)d=1;else if(S.ptr)d=S.ptr;return d;}
@@ -2054,23 +2118,29 @@ function updTrain(dt){
   else if(TR.state!=='done'&&TR.state!=='arrive'){TR.annNext-=dt;if(TR.annNext<=0){annCtx=TR.state==='stop'||TR.state==='wait'?'board':TR.state==='brake'?'brake':TR.state==='depart'?'depart':'run';announce();}}
   // the girl
   let dir=0;
-  if(!busy&&!DLG.open){const man=inputDir();if(man)TR.target=null;
-    if(TR.target!=null){const d=TR.target-TR.x;if(Math.abs(d)>.6)dir=Math.sign(d);}else dir=man;}
+  if(!busy&&!DLG.open){const man=inputDir();
+    if(TR.sit&&(man||TR.target!=null))TR.sit=false;
+    if(!TR.sit){if(man)TR.target=null;
+      if(TR.target!=null){const d=TR.target-TR.x;if(Math.abs(d)>.6)dir=Math.sign(d);}else dir=man;}}
+  if(TR.sit){TR.swing=Math.sin(S.t*.9)>.55?(Math.sin(S.t*6)>0?1:-1):0;TR.lookW=Math.sin(S.t*.21+1)>.75?-1:0;}
   const m=girlMotion(dt,dir,.6);
   if(dir){const nx=TR.x+m.v*dt;TR.x=(TR.target!=null&&(nx-TR.target)*dir>0)?TR.target:nx;}
   TR.x=clamp(TR.x,TR_MIN,TR_MAX);
   if(m.step)AU.tap(.65);
   if(TR.target!=null&&Math.abs(TR.x-TR.target)<=.6&&S.mv<.35){const goal=TR.goal;TR.target=null;TR.goal=null;
-    if(goal==='cond'){S.face=1;openDlg();}else if(goal==='door'&&TR.state==='stop')exitTrain();}
+    if(goal==='cond'){S.face=1;openDlg();}else if(goal==='door'&&TR.state==='stop')exitTrain();else if(goal==='seat'){TR.sit=true;S.mv=0;S.face=1;AU.tap(.5);}}
   const want=TR.x-(S.face>0?W2*.42:W2*.58);TR.cam+=(clamp(want,0,TL-W2)-TR.cam)*Math.min(1,dt*2.2);
   AU.update();
 }
 function trainTap(x,y){x/=2;y/=2;const wx=x+TR.cam;
   if((Math.abs(wx-TR.cond)<12&&y>CW)||wx>TL-32){TR.target=TR_MAX;TR.goal='cond';if(Math.abs(TR.x-TR_MAX)<1.5){TR.target=null;TR.goal=null;S.face=1;openDlg();}return true;}
-  if(TR.state==='stop'&&y>CW&&y<FLR){for(const d of TR.doors)if(Math.abs(wx-d)<12){TR.target=clamp(d,TR_MIN,TR_MAX);TR.goal='door';return true;}}
+  if(TR.state==='stop'&&y>CW&&y<SB-2){for(const d of TR.doors)if(Math.abs(wx-d)<12){TR.target=clamp(d,TR_MIN,TR_MAX);TR.goal='door';return true;}}
+  if(y>=SB-8&&y<FLR+3){const sp=TR.seats.find(([a,b])=>wx>=a&&wx<=b);if(sp){if(TR.sit&&Math.abs(wx-TR.x)<12){TR.sit=false;return true;}
+    TR.target=clamp(wx,sp[0]+6,sp[1]-6);TR.goal='seat';return true;}}
   return false;}
-function trainAct(){if(TR.x>TR_MAX-40){TR.target=TR_MAX;TR.goal='cond';return;}
-  if(TR.state==='stop'){for(const d of TR.doors)if(Math.abs(TR.x-d)<22){TR.target=d;TR.goal='door';return;}}}
+function trainAct(){if(TR.sit){TR.sit=false;return;}if(TR.x>TR_MAX-40){TR.target=TR_MAX;TR.goal='cond';return;}
+  if(TR.state==='stop'){for(const d of TR.doors)if(Math.abs(TR.x-d)<22){TR.target=d;TR.goal='door';return;}}
+  const sp=TR.seats.find(([a,b])=>TR.x>=a-4&&TR.x<=b+4);if(sp){TR.target=clamp(TR.x,sp[0]+6,sp[1]-6);TR.goal='seat';}}
 function stationTap(x,y){if(ST.phase!==0)return false;if(y>=TRAIN_TOP-12&&y<TRAIN_BOT+2&&x<FRONT){ST.target=DOORS[nearDoor(x)];return true;}return false;}
 function stationAct(){if(ST.phase!==0)return;ST.target=DOORS[nearDoor(ST.x)];}
 function lampGlow(w,h,key){return cached(key,()=>{const cv=mk(w,h),c=cv.getContext('2d');for(let y=0;y<h;y++)for(let x=0;x<w;x++){const d=Math.hypot((x-w/2+.5)/(w/2),(y-h/2+.5)/(h/2));if(d>=1)continue;
@@ -2097,7 +2167,7 @@ function renderTrain(dt){
   const look=DLG.open||TR.nod>0?-1:0,nodY=TR.nod>0?(Math.sin(TR.nod*7)>0?1:0):0;
   if(!DLG.open&&!busy&&TR.state!=='done'&&TR.x>TR_MAX-70){const yy=FEET-48+Math.round(Math.sin(t*4)*1.2),p=.6+.4*Math.sin(t*3);
     g.fillStyle=`rgba(255,255,255,${p.toFixed(2)})`;g.fillRect(TR.cond-2,yy,5,1);g.fillRect(TR.cond-1,yy+1,3,1);g.fillRect(TR.cond,yy+2,1,1);}
-  g.fillStyle='rgba(16,20,28,.22)';g.fillRect(Math.round(TR.x)-5,FEET-1,11,2);g.fillRect(Math.round(TR.x)-3,FEET+1,7,1);
+  {const fy=TR.sit?SITF:FEET;g.fillStyle='rgba(16,20,28,.22)';g.fillRect(Math.round(TR.x)-5,fy-1,11,2);g.fillRect(Math.round(TR.x)-3,fy+1,7,1);}
   g.restore();
   // inside light: daylight in the shade by day, a dim warm glow at night
   const IG=mixA(mixA(T.grade,[214,212,206],.25),[104,94,90],N);
@@ -2136,7 +2206,7 @@ function renderTrain(dt){
   {let lit=0;for(let i=0;i<TR.lights.length;i++){const L=TR.lights[i];if(lampOn[i]&&!L.far)lit=Math.max(lit,1-Math.abs(L.x-TR.x)/40);}
     const tint=mixA(IG,[255,236,212],clamp(.3+lit*.6,0,1)*N+.2*(1-N));if(!TR.gt)TR.gt=mk(GW,GH);const q=TR.gt.getContext('2d');
     q.globalCompositeOperation='source-over';q.clearRect(0,0,GW,GH);q.drawImage(gfin,0,0);q.globalCompositeOperation='multiply';q.fillStyle=css(tint);q.fillRect(0,0,GW,GH);
-    q.globalCompositeOperation='destination-in';q.drawImage(gfin,0,0);q.globalCompositeOperation='source-over';B.drawImage(TR.gt,Math.round(TR.x-cam)-GOX,FEET-GOY+jy);}
+    q.globalCompositeOperation='destination-in';q.drawImage(gfin,0,0);q.globalCompositeOperation='source-over';B.drawImage(TR.gt,Math.round(TR.x-cam)-GOX,(TR.sit?SITF:FEET)-GOY+jy);}
   g=B;B.save();B.translate(-cam,jy+nodY);drawConductor(TR.cond,FEET-2,t,1,look);B.restore();
   // dust drifting in the light
   for(let k=0;k<16;k++){const x=((ih(k,1,5)*W2+t*(2+ih(k,2,5)*3)-TR.speed*t*10)%W2+W2)%W2,y=CW+4+ih(k,3,5)*(H2-CW-10)+Math.sin(t*.8+k)*3;const a=.2+.4*Math.pow(Math.sin(t*1.2+k),2);
@@ -2147,7 +2217,8 @@ function renderTrain(dt){
 /* ---------- the announcement text (noise, almost nothing can be heard) ---------- */
 const ANN={board:['ザ…ザザッ……こ…の…でん…しゃ…は………ザ……','……ザッ…ご…じょう…しゃ……ザザ…ッ…………'],depart:['ザザ………ドア…が…し……まり……ザッ……','……ザ…ッ…つ…ぎ…は………ザザザ……'],brake:['…ザ…ッ……ま…もな…く………ザザザ……','ザ……お…わす…れ…もの…ザザッ………'],run:['……ザ…ッ……こ…の…さき……ザザ……','…ザザ…ッ…ゆれ…ます…の…で……ザ……','ザ………ほん…じつ…は………ザザッ………']};
 let annCtx='board';
-function announce(){TR.annNext=24+Math.random()*16;const pool=ANN[annCtx]||ANN.board;AU.announce();setTimeout(()=>{if(S.mode==='train')hintText(pool[Math.floor(Math.random()*pool.length)],5600);},1100);}
+function announce(){TR.annNext=30+Math.random()*16;const pool=ANN[annCtx]||ANN.board;const D=AU.announce()||9;const a=pool[Math.floor(Math.random()*pool.length)],b=pool[Math.floor(Math.random()*pool.length)];
+  setTimeout(()=>{if(S.mode==='train')hintText(a+(a!==b?'　'+b:'　……ザザッ……'),D*1000+800);},1300);}
 /* ---------- the conductor's silent question ---------- */
 const DLG={open:false};
 function openDlg(){if(DLG.open||busy)return;const q=document.getElementById('dlgQ'),c=document.getElementById('dlgC');c.innerHTML='';
@@ -2174,9 +2245,9 @@ function goStation(){if(busy||SPLASH||S.mode==='station'||S.mode==='train'||S.mo
     document.getElementById('title').style.opacity=0;S.titleK=0;document.getElementById('hud').style.opacity=1;document.getElementById('dist').style.opacity=0;},
     ()=>{areaLabel('みなそこ駅','つたの からむ ホーム');setTimeout(()=>{if(S.mode==='station')hintText(IS_TOUCH?'電車の ドアを タップすると のれます':'← → で うごく ・ ↑ で 電車に のる',7000);},1600);});}
 function boardTrain(){annCtx='board';
-  fadeTo(()=>{if(!TR.built)buildTrain();S.mode='train';TR.x=(CARL+GAP)+[52,148][Math.max(0,ST.door)];TR.target=null;TR.goal=null;TR.state='stop';TR.sp=TR.speed=0;TR.acc=0;TR.dest=null;
+  fadeTo(()=>{if(!TR.built)buildTrain();S.mode='train';TR.x=(CARL+GAP)+[52,148][Math.max(0,ST.door)];TR.sit=false;TR.target=null;TR.goal=null;TR.state='stop';TR.sp=TR.speed=0;TR.acc=0;TR.dest=null;
     TR.annT=3.2;TR.annNext=40;TR.cam=clamp(TR.x-W2*.42,0,TL-W2);S.face=1;S.mv=0;AU.setScene('train');},
-    ()=>{areaLabel('でんしゃ','みどりの 三両',3600);setTimeout(()=>{if(S.mode==='train'&&TR.state==='stop')hintText(IS_TOUCH?'いちばん右の しゃしょうさんを タップして 行き先を つたえよう':'→ で 右へ ・ しゃしょうさんの そばで ↑',7000);},5200);});}
+    ()=>{areaLabel('でんしゃ','みどりの 三両',3600);setTimeout(()=>{if(S.mode==='train'&&TR.state==='stop')hintText(IS_TOUCH?'いすを タップで すわる ・ 右はしの しゃしょうさんに 行き先を つたえよう':'いすの前で ↑ で すわる ・ しゃしょうさんの そばで ↑',8000);},5200);});}
 function exitTrain(){const i=TR.doors.indexOf(TR.doors.reduce((a,b)=>Math.abs(b-TR.x)<Math.abs(a-TR.x)?b:a))%2;
   fadeTo(()=>{S.mode='station';ST.x=DOORS[i];ST.target=null;ST.phase=0;ST.open=[0,0];ST.open[i]=1;ST.closeT=1.2;S.face=1;S.mv=0;AU.setScene('station');},
     ()=>areaLabel('みなそこ駅','つたの からむ ホーム'));}
