@@ -1317,8 +1317,8 @@ function drawJellyLayer(id){const t=S.t,night=(S.tod||{night:0}).night,k0=Math.f
     const pulse=Math.sin(t*1.6*q.sp+q.ph),x=q.x-off+Math.sin(t*.13*q.sp+q.ph)*q.dx,y=q.y+Math.sin(t*.35*q.sp+q.ph*1.7)*6-Math.max(0,pulse)*1.5;
     if(x<-40||x>W+40)continue;drawJelly(Math.round(x),Math.round(y),q,pulse,night,t);JEL_VIS.push({x,y,q,glow:q.L.glow});}}
 function drawJelly(x,y,q,pulse,night,t){
-  const s=q.sz,c=q.col,w=Math.max(5,Math.round(17*s*(1-.12*Math.max(0,pulse)))),h=Math.max(4,Math.round(10*s*(1+.1*Math.max(0,pulse))));
-  const F=q.fade==null?1:q.fade,A=(.5+night*.12)*F,rimK=night>.5?40:-55,cache={};
+  const s=q.sz,D=clamp(1-night*1.4,0,1),c=mixA(q.col,q.col.map(v=>clamp(v-(255-v)*.85,0,255)),.65*D).map(Math.round),w=Math.max(5,Math.round(17*s*(1-.12*Math.max(0,pulse)))),h=Math.max(4,Math.round(10*s*(1+.1*Math.max(0,pulse))));
+  const F=q.fade==null?1:q.fade,A=(.5+night*.12+.24*D)*F,rimK=night>.5?40:-55-35*D,cache={};
   const col=(a,k=0)=>{const ai=Math.round(clamp(a,0,1)*12),key=ai+'|'+k;return cache[key]||(cache[key]=`rgba(${clamp(c[0]+k,0,255)},${clamp(c[1]+k,0,255)},${clamp(c[2]+k,0,255)},${(ai/12).toFixed(2)})`);};
   const P=(xx,yy,st)=>{g.fillStyle=st;g.fillRect(xx,yy,1,1);};
   const R=RNG(q.seed),tl=Math.round(34*s+8);
@@ -1326,7 +1326,7 @@ function drawJelly(x,y,q,pulse,night,t){
   const nt=Math.max(5,Math.round(11*s));
   for(let k=0;k<nt;k++){const bx=x-(w>>1)+1+Math.round(k*(w-2)/(nt-1)),len=Math.round(tl*R.range(.7,1.15)),phs=R()*6,back=k%2===0;
     for(let i=1;i<len;i++){const wv=Math.sin(t*2*q.sp+phs+i*.22)*i*.06*s+Math.sin(t*.6+q.ph)*i*.045;const fade=1-i/len;
-      P(Math.round(bx+wv),y+i,col(A*(back?.45:.7)*fade,night>.5?20:(back?-10:-30)));
+      P(Math.round(bx+wv),y+i,col(A*(back?.45:.7)*(1+.25*D)*fade,night>.5?20:(back?-10:-30)-25*D));
       if(night>.4&&i%9===4&&Math.sin(t*3+phs+i)>.6)P(Math.round(bx+wv),y+i,`rgba(255,255,255,${(night*.7*fade*F).toFixed(2)})`);}}
   // four long, ruffled oral arms
   const al=Math.round(tl*.8);
@@ -1336,6 +1336,9 @@ function drawJelly(x,y,q,pulse,night,t){
       if(rf)P(Math.round(bx+wv)+(rf>0?aw:-1),y+i,col(A*.7*fade,front?45:15));}}
   // the bell
   const cy0=y-h+1;
+  if(D>.2){const oc=`rgba(${Math.round(c[0]*.38)},${Math.round(c[1]*.38)},${Math.round(c[2]*.5)},${(.55*D*F).toFixed(2)})`;   // soft outline so it reads against a bright sky
+    for(let r=-1;r<=h;r++){const rr=clamp(r,0,h-1),v=1-rr/h,hw=Math.round((w/2)*Math.sqrt(1-v*v*.93))+1;
+      if(r<0||r>=h){for(let xx=-hw+1;xx<=hw-1;xx++)P(x+xx,cy0+r+(r>=h?1:0),oc);}else{P(x-hw,cy0+r,oc);P(x+hw,cy0+r,oc);}}}
   for(let r=0;r<h;r++){const v=1-r/h,hw=Math.round((w/2)*Math.sqrt(1-v*v*.93)),yy=cy0+r;
     for(let xx=-hw;xx<=hw;xx++){const nx=hw?xx/hw:0,edge=Math.abs(xx)>=hw-.5||r===0;let st;
       if(edge)st=col(A*1.3,rimK);
