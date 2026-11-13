@@ -1247,7 +1247,8 @@ function drawFB(){g.save();g.imageSmoothingEnabled=false;
     g.save();g.translate(x0,y0);if(d<0)g.scale(-1,1);g.drawImage(GULL_SPR[fr],-9*Z,-7*Z,18*Z,13*Z);g.restore();}
   g.restore();}
 /* ---------- the white whale (passes through the sky at 500 m) ---------- */
-const WHALE={on:false,done:false,cv:null,L:154,HS:52,x:0,y:0,t:0,calls:[]};
+const WHALE_AT=[300,900,1500];
+const WHALE={on:false,done:false,idx:0,cv:null,L:154,HS:52,x:0,y:0,t:0,calls:[]};
 function makeWhale(){
   const L=WHALE.L,HS=WHALE.HS,cy=24,cv=mk(L+4,HS),c=cv.getContext('2d'),R=RNG(5150);
   const top=i=>{if(i<50)return -14+Math.pow(Math.max(0,11-i),2)/7.5;if(i<58)return -13;
@@ -1273,7 +1274,7 @@ function makeWhale(){
 }
 function startWhale(){if(!WHALE.cv)makeWhale();Object.assign(WHALE,{on:true,t:0,x:W+24,y:34,ph:0,pitch:0,calls:[1,14,28],spout:6,parts:[]});}
 function updWhale(dt){
-  if(!WHALE.done&&S.mode==='walk'&&S.walked/20>=300){WHALE.done=true;startWhale();}
+  if(!WHALE.on&&S.mode==='walk'&&(WHALE.idx||0)<WHALE_AT.length&&S.walked/20>=WHALE_AT[WHALE.idx||0]){WHALE.idx=(WHALE.idx||0)+1;WHALE.done=true;startWhale();}
   if(!WHALE.on)return;const W0=WHALE;W0.t+=dt;W0.ph+=dt*1.9;
   const beat=Math.max(0,Math.sin(W0.ph));                                    // surge on each tail stroke
   W0.x+=-(10+beat*9)*dt-S.dCam*.14;
@@ -1281,7 +1282,7 @@ function updWhale(dt){
   W0.pitch=-Math.cos(a)*.11;                                                  // nose follows the path
   if(W0.calls.length&&W0.t>=W0.calls[0]){W0.calls.shift();AU.whale();}
   // spray from the blowhole
-  W0.spout-=dt;if(W0.spout<=0){W0.spout=9+Math.random()*4;const hx=W0.x+9,hy=W0.y+24-13+(9-W0.L/2)*W0.pitch;
+  W0.spout-=dt;if(W0.spout<=0){W0.spout=20+Math.random()*6;const hx=W0.x+9,hy=W0.y+24-13+(9-W0.L/2)*W0.pitch;
     for(let k=0;k<80;k++){const ang=-Math.PI/2+(Math.random()-.5)*(k<30?.35:1.1);const sp=24+Math.random()*(k<30?46:26);W0.parts.push({x:hx+Math.random()*4,y:hy,vx:Math.cos(ang)*sp-6,vy:Math.sin(ang)*sp,life:1.4+Math.random()*1.2,a:0,g:16,c:Math.random()<.7?'#ffffff':'#d8ecfb',sz:k%3===0?2:1,mist:true});}}
   // droplets falling from belly and flukes
   if(Math.random()<dt*9){const i=40+Math.random()*(W0.L-40),q=(i-40)/(W0.L-40);
@@ -1296,6 +1297,49 @@ function drawWhale(){if(!WHALE.on)return;const W0=WHALE,cv=W0.cv,L=W0.L,x0=Math.
   for(const p of W0.parts){const f=clamp(1-p.a/p.life,0,1);g.globalAlpha=f*.95;g.fillStyle=p.c;const z=p.mist&&p.a<.5?2:(p.sz||1);g.fillRect(Math.round(p.x),Math.round(p.y),z,z);
     if(p.mist&&p.a>.6){g.globalAlpha=f*.35;g.fillRect(Math.round(p.x)-1,Math.round(p.y),3,1);}}
   g.globalAlpha=1;}
+/* ---------- jellyfish drifting through the air (front and back) ---------- */
+const JEL_COL=[[255,196,226],[206,198,255],[176,232,255],[214,255,236]];
+const JEL_LAYERS=[
+  {id:'far', f:.24,slot:250,chance:.24,y:[24,86], sc:.55,glow:.35},
+  {id:'mid', f:.56,slot:300,chance:.2, y:[40,112],sc:.8, glow:.6},
+  {id:'girl',f:1,  slot:430,chance:.17,y:[80,150],sc:1,  glow:.85},
+  {id:'near',f:1.32,slot:560,chance:.13,y:[16,128],sc:1.6,glow:1}];
+const JEL_VIS=[];
+function jellyGroup(L,j){return cached('jl:'+L.id+':'+j,()=>{const R=RNG(seedOf(j,L.id.length*131+7));if(R()>L.chance)return[];
+  const n=R.int(1,L.id==='near'?2:4),out=[];
+  for(let i=0;i<n;i++)out.push({x:j*L.slot+R.range(0,L.slot*.7),y:R.range(L.y[0],L.y[1]),ph:R()*6.28,sp:R.range(.7,1.2),
+    sz:L.sc*R.range(.75,1.25),col:R.pick(JEL_COL),dx:R.range(6,18),seed:R.int(1,1e6)});return out;});}
+function drawJellyLayer(id){const L=JEL_LAYERS.find(l=>l.id===id),off=S.camX*L.f,t=S.t,night=(S.tod||{night:0}).night;
+  for(let j=Math.floor((off-60)/L.slot);j<=Math.floor((off+W+60)/L.slot);j++)for(const q of jellyGroup(L,j)){
+    const pulse=Math.sin(t*1.6*q.sp+q.ph),x=q.x-off+Math.sin(t*.13*q.sp+q.ph)*q.dx,y=q.y+Math.sin(t*.35*q.sp+q.ph*1.7)*6-Math.max(0,pulse)*1.5;
+    if(x<-30||x>W+30)continue;drawJelly(Math.round(x),Math.round(y),q,pulse,night,t);JEL_VIS.push({x,y,q,glow:L.glow});}}
+function drawJelly(x,y,q,pulse,night,t){
+  const s=q.sz,w=Math.max(4,Math.round(14*s*(1-.12*Math.max(0,pulse)))),h=Math.max(3,Math.round(8.5*s*(1+.1*Math.max(0,pulse)))),c=q.col;
+  const A=.5+night*.12,col=(a,k=0)=>`rgba(${clamp(c[0]+k,0,255)},${clamp(c[1]+k,0,255)},${clamp(c[2]+k,0,255)},${Math.min(1,a).toFixed(2)})`,rimK=night>.5?40:-55;
+  // tentacles
+  const R=RNG(q.seed),nt=Math.max(3,Math.round(5*s)),tl=Math.round(16*s+4);
+  for(let k=0;k<nt;k++){const bx=x-(w>>1)+1+Math.round(k*(w-2)/(nt-1||1)),len=Math.round(tl*R.range(.6,1.1)),phs=R()*6;
+    for(let i=1;i<len;i++){const wv=Math.sin(t*2.2*q.sp+phs+i*.35)*i*.09*s+Math.sin(t*.7+q.ph)*i*.05;g.fillStyle=col(A*.8*(1-i/len),night>.5?20:-25);g.fillRect(Math.round(bx+wv),y+i,1,1);}}
+  // two frilly oral arms
+  for(const sd of[-1,1]){const bx=x+sd*Math.max(1,Math.round(w*.15));for(let i=1;i<Math.round(tl*.6);i++){const wv=Math.sin(t*1.8*q.sp+q.ph+i*.45+sd)*1.1*s;
+    g.fillStyle=col(A*.75*(1-i/(tl*.6)),20);g.fillRect(Math.round(bx+wv),y+i,Math.max(1,Math.round(s)),1);}}
+  // bell (dome)
+  for(let r=0;r<h;r++){const v=1-r/h,hw=Math.round((w/2)*Math.sqrt(1-v*v*.92)),yy=y-h+r+1;
+    for(let xx=-hw;xx<=hw;xx++){const edge=Math.abs(xx)>=hw-.5||r===0;g.fillStyle=edge?col(A*1.3,rimK):col(A*(.7+v*.3),r<2?25:0);g.fillRect(x+xx,yy,1,1);}}
+  // frill along the rim, inner glow and a highlight
+  for(let xx=-(w>>1);xx<=(w>>1);xx+=2){g.fillStyle=col(A*1.1,rimK*.6);g.fillRect(x+xx,y+1,1,1);}
+  g.fillStyle=col(A*1.2+night*.25,60);const cy=y-Math.round(h*.45);g.fillRect(x-1,cy,1,1);g.fillRect(x+1,cy,1,1);g.fillRect(x,cy-1,1,1);g.fillRect(x,cy+1,1,1);
+  g.fillStyle=`rgba(255,255,255,${(.55+night*.3).toFixed(2)})`;g.fillRect(x-Math.round(w*.25),y-h+Math.max(2,Math.round(h*.3)),1,Math.max(1,Math.round(s)));
+}
+const JGLOW=(()=>{const n=32,cv=mk(n,n),c=cv.getContext('2d'),id=c.createImageData(n,n),d=id.data;
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++){const dd=Math.hypot(x-n/2+.5,y-n/2+.5)/(n/2),a=Math.max(0,1-dd);const q=Math.floor(a*a*4+BAYER[(y&3)*4+(x&3)]*.999)/4;
+    const i=(y*n+x)*4;d[i]=255;d[i+1]=255;d[i+2]=255;d[i+3]=Math.round(q*255);}c.putImageData(id,0,0);return cv;})();
+function drawJellyGlow(){const night=(S.tod||{night:0}).night;if(night<.05){JEL_VIS.length=0;return;}
+  g.save();g.globalCompositeOperation='lighter';
+  for(const v of JEL_VIS){const r=Math.round(18*v.q.sz),c=v.q.col,p=.75+.25*Math.sin(S.t*1.6*v.q.sp+v.q.ph);
+    g.globalAlpha=night*v.glow*.42*p;g.drawImage(JGLOW,Math.round(v.x-r),Math.round(v.y-r*.8),r*2,r*2);
+    g.globalAlpha=night*v.glow*.5*p;g.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`;g.fillRect(Math.round(v.x)-1,Math.round(v.y-4*v.q.sz),3,2);}
+  g.restore();JEL_VIS.length=0;}
 function updFish(dt){for(let i=0;i<fish.length;i++){let f=fish[i];
   if(!f||Math.abs(pScreenX(f.X,f.s)-CX)>W){const yc=H0+12+Math.floor(Math.random()*(H-H0-20)),s=sOf(yc),dir=Math.random()<.5?1:-1;
     const sx=Math.random()*W;f=fish[i]={fish:true,yc,s,X:S.camX+CX+(sx-CX)/s,dir,v:3+Math.random()*5,ph:Math.random()*6};}
@@ -1539,6 +1583,7 @@ function render(dt){
   drawMist(0,H0-22,.1,1.5,.45);
   drawLayer(MID,MKB.MID);hazeBand(H0-50,.18);
   drawLayer(MID2,MKB.MID2);hazeBand(H0-40,.13);
+  drawJellyLayer('far');
   drawWhale();
   drawMist(1,H0-12,.2,2.5,.42);
   drawLayer(HWY,makeHighway);hazeBand(H0-30,.09);
@@ -1546,6 +1591,7 @@ function render(dt){
   drawMist(2,H0-5,.42,3.5,.3);
   drawLayer(NEAR2,MKB.NEAR2);
   drawLayer(SHORE,makeShore);
+  drawJellyLayer('mid');
   grade(SC1,SC1c,T.grade);
   g=G0;g.drawImage(SC1,0,0);
   drawRaysTOD(1,off);
@@ -1558,12 +1604,15 @@ function render(dt){
   if(CAT.on&&CAT.y<YG)drawCat();
   drawGirl();
   if(CAT.on&&CAT.y>=YG)drawCat();
+  drawJellyLayer('girl');
   drawFrontProps();
   drawFore();
+  drawJellyLayer('near');
   drawFB();
   if(S.titleK>0)drawTitleFrame(S.titleK);
   grade(SC2,SC2c,T.grade);
   g=G0;g.drawImage(SC2,0,0);
+  drawJellyGlow();
   drawParticles(dt);
   drawRaysTOD(.6,off);
   sctx.imageSmoothingEnabled=false;sctx.drawImage(low,0,0,screen.width,screen.height);
@@ -1640,7 +1689,7 @@ function backToTitle(){if((S.mode!=='walk'&&S.mode!=='home')||busy)return;busy=t
   setAuto(false);S.keyL=S.keyR=false;S.ptr=0;ptrs.clear();S.mode='leaving';
   document.getElementById('hud').style.opacity=0;document.getElementById('area').style.opacity=0;document.getElementById('hint').style.opacity=0;f.style.opacity=1;
   setTimeout(()=>{S.mode='title';S.girlX=findCalm(S.girlX+200);S.face=1;S.mv=0;S.camX=S.girlX-CX;S.titleK=1;S.walked=0;S.zone=-1;S.hintShown=false;
-    ripples.length=0;drops.length=0;WHALE.on=false;WHALE.done=false;CAT.on=false;CAT.next=24;FB.length=0;nextFB=12;document.getElementById('dist').textContent='0 m';
+    ripples.length=0;drops.length=0;WHALE.on=false;WHALE.done=false;WHALE.idx=0;CAT.on=false;CAT.next=24;FB.length=0;nextFB=12;document.getElementById('dist').textContent='0 m';
     document.getElementById('title').style.opacity=1;document.getElementById('dist').style.opacity='';homeLabel();f.style.opacity=0;setTimeout(()=>busy=false,600);},1000);}
 addEventListener('keydown',e=>{AU.resume();
   if(SPLASH){if(!e.repeat&&document.getElementById('loadS').style.opacity)openSplash();return;}
