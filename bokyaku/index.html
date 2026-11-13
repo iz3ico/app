@@ -1978,6 +1978,16 @@ function stationFront(){
   // broken end with rebar and rubble
   for(let k=0;k<9;k++){const y=R.int(PT+2,H-4);rect(c,PE-3+R.int(0,4),y,R.int(2,6),1,'#5c4d46');}
   for(let k=0;k<6;k++){const x=PE-4+R.int(-2,8),y=R.int(PF-4,H-10);rect(c,x,y,R.int(2,4),R.int(2,3),R.pick(['#a49d8e','#8c8577','#bdb6a6']));}
+  // stairs down to the street (the exit), at the left end of the platform
+  {const x0=2,x1=27,y0=PT+5,y1=PF-1;
+    for(let y=y0;y<y1;y++){const t=(y-y0)/(y1-y0);for(let x=x0;x<x1;x++){let col=mixA([92,90,84],[22,24,30],Math.pow(t,.7));if((y-y0)%3===0)col=mixA(col,[150,146,136],.55*(1-t));px(c,x,y,css(col));}}
+    rect(c,x0,y0-1,x1-x0,1,'#d8d2c2');for(const rx of[x0,x1-1]){rect(c,rx,y0-9,1,y1-y0+9,'#8a9298');px(c,rx,y0-9,'#c9d0d4');}rect(c,x0,y0-9,x1-x0,1,'#a9b1b6');
+    for(let k=0;k<8;k++)px(c,x0+R.int(0,x1-x0-1),y0-9,'rgba(138,90,68,.7)');for(let k=0;k<3;k++)vine(c,R,x0+R.int(0,x1-x0),y0-9,R.int(4,12),.5,y1);leafy(c,R,x1-2,y0-8,2,.55);}
+  // the yellow exit sign hanging from the girder
+  {const sx=6,sy=27,sw=36,sh=12;rect(c,sx+4,21,1,sy-21,'#3f4750');rect(c,sx+sw-5,21,1,sy-21,'#3f4750');rect(c,sx-1,sy-1,sw+2,sh+2,'#3a3424');
+    for(let y=sy;y<sy+sh;y++)for(let x=sx;x<sx+sw;x++)px(c,x,y,shadeCol(['#f6d860','#ecc848','#d8b438'],(y-sy)/sh,x,y));
+    pixText(c,'出口',sx+23,sy+6,9,'#1d1a14');for(let k=0;k<6;k++)px(c,sx+3+k,sy+6,'#1d1a14');px(c,sx+4,sy+5,'#1d1a14');px(c,sx+5,sy+4,'#1d1a14');px(c,sx+4,sy+7,'#1d1a14');px(c,sx+5,sy+8,'#1d1a14');
+    for(let k=0;k<10;k++)px(c,sx+R.int(0,sw-1),sy+R.int(0,sh-1),'rgba(138,90,68,.45)');vine(c,R,sx+R.int(2,sw-2),sy-1,R.int(4,10),.55);}
   // bench
   {const bx=Math.round(W*.13),by=PT+11;
     for(const[yy,cc]of[[by-11,'#9a7652'],[by-8,'#8a6a4a'],[by-3,'#a07c56']]){rect(c,bx,yy,32,2,cc);rect(c,bx,yy,32,1,'#c39d72');for(let x=bx;x<bx+32;x+=R.int(3,7))px(c,x,yy+1,'#6a4e34');}
@@ -2215,19 +2225,21 @@ function hintText(txt,ms=6500){const h=document.getElementById('hint');h.textCon
 function areaLabel(a,b,ms=4200){document.getElementById('areaNo').textContent=a;document.getElementById('areaNm').textContent=b;const el=document.getElementById('area');el.style.opacity=1;clearTimeout(areaTimer);areaTimer=setTimeout(()=>el.style.opacity=0,ms);}
 const stLeaves=[];for(let i=0;i<9;i++)stLeaves.push({x:Math.random()*W,y:Math.random()*H,ph:Math.random()*6,c:Math.random()<.6?'#7cc46a':'#f2f6f0',v:.6+Math.random()*.6});
 /* ---------- platform: update & draw ---------- */
-const ST_MIN=Math.round(W*.04),ST_MAX=PE-12;
+const ST_MIN=34,ST_MAX=PE-12;
 function updStation(dt){
   S.t+=dt;S.wind=1+.45*Math.sin(S.t*.13)+.25*Math.sin(S.t*.41+1);S.dCam=0;
   let dir=0;
   if(!busy){const man=inputDir();
     if(man&&ST.phase===0)ST.target=null;
-    if(ST.target!=null&&ST.phase===0){const d=ST.target-ST.x;if(Math.abs(d)>.6)dir=Math.sign(d);}else if(ST.phase===0)dir=man;}
+    if(ST.target!=null&&ST.target!=='exit'&&ST.phase===0){const d=ST.target-ST.x;if(Math.abs(d)>.6)dir=Math.sign(d);}else if(ST.phase===0&&ST.target==null)dir=man;}
+  if(ST.phase===4)dir=-1;
+  if(ST.target==='exit'&&ST.phase===0)dir=ST.x>ST_MIN+.6?-1:0;
   const m=girlMotion(dt,dir,1);
-  if(dir){const nx=ST.x+m.v*dt;ST.x=(ST.target!=null&&(nx-ST.target)*dir>0)?ST.target:nx;}
-  ST.x=clamp(ST.x,ST_MIN,ST_MAX);
+  if(dir){const tg=ST.target==='exit'?ST_MIN:ST.target,nx=ST.x+m.v*dt;ST.x=(tg!=null&&(nx-tg)*dir>0)?tg:nx;}
+  if(ST.phase===4){if(ST.x<20&&!busy&&!ST.leaving){ST.leaving=true;goWalk();}}else{ST.leaving=false;ST.x=clamp(ST.x,ST_MIN,ST_MAX);}
   if(m.step)AU.tap(.8);
-  if(ST.phase===0&&!busy&&dir<0&&ST.x<=ST_MIN+.5){ST.exitT=(ST.exitT||0)+dt;if(ST.exitT>.45){ST.exitT=0;goWalk();}}else ST.exitT=0;
-  if(ST.phase===0&&ST.target!=null&&Math.abs(ST.x-ST.target)<=.6&&S.mv<.35){ST.phase=1;ST.door=DOORS.indexOf(ST.target);S.face=1;AU.door(true);}
+  if(ST.phase===0&&!busy&&(dir<0||ST.target==='exit')&&ST.x<=ST_MIN+.5){ST.exitT=(ST.exitT||0)+dt;if(ST.exitT>.12||ST.target==='exit'){ST.exitT=0;ST.phase=4;ST.target=null;}}else ST.exitT=0;
+  if(ST.phase===0&&ST.target!=null&&ST.target!=='exit'&&Math.abs(ST.x-ST.target)<=.6&&S.mv<.35){ST.phase=1;ST.door=DOORS.indexOf(ST.target);S.face=1;AU.door(true);}
   if(ST.phase===1){ST.open[ST.door]=Math.min(1,ST.open[ST.door]+dt*1.3);if(ST.open[ST.door]>=1){ST.phase=2;ST.pt=0;}}
   else if(ST.phase===2){ST.pt+=dt;if(ST.pt>.9&&!busy){ST.phase=3;boardTrain();}}
   if(ST.closeT>0){ST.closeT-=dt;if(ST.closeT<=0)AU.door(false);}
@@ -2266,12 +2278,13 @@ function renderStation(dt){
       g.fillStyle=`rgba(255,255,255,${a.toFixed(2)})`;g.fillRect(d-15,dy-1,30,1);g.fillRect(d-15,dy+dh,30,1);g.fillRect(d-15,dy,1,dh);g.fillRect(d+14,dy,1,dh);
       if(near){const yy=dy-9+Math.round(Math.sin(t*4)*1.5);g.fillStyle=`rgba(255,255,255,${(.6+.4*p).toFixed(2)})`;g.fillRect(d-2,yy,5,1);g.fillRect(d-1,yy+1,3,1);g.fillRect(d,yy+2,1,1);}}}
   g.drawImage(ST.front,0,0);
-  if(ST.phase===0&&!busy&&ST.x<ST_MIN+40){const p=.4+.4*Math.sin(t*4),xx=3+Math.round(Math.sin(t*4)*1.5);g.fillStyle=`rgba(255,255,255,${p.toFixed(2)})`;
+  if(ST.phase===0&&!busy&&ST.x<ST_MIN+70){const p=.4+.4*Math.sin(t*4),xx=3+Math.round(Math.sin(t*4)*1.5);g.fillStyle=`rgba(255,255,255,${p.toFixed(2)})`;
     for(let k=0;k<4;k++){g.fillRect(xx+k,YG-20-k,1,1);g.fillRect(xx+k,YG-20+k,1,1);}}
   // the puddle shows the sky
   {const px0=150,py0=178;for(let y=-3;y<=3;y++){const hw=Math.round(Math.sqrt(1-(y/3.6)**2)*26);for(let x=-hw;x<=hw;x++){const X=px0+x,Y=py0+y;const sh=Math.sin(X*.4+t*2+y)+Math.sin(X*.13-t);
     g.fillStyle=sh>1.4?'#f4fbff':y<0?'#9fcdea':'#7fb6dc';g.fillRect(X,Y,1,1);}}g.fillStyle='rgba(60,70,70,.5)';g.fillRect(px0-20,py0+4,40,1);}
-  if(ST.phase<2)drawGirlAt(ST.x,YG);else{const k=Math.min(1,ST.pt/.8);drawGirlAt(ST.x,YG-Math.round(k*7),1-k,0);}
+  if(ST.phase===4){const k=clamp((ST_MIN-ST.x)/26,0,1);drawGirlAt(ST.x,YG+Math.round(k*12),1-k*.85);}
+  else if(ST.phase<2)drawGirlAt(ST.x,YG);else{const k=Math.min(1,ST.pt/.8);drawGirlAt(ST.x,YG-Math.round(k*7),1-k,0);}
   stationFore();
   for(const l of stLeaves){g.fillStyle=l.c;g.fillRect(Math.round(l.x),Math.round(l.y),Math.sin(l.ph)>0?2:1,1);}
   grade(SC2,SC2c,T.grade);
@@ -2328,7 +2341,8 @@ function trainTap(x,y){x/=2;y/=2;const wx=x+TR.cam;
 function trainAct(){if(TR.sit){TR.sit=false;return;}if(TR.x>TR_MAX-40){TR.target=TR_MAX;TR.goal='cond';return;}
   if(TR.state==='stop'){for(const d of TR.doors)if(Math.abs(TR.x-d)<22){TR.target=d;TR.goal='door';return;}}
   const sp=TR.seats.find(([a,b])=>TR.x>=a-4&&TR.x<=b+4);if(sp){TR.target=clamp(TR.x,sp[0]+6,sp[1]-6);TR.goal='seat';}}
-function stationTap(x,y){if(ST.phase!==0)return false;if(y>=TRAIN_TOP-12&&y<TRAIN_BOT+2&&x<FRONT){ST.target=DOORS[nearDoor(x)];return true;}return false;}
+function stationTap(x,y){if(ST.phase!==0)return false;if(x<46&&(y<42||y>TRAIN_BOT-12)){ST.target='exit';return true;}
+  const d=DOORS[nearDoor(x)];if(Math.abs(x-d)<20&&y>=TRAIN_TOP-12&&y<TRAIN_BOT+2){ST.target=d;return true;}return false;}
 function stationAct(){if(ST.phase!==0)return;ST.target=DOORS[nearDoor(ST.x)];}
 function lampGlow(w,h,key){return cached(key,()=>{const cv=mk(w,h),c=cv.getContext('2d');for(let y=0;y<h;y++)for(let x=0;x<w;x++){const d=Math.hypot((x-w/2+.5)/(w/2),(y-h/2+.5)/(h/2));if(d>=1)continue;
   const v=Math.pow(1-d,1.5),q=Math.ceil(v*12)/12*.9;if(q<=0)continue;c.fillStyle=`rgba(255,238,200,${q.toFixed(2)})`;c.fillRect(x,y,1,1);}return cv;});}
@@ -2479,7 +2493,7 @@ function goStation(){if(busy||SPLASH||S.mode==='station'||S.mode==='train'||S.mo
   document.getElementById('hud').style.opacity=0;AU.init();AU.resume();AU.setScene('station');
   fadeTo(()=>{if(!ST.built)buildStation();S.mode='station';ST.x=Math.round(W*.16);ST.target=null;ST.phase=0;ST.open=[0,0];ST.closeT=0;S.face=1;S.mv=0;
     document.getElementById('title').style.opacity=0;S.titleK=0;document.getElementById('hud').style.opacity=1;document.getElementById('dist').style.opacity=0;},
-    ()=>{areaLabel('みなそこ駅','つたの からむ ホーム');setTimeout(()=>{if(S.mode==='station')hintText(IS_TOUCH?'ドアを タップで 電車へ ・ ホームの 左はしから まちへ':'↑ で 電車に のる ・ ホームの 左はしから まちへ',8000);},1600);});}
+    ()=>{areaLabel('みなそこ駅','つたの からむ ホーム');setTimeout(()=>{if(S.mode==='station')hintText(IS_TOUCH?'ドアを タップで 電車へ ・ 左はしの 出口から まちへ':'↑ で 電車に のる ・ ← で 左はしの 出口から まちへ',8000);},1600);});}
 function boardTrain(){annCtx='board';
   fadeTo(()=>{if(!TR.built)buildTrain();S.mode='train';TR.x=(CARL+GAP)+[52,148][Math.max(0,ST.door)];TR.sit=false;TR.target=null;TR.goal=null;TR.state='stop';TR.sp=TR.speed=0;TR.acc=0;TR.dest=null;
     TR.annT=3.2;TR.annNext=40;TR.cam=clamp(TR.x-W2*.42,0,TL-W2);S.face=1;S.mv=0;AU.setScene('train');},
@@ -2492,7 +2506,7 @@ function enterWalk(){S.mode='walk';S.mv=0;if(S.fromTitle){S.started=0;newRun();S
 function trainToStation(){if(busy||S.mode!=='train')return;const i=TR.doors.indexOf(TR.doors.reduce((a,b)=>Math.abs(b-TR.x)<Math.abs(a-TR.x)?b:a))%2;
   fadeTo(()=>{S.mode='station';TR.state='stop';TR.sp=TR.speed=0;TR.dest=null;TR.pos=0;TR.sit=false;ST.x=DOORS[i];ST.target=null;ST.phase=0;ST.open=[0,0];ST.closeT=0;S.face=1;S.mv=0;AU.setScene('station');},
     ()=>areaLabel('みなそこ駅','つたの からむ ホーム'));}
-function goWalk(){if(busy||(S.mode!=='station'&&S.mode!=='train'))return;AU.setScene('game');fadeTo(()=>{enterWalk();TR.state='stop';TR.sp=TR.speed=0;});}
+function goWalk(){if(busy||(S.mode!=='station'&&S.mode!=='train'))return;AU.setScene('game');fadeTo(()=>{ST.phase=0;ST.leaving=false;S.face=1;enterWalk();TR.state='stop';TR.sp=TR.speed=0;});}
 function arriveAt(dest){
   if(dest==='home'){AU.setScene('home');
     fadeTo(()=>{loadHome();S.homeFrom='walk';S.mode='home';TR.state='stop';TR.sp=TR.speed=0;document.getElementById('dist').style.opacity=0;},
