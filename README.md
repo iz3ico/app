@@ -1,12 +1,13 @@
-# あそびば — ふたつの扉
+# あそびば — みっつの扉
 
 つくったゲームの本棚。GitHub Pages で遊べます：https://iz3ico.github.io/app/
 
 | フォルダ | 内容 |
 |---|---|
-| `index.html` | トップ（あそびば — ふたつの扉）— `top_template.html` から `tools/build_top.py` で生成 |
+| `index.html` | トップ（あそびば — みっつの扉）— `top_template.html` から `tools/build_top.py` で生成 |
 | `bokyaku/` | 忘却の都市 — しずんだ街を、ただ、あるく |
 | `hoshiyomi/` | 星詠みガチャ — 星霊と魔女の森 |
+| `yumenofuchi/` | 夢のふち — 霧の交差点・壁紙の丘・雲の上をさまよう一人称ホラー |
 | `assets/` | トップのサムネイル |
 | `qr/` | トップと各ゲームの QR コード（`tools/make_qr.py` で生成） |
 

@@ -11,6 +11,7 @@ ITEMS = [  # (ファイル名, タイトル, 小見出し, URL, アクセント�
     ('top',       'あそびば',     'トップ',      'https://iz3ico.github.io/app/', (159, 198, 255)),
     ('bokyaku',   '忘却の都市',   'さんぽ',      'https://iz3ico.github.io/app/bokyaku/', (127, 195, 255)),
     ('hoshiyomi', '星詠みガチャ', 'ガチャ',      'https://iz3ico.github.io/app/hoshiyomi/', (242, 196, 106)),
+    ('yumenofuchi', '夢のふち',   'ホラー',      'https://iz3ico.github.io/app/yumenofuchi/', (143, 224, 180)),
 ]
 SERIF = '/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc'
 SANS = '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'
