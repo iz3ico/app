@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>あそびば — よっつの扉</title>
+<title>あそびば — いつつの扉</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
@@ -43,6 +43,7 @@ h1{margin:18px 0 0;font-weight:700;font-size:clamp(46px,8vw,78px);letter-spacing
 .gate:nth-child(2){animation-delay:.15s}
 .gate:nth-child(3){animation-delay:.3s}
 .gate:nth-child(4){animation-delay:.45s}
+.gate:nth-child(5){animation-delay:.6s}
 .arch{position:relative;width:100%;aspect-ratio:4/5;border-radius:999px 999px 18px 18px;padding:10px;
   background:linear-gradient(180deg,rgba(255,243,201,.9),var(--gold) 30%,var(--gold2) 70%,#7a5f2c);
   box-shadow:0 0 0 1px rgba(0,0,0,.6),0 30px 60px -30px rgba(0,0,0,.9),0 0 40px -12px var(--a);transition:box-shadow .5s,transform .5s cubic-bezier(.2,.8,.2,1)}
@@ -94,8 +95,8 @@ footer{position:relative;z-index:1;text-align:center;padding:8px 0 40px}
   <header>
     <div class="orn"><i></i>✦<i></i></div>
     <h1>あそびば</h1>
-    <p class="lead">よっつの扉</p>
-    <div class="en">Four Gates</div>
+    <p class="lead">いつつの扉</p>
+    <div class="en">Five Gates</div>
   </header>
   <section class="gates" id="gates"></section>
 </main>
@@ -120,6 +121,9 @@ const GAMES=[
   {id:'neontrace',title:'NEON TRACE',en:'Neon Trace',      rune:'NOX · NEON', accent:'#00f0ff',
    desc:'ネオンの雨がふる街。屋上のスコープから、群衆にまぎれた標的をさがしだす。',
    path:'neontrace/',artifact:'https://claude.ai/artifact/Sdj8hewDPgtdNxqcnBk5ut', thumb:'__THUMB_neontrace__'},
+  {id:'dreamscape',title:'DREAMSCAPE',en:'White Gate',      rune:'AQUA · SOMNIUM', accent:'#9fe8e4',
+   desc:'白い建築と、すきとおる水。縞の光のなかを、飛び石づたいに夢の迷宮へ。',
+   path:'dreamscape/',artifact:'https://claude.ai/artifact/MMZQAD9oSS7q64UnLHx4o5', thumb:'__THUMB_dreamscape__'},
 ];
 const LOCAL=location.protocol==='file:'||/github\.io$/.test(location.hostname)||/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 const hrefOf=g=>LOCAL?(location.protocol==='file:'?g.path+'index.html':g.path):g.artifact;
