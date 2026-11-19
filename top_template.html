@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>あそびば — みっつの扉</title>
+<title>あそびば — よっつの扉</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
@@ -22,7 +22,7 @@ body{overflow-x:hidden}
 .circle svg{width:100%;height:100%;animation:spin 180s linear infinite}
 .circle .in{animation:spin 120s linear infinite reverse;transform-origin:50% 50%}
 @keyframes spin{to{transform:rotate(360deg)}}
-main{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:clamp(48px,9vh,96px) clamp(18px,4vw,40px) 56px}
+main{position:relative;z-index:1;max-width:1360px;margin:0 auto;padding:clamp(48px,9vh,96px) clamp(18px,4vw,40px) 56px}
 header{text-align:center;margin-bottom:clamp(36px,6vh,64px)}
 .orn{display:flex;align-items:center;justify-content:center;gap:14px;color:var(--gold);opacity:.85;font-size:13px}
 .orn i{display:block;width:clamp(40px,10vw,110px);height:1px;background:linear-gradient(90deg,rgba(232,201,122,0),var(--gold))}
@@ -32,13 +32,16 @@ h1{margin:18px 0 0;font-weight:700;font-size:clamp(46px,8vw,78px);letter-spacing
   filter:drop-shadow(0 0 18px rgba(232,201,122,.35))}
 .en{font-family:var(--en);letter-spacing:.38em;text-indent:.38em;color:var(--sub);font-size:clamp(11px,1.4vw,13px);text-transform:uppercase}
 .lead{margin:14px 0 10px;color:var(--ink);opacity:.9;font-size:clamp(14px,1.8vw,17px);letter-spacing:.42em;text-indent:.42em}
-.gates{display:flex;flex-wrap:wrap;justify-content:center;gap:clamp(28px,4vw,56px)}
-.gates>.gate{flex:1 1 280px;max-width:360px}
+.gates{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));justify-items:center;gap:clamp(28px,3vw,44px)}
+@media (max-width:1180px){.gates{grid-template-columns:repeat(2,minmax(0,1fr));max-width:760px;margin:0 auto}}
+@media (max-width:620px){.gates{grid-template-columns:1fr;max-width:380px}}
+.gates>.gate{max-width:330px}
 /* a gate */
 .gate{--a:#8fd6ff;position:relative;display:flex;flex-direction:column;align-items:center;width:100%;max-width:420px;text-decoration:none;color:inherit;
   animation:rise 1s cubic-bezier(.2,.8,.2,1) both}
 .gate:nth-child(2){animation-delay:.15s}
 .gate:nth-child(3){animation-delay:.3s}
+.gate:nth-child(4){animation-delay:.45s}
 .arch{position:relative;width:100%;aspect-ratio:4/5;border-radius:999px 999px 18px 18px;padding:10px;
   background:linear-gradient(180deg,rgba(255,243,201,.9),var(--gold) 30%,var(--gold2) 70%,#7a5f2c);
   box-shadow:0 0 0 1px rgba(0,0,0,.6),0 30px 60px -30px rgba(0,0,0,.9),0 0 40px -12px var(--a);transition:box-shadow .5s,transform .5s cubic-bezier(.2,.8,.2,1)}
@@ -61,6 +64,7 @@ h1{margin:18px 0 0;font-weight:700;font-size:clamp(46px,8vw,78px);letter-spacing
 .gate:focus-visible{outline:none}
 .plate{margin-top:22px;text-align:center}
 .ttl{margin:0;font-weight:700;font-size:clamp(24px,3vw,30px);letter-spacing:.26em;text-indent:.26em;color:var(--ink);text-shadow:0 0 18px color-mix(in srgb,var(--a) 50%,transparent)}
+.ttl.latin{font-family:var(--en);font-weight:600;letter-spacing:.14em;text-indent:.14em;white-space:nowrap}
 .sub{margin-top:6px}
 .desc{margin:12px auto 0;max-width:22em;color:var(--sub);font-size:14px;line-height:1.95;letter-spacing:.06em}
 .btn{display:inline-flex;align-items:center;gap:10px;margin-top:18px;padding:10px 26px 10px 30px;border-radius:999px;font-size:14px;letter-spacing:.36em;
@@ -89,8 +93,8 @@ footer{position:relative;z-index:1;text-align:center;padding:8px 0 40px}
   <header>
     <div class="orn"><i></i>✦<i></i></div>
     <h1>あそびば</h1>
-    <p class="lead">みっつの扉</p>
-    <div class="en">Three Gates</div>
+    <p class="lead">よっつの扉</p>
+    <div class="en">Four Gates</div>
   </header>
   <section class="gates" id="gates"></section>
 </main>
@@ -112,6 +116,9 @@ const GAMES=[
   {id:'yumenofuchi',title:'夢のふち',en:'Edge of Sleep',      rune:'SOMNIUM · NEBULA', accent:'#8fe0b4',
    desc:'霧の交差点、壁紙の丘、雲の上。眠りのふちを、さまよい歩く一人称ホラー。',
    path:'yumenofuchi/',artifact:'https://claude.ai/artifact/KjUUCxWsovp7fa5B4eTa87', thumb:'__THUMB_yumenofuchi__'},
+  {id:'neontrace',title:'NEON TRACE',en:'Neon Trace',      rune:'NOX · NEON', accent:'#00f0ff',
+   desc:'ネオンの雨がふる街。屋上のスコープから、群衆にまぎれた標的をさがしだす。',
+   path:'neontrace/',artifact:'https://claude.ai/artifact/Sdj8hewDPgtdNxqcnBk5ut', thumb:'__THUMB_neontrace__'},
 ];
 const LOCAL=location.protocol==='file:'||/github\.io$/.test(location.hostname)||/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 const hrefOf=g=>LOCAL?(location.protocol==='file:'?g.path+'index.html':g.path):g.artifact;
@@ -124,7 +131,7 @@ for(const g of GAMES){const a=document.createElement('a');a.className='gate';a.h
     <div class="win"><img alt=""><span class="glint"></span><div class="rune"></div></div></div>
     <div class="plate"><h2 class="ttl"></h2><div class="en sub"></div><p class="desc"></p><span class="btn">扉をひらく</span></div>`;
   a.querySelector('img').src=g.thumb;a.querySelector('img').alt=g.title;a.querySelector('.rune').textContent=g.rune;
-  a.querySelector('.ttl').textContent=g.title;a.querySelector('.sub').textContent=g.en;a.querySelector('.desc').textContent=g.desc;
+  a.querySelector('.ttl').textContent=g.title;if(/^[\x20-\x7e]+$/.test(g.title))a.querySelector('.ttl').classList.add('latin');a.querySelector('.sub').textContent=g.en;a.querySelector('.desc').textContent=g.desc;
   gates.appendChild(a);}
 document.getElementById('foot').textContent=GAMES.length+' gates';
 
