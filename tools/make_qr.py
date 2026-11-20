@@ -15,6 +15,7 @@ ITEMS = [  # (ファイル名, タイトル, 小見出し, URL, アクセント�
     ('neontrace', 'NEON TRACE',   'スナイパー',  'https://iz3ico.github.io/app/neontrace/', (0, 240, 255)),
     ('dreamscape', 'DREAMSCAPE',  'さんぽ・迷宮', 'https://iz3ico.github.io/app/dreamscape/', (159, 232, 228)),
     ('nchomechopo', 'んちょめちょぽ', 'アクション', 'https://iz3ico.github.io/app/nchomechopo/', (180, 224, 143)),
+    ('atelier', 'MY LITTLE ATELIER', 'お絵描き', 'https://iz3ico.github.io/app/atelier/', (232, 185, 138)),
 ]
 SERIF = '/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc'
 SANS = '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'
@@ -45,6 +46,11 @@ def card(title, sub, url, accent, W=720):
     sp = 10
     widths = [d.textlength(ch, font=f_ttl) for ch in title]
     tw = sum(widths) + sp * (len(title) - 1)
+    size = 54
+    while tw > W - 80 and size > 30:  # 長いタイトルは文字を小さく
+        size -= 2; f_ttl = ImageFont.truetype(SERIF, size, index=0); sp = 8
+        widths = [d.textlength(ch, font=f_ttl) for ch in title]
+        tw = sum(widths) + sp * (len(title) - 1)
     x = (W - tw) / 2
     for ch, w in zip(title, widths):
         d.text((x, ty + 60), ch, font=f_ttl, fill=INK)

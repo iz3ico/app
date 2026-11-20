@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>あそびば — むっつの扉</title>
+<title>あそびば — ななつの扉</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
@@ -96,8 +96,8 @@ footer{position:relative;z-index:1;text-align:center;padding:8px 0 40px}
   <header>
     <div class="orn"><i></i>✦<i></i></div>
     <h1>あそびば</h1>
-    <p class="lead">むっつの扉</p>
-    <div class="en">Six Gates</div>
+    <p class="lead">ななつの扉</p>
+    <div class="en">Seven Gates</div>
   </header>
   <section class="gates" id="gates"></section>
 </main>
@@ -128,6 +128,9 @@ const GAMES=[
   {id:'nchomechopo',title:'んちょめちょぽ',en:'Breezy Hill',  rune:'HERBA · VENTUS', accent:'#b4e08f',
    desc:'もちもちの芽、んちょめちょぽ。草原と森をぬけ、風にのって空の花畑へ。',
    path:'nchomechopo/',artifact:'https://claude.ai/artifact/GKA1YETk2vnv7GMXaAjDFL', thumb:'__THUMB_nchomechopo__'},
+  {id:'atelier',title:'MY LITTLE ATELIER',en:'A Quiet Room for Painting', rune:'PICTURA · LUX', accent:'#e8b98a',
+   desc:'レンガとアーチ窓のアトリエ。鉛筆・水彩・油絵・パステルで描いて、壁に飾る。',
+   path:'atelier/',artifact:'https://claude.ai/artifact/VgWNiXstQxTcnEi562h8DD', thumb:'__THUMB_atelier__'},
 ];
 const LOCAL=location.protocol==='file:'||/github\.io$/.test(location.hostname)||/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 const hrefOf=g=>LOCAL?(location.protocol==='file:'?g.path+'index.html':g.path):g.artifact;
