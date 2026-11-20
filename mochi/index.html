@@ -191,7 +191,7 @@ scene.add(under);
 
 // トゥーン用グラデーション
 const grad = new THREE.DataTexture(new Uint8Array([200, 232, 250, 255]), 4, 1, THREE.RedFormat);
-grad.minFilter = grad.magFilter = THREE.NearestFilter;
+grad.minFilter = grad.magFilter = THREE.LinearFilter;   // 段のふちをなめらかに（伸ばしてもギザギザしない）
 grad.needsUpdate = true;
 let bodyMat, inkMat;
 
@@ -641,20 +641,22 @@ const _tmp3 = new Float32Array(3);
 const DF = { ox: 0, oy: 0, oz: 0, gx: 0, gy: 0, gz: 0, sig2: 1, sideK: 0 };
 const _d = [0, 0, 0];
 function deformPoint(bx, by, bz, rBase) {
+  // どこにも「角」ができないよう、すべてなめらかな式で（カクッ・ガビガビ防止）
   const dx = bx - DF.gx, dy = by - DF.gy, dz = bz - DF.gz, d2 = dx * dx + dy * dy + dz * dz;
-  const plant = Math.min(Math.max((by - floorY) / 0.35, 0), 1);              // 底は床にくっついたまま
+  const pl = Math.min(Math.max((by - floorY) / 0.45, 0), 1), plant = pl * pl * (3 - 2 * pl);   // 底は床にくっついたまま
   const front = Math.min(Math.max(bz / shapeN.C, 0), 1);                     // 横に引くと正面（顔）を少し広めに
-  const w = Math.max(Math.exp(-d2 / DF.sig2), Math.exp(-d2 / (DF.sig2 * 1.8)) * 0.35 * DF.sideK * front) * plant;
+  const a = Math.exp(-d2 / DF.sig2), b = Math.exp(-d2 / (DF.sig2 * 1.8)) * 0.35 * DF.sideK * front;
+  const w = (1 - (1 - a) * (1 - b)) * plant;
   let x = bx + DF.ox * w, y = by + DF.oy * w, z = bz + DF.oz * w;
   if (w > 1e-4) {
-    // めり込み防止：元の体の殻より内側に入った点は外へ押し戻す
+    // めり込み防止：自分の元の位置より内側に入ったら、なめらかに外へ押し戻す
     const xn = x / shapeN.A, yn = y / shapeN.B, zn = z / shapeN.C, r = Math.hypot(xn, yn, zn) || 1e-6;
-    const bin = Math.min(89, Math.max(0, Math.floor((Math.asin(THREE.MathUtils.clamp(yn / r, -1, 1)) / Math.PI + 0.5) * 90)));
-    const rMin = Math.min(elevMax[bin], rBase * 1.2) * 0.985;
-    if (r < rMin) { const k = rMin / r; x *= k; y *= k; z *= k; }
-    // 床より下には絶対に出さない（輪郭線のぶんも少しすき間をあける）
-    const minY = floorY + 0.04 * Math.min(w * 3, 1);
-    if (y < minY) y = minY;
+    const rMin = rBase * 0.97, k = 0.03, h = Math.max(k - Math.abs(r - rMin), 0) / k;
+    const rn = Math.max(r, rMin) + h * h * k * 0.25;
+    if (rn !== r) { const s = rn / r; x *= s; y *= s; z *= s; }
+    // 床：下へ行くほどだんだん重くなって、床より下には出ない
+    const avail = Math.max(by - (floorY + 0.02), 1e-4), drop = by - y;
+    if (drop > 0) y = by - avail * Math.tanh(drop / avail);
   }
   _d[0] = x; _d[1] = y; _d[2] = z;
   return _d;
@@ -1719,7 +1721,7 @@ renderer.setAnimationLoop(() => {
     // つまんだ所は床より下へは行かない（離した後のはね返りでも）
     if (g.y + o.y < floorY + 0.06) o.y = floorY + 0.06 - g.y;
     const L = o.length();
-    const sig = 0.42 + L * 0.25, sig2 = sig * sig;
+    const sig = 0.42 + L * 0.42, sig2 = sig * sig;        // 大きく引くほど広くなだらかに
     DF.ox = o.x; DF.oy = o.y; DF.oz = o.z; DF.gx = g.x; DF.gy = g.y; DF.gz = g.z;
     DF.sig2 = sig2; DF.sideK = Math.min(Math.abs(o.x) / (L + 1e-6), 1);
     const P = pos.array;
