@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>あそびば — ななつの扉</title>
+<title>あそびば — やっつの扉</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
@@ -36,7 +36,7 @@ h1{margin:18px 0 0;font-weight:700;font-size:clamp(46px,8vw,78px);letter-spacing
 .gates>.gate{flex:0 0 calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols))}
 @media (max-width:1180px){.gates{--cols:2!important;max-width:760px}}
 @media (max-width:620px){.gates{--cols:1!important;max-width:380px}}
-.gates>.gate{max-width:330px}
+.gates>.gate{max-width:330px;min-width:0}
 /* a gate */
 .gate{--a:#8fd6ff;position:relative;display:flex;flex-direction:column;align-items:center;width:100%;max-width:420px;text-decoration:none;color:inherit;
   animation:rise 1s cubic-bezier(.2,.8,.2,1) both}
@@ -45,6 +45,8 @@ h1{margin:18px 0 0;font-weight:700;font-size:clamp(46px,8vw,78px);letter-spacing
 .gate:nth-child(4){animation-delay:.45s}
 .gate:nth-child(5){animation-delay:.6s}
 .gate:nth-child(6){animation-delay:.75s}
+.gate:nth-child(7){animation-delay:.9s}
+.gate:nth-child(8){animation-delay:1.05s}
 .arch{position:relative;width:100%;aspect-ratio:4/5;border-radius:999px 999px 18px 18px;padding:10px;
   background:linear-gradient(180deg,rgba(255,243,201,.9),var(--gold) 30%,var(--gold2) 70%,#7a5f2c);
   box-shadow:0 0 0 1px rgba(0,0,0,.6),0 30px 60px -30px rgba(0,0,0,.9),0 0 40px -12px var(--a);transition:box-shadow .5s,transform .5s cubic-bezier(.2,.8,.2,1)}
@@ -96,8 +98,8 @@ footer{position:relative;z-index:1;text-align:center;padding:8px 0 40px}
   <header>
     <div class="orn"><i></i>✦<i></i></div>
     <h1>あそびば</h1>
-    <p class="lead">ななつの扉</p>
-    <div class="en">Seven Gates</div>
+    <p class="lead">やっつの扉</p>
+    <div class="en">Eight Gates</div>
   </header>
   <section class="gates" id="gates"></section>
 </main>
@@ -131,6 +133,9 @@ const GAMES=[
   {id:'atelier',title:'MY LITTLE ATELIER',en:'A Quiet Room for Painting', rune:'PICTURA · LUX', accent:'#e8b98a',
    desc:'レンガとアーチ窓のアトリエ。鉛筆・水彩・油絵・パステルで描いて、壁に飾る。',
    path:'atelier/',artifact:'https://claude.ai/artifact/VgWNiXstQxTcnEi562h8DD', thumb:'__THUMB_atelier__'},
+  {id:'taketori',title:'竹取物語',en:'The Bamboo Cutter', rune:'BAMBUSA · LUNA', accent:'#dfd27a',
+   desc:'ひたすら竹を切る。光る竹の手がかりを追い、霧の結界の奥へ、かぐや姫を探しに。',
+   path:'taketori/',artifact:'https://claude.ai/artifact/CMVodXJLcvx7fzH813pZic', thumb:'__THUMB_taketori__'},
 ];
 const LOCAL=location.protocol==='file:'||/github\.io$/.test(location.hostname)||/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 const hrefOf=g=>LOCAL?(location.protocol==='file:'?g.path+'index.html':g.path):g.artifact;
