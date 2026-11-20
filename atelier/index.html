@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>MY LITTLE ATELIER</title>
+<title>ひだまりのアトリエ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Old+Mincho:wght@500;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --paper:#f7f2e8; --paper2:#efe6d6; --ink:#3a3029; --ink2:#6b5a4c; --muted:#8f7f70;
@@ -37,8 +37,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;margin-right:6px;border-
   background:radial-gradient(ellipse at 50% 35%,rgba(247,242,232,.55),rgba(60,40,25,.75)),linear-gradient(180deg,rgba(40,28,18,.2),rgba(30,20,12,.7));backdrop-filter:blur(3px)}
 .tcard{width:min(560px,92vw);background:var(--paper);border-radius:22px;box-shadow:var(--shadow);padding:42px 40px 30px;text-align:center;position:relative;overflow:hidden}
 .tcard:before{content:"";position:absolute;inset:10px;border:1px solid var(--line);border-radius:16px;pointer-events:none}
-.tcard h1{font:600 46px/1 var(--serif);letter-spacing:.14em;margin:6px 0 6px;color:var(--woodD)}
-.tcard .sub{font:italic 500 18px var(--serif);color:var(--ink2);margin:0 0 22px}
+.tcard h1{font:700 44px/1.2 "Zen Old Mincho",var(--serif);letter-spacing:.16em;margin:6px 0 6px;color:var(--woodD)}
+.tcard .sub{font:500 15px "Zen Old Mincho",var(--serif);letter-spacing:.12em;color:var(--ink2);margin:0 0 22px}
 .tcard p{font-size:13.5px;line-height:1.8;color:var(--ink2);margin:0 0 18px}
 .arch{width:64px;height:84px;margin:0 auto 8px;border:2px solid var(--wood);border-radius:32px 32px 4px 4px;position:relative;background:linear-gradient(#e6eef0,#f6efe0)}
 .arch:before,.arch:after{content:"";position:absolute;background:var(--wood)}
@@ -205,8 +205,8 @@ body.touch #touchLayer{pointer-events:auto}
 <div id="title">
   <div class="tcard">
     <div class="arch"></div>
-    <h1>MY LITTLE ATELIER</h1>
-    <p class="sub">— a quiet room for painting —</p>
+    <h1>ひだまりのアトリエ</h1>
+    <p class="sub">― 絵を描くための、しずかな部屋 ―</p>
     <p>レンガの壁とアーチ窓のアトリエで、<br>好きな画材で、好きな絵を。描いた絵は壁に飾れます。</p>
     <div id="loadWrap"><div id="loadBar"></div></div>
     <div id="loadMsg">読み込み中…</div>
@@ -748,7 +748,7 @@ const Tex = {
     const R = ['XII', 'I', 'II', 'III', 'IIII', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'];
     for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2 - Math.PI / 2; x.fillText(R[i], Math.cos(a) * 180, Math.sin(a) * 180); }
     for (let i = 0; i < 60; i++) { const a = i / 60 * Math.PI * 2; x.lineWidth = i % 5 ? 2 : 5; x.beginPath(); x.moveTo(Math.cos(a) * 214, Math.sin(a) * 214); x.lineTo(Math.cos(a) * (i % 5 ? 204 : 196), Math.sin(a) * (i % 5 ? 204 : 196)); x.stroke(); }
-    x.font = 'italic 26px "Cormorant Garamond", Georgia, serif'; x.fillText('Atelier', 0, 80);
+    x.font = '26px serif'; x.fillText('ひだまり', 0, 80);
     return this.t(c);
   }
 };
@@ -3244,7 +3244,7 @@ const Game = {
     } else {
       x.strokeStyle = 'rgba(70,60,50,0.45)'; x.lineWidth = 1.5;
       x.beginPath(); x.moveTo(80, 280); x.bezierCurveTo(160, 180, 260, 320, 430, 150); x.stroke();
-      x.font = 'italic 28px Georgia'; x.fillStyle = 'rgba(70,60,50,0.55)'; x.fillText('my first work…', 150, 330);
+      x.font = '28px serif'; x.fillStyle = 'rgba(70,60,50,0.55)'; x.fillText('はじめての一枚…', 150, 330);
     }
     World.sketchTex.tex.needsUpdate = true;
   },

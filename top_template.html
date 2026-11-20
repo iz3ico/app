@@ -69,6 +69,7 @@ h1{margin:18px 0 0;font-weight:700;font-size:clamp(46px,8vw,78px);letter-spacing
 .gate:focus-visible{outline:none}
 .plate{margin-top:22px;text-align:center}
 .ttl{margin:0;font-weight:700;font-size:clamp(24px,3vw,30px);letter-spacing:.26em;text-indent:.26em;color:var(--ink);text-shadow:0 0 18px color-mix(in srgb,var(--a) 50%,transparent)}
+.ttl.long{font-size:clamp(20px,2.3vw,25px);letter-spacing:.14em;text-indent:.14em;white-space:nowrap}
 .ttl.latin{font-family:var(--en);font-weight:600;letter-spacing:.14em;text-indent:.14em;white-space:nowrap}
 .sub{margin-top:6px}
 .desc{margin:12px auto 0;max-width:22em;color:var(--sub);font-size:14px;line-height:1.95;letter-spacing:.06em}
@@ -130,7 +131,7 @@ const GAMES=[
   {id:'nchomechopo',title:'んちょめちょぽ',en:'Breezy Hill',  rune:'HERBA · VENTUS', accent:'#b4e08f',
    desc:'もちもちの芽、んちょめちょぽ。草原と森をぬけ、風にのって空の花畑へ。',
    path:'nchomechopo/',artifact:'https://claude.ai/artifact/GKA1YETk2vnv7GMXaAjDFL', thumb:'__THUMB_nchomechopo__'},
-  {id:'atelier',title:'MY LITTLE ATELIER',en:'A Quiet Room for Painting', rune:'PICTURA · LUX', accent:'#e8b98a',
+  {id:'atelier',title:'ひだまりのアトリエ',en:'絵を描くための、しずかな部屋', rune:'ひかり · えのぐ', accent:'#e8b98a',
    desc:'レンガとアーチ窓のアトリエ。鉛筆・水彩・油絵・パステルで描いて、壁に飾る。',
    path:'atelier/',artifact:'https://claude.ai/artifact/VgWNiXstQxTcnEi562h8DD', thumb:'__THUMB_atelier__'},
   {id:'taketori',title:'竹取物語',en:'The Bamboo Cutter', rune:'BAMBUSA · LUNA', accent:'#dfd27a',
@@ -148,7 +149,7 @@ for(const g of GAMES){const a=document.createElement('a');a.className='gate';a.h
     <div class="win"><img alt=""><span class="glint"></span><div class="rune"></div></div></div>
     <div class="plate"><h2 class="ttl"></h2><div class="en sub"></div><p class="desc"></p><span class="btn">扉をひらく</span></div>`;
   a.querySelector('img').src=g.thumb;a.querySelector('img').alt=g.title;a.querySelector('.rune').textContent=g.rune;
-  a.querySelector('.ttl').textContent=g.title;if(/^[\x20-\x7e]+$/.test(g.title))a.querySelector('.ttl').classList.add('latin');a.querySelector('.sub').textContent=g.en;a.querySelector('.desc').textContent=g.desc;
+  a.querySelector('.ttl').textContent=g.title;if(/^[\x20-\x7e]+$/.test(g.title))a.querySelector('.ttl').classList.add('latin');else if([...g.title].length>7)a.querySelector('.ttl').classList.add('long');a.querySelector('.sub').textContent=g.en;a.querySelector('.desc').textContent=g.desc;
   gates.appendChild(a);}
 gates.style.setProperty('--cols',GAMES.length<=4?GAMES.length:Math.ceil(GAMES.length/2));   // 5 枚以上は 2 段（例：3＋2）
 document.getElementById('foot').textContent=GAMES.length+' gates';
