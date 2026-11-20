@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>あそびば — いつつの扉</title>
+<title>あそびば — むっつの扉</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
@@ -95,7 +95,7 @@ footer{position:relative;z-index:1;text-align:center;padding:8px 0 40px}
   <header>
     <div class="orn"><i></i>✦<i></i></div>
     <h1>あそびば</h1>
-    <p class="lead">いつつの扉</p>
+    <p class="lead">むっつの扉</p>
     <div class="en">Five Gates</div>
   </header>
   <section class="gates" id="gates"></section>
@@ -124,6 +124,9 @@ const GAMES=[
   {id:'dreamscape',title:'DREAMSCAPE',en:'White Gate',      rune:'AQUA · SOMNIUM', accent:'#9fe8e4',
    desc:'白い建築と、すきとおる水。縞の光のなかを、飛び石づたいに夢の迷宮へ。',
    path:'dreamscape/',artifact:'https://claude.ai/artifact/MMZQAD9oSS7q64UnLHx4o5', thumb:'__THUMB_dreamscape__'},
+  {id:'mochi',title:'もちもちキャラ',en:'Mochi Friends',     rune:'MOLLIS · GERMEN', accent:'#b9e0bf',
+   desc:'手描きのおもちたちが3Dに。つまんで、のばして、ぽよん。🌱をぬいたり、12のしぐさをながめたり。',
+   path:'mochi/',artifact:'https://claude.ai/artifact/7M31HAptH7HMJvL1p6m3pW', thumb:'__THUMB_mochi__'},
 ];
 const LOCAL=location.protocol==='file:'||/github\.io$/.test(location.hostname)||/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 const hrefOf=g=>LOCAL?(location.protocol==='file:'?g.path+'index.html':g.path):g.artifact;
