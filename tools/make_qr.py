@@ -15,6 +15,7 @@ ITEMS = [  # (ファイル名, タイトル, 小見出し, URL, アクセント�
     ('neontrace', 'NEON TRACE',   'スナイパー',  'https://iz3ico.github.io/app/neontrace/', (0, 240, 255)),
     ('dreamscape', 'DREAMSCAPE',  'さんぽ・迷宮', 'https://iz3ico.github.io/app/dreamscape/', (159, 232, 228)),
     ('nchomechopo', 'んちょめちょぽ', 'アクション', 'https://iz3ico.github.io/app/nchomechopo/', (180, 224, 143)),
+    ('mochi',     'もちもちキャラ', 'さわる3D',  'https://iz3ico.github.io/app/mochi/', (185, 224, 191)),
 ]
 SERIF = '/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc'
 SANS = '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'
