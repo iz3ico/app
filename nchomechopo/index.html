@@ -52,6 +52,14 @@
   .result{ display:grid; grid-template-columns:auto auto; gap:6px 18px; margin:16px auto 18px; font-size:16px; font-weight:800; text-align:left; width:max-content; }
   .result span:nth-child(odd){ opacity:.65; font-size:13px; align-self:center; }
   .best{ font-size:12px; opacity:.7; margin:-6px 0 14px; }
+  .stages{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:4px; }
+  .stageCard{ width:210px; padding:12px 15px 13px; border-radius:16px; background:#fff; border:2.5px solid var(--ink); box-shadow:0 4px 0 var(--ink); text-align:left; position:relative; overflow:hidden; }
+  .stageCard:hover{ background:#fff6e8; } .stageCard:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--ink); }
+  .stageCard::before{ content:""; position:absolute; left:0; right:0; top:0; height:7px; background:var(--c); }
+  .stageCard small{ display:block; font-size:11px; letter-spacing:.2em; opacity:.6; margin-top:4px; }
+  .stageCard b{ display:block; font-size:21px; margin:1px 0 0; }
+  .stageCard em{ display:block; font-style:normal; font-size:10.5px; letter-spacing:.16em; opacity:.6; }
+  .stageCard span{ display:block; margin-top:8px; font-size:11px; font-weight:500; opacity:.75; min-height:1.5em; line-height:1.5; }
   #loading{ position:fixed; inset:0; display:grid; place-items:center; background:#e9f3f8; transition:opacity .5s; z-index:10; }
   #loading.hide{ opacity:0; pointer-events:none; }
   #loading div{ font-size:18px; font-weight:800; }
@@ -94,6 +102,7 @@
 <div id="menu" class="chip" hidden>
   <button id="mRespawn">さいごの花へ戻る（R）</button>
   <button id="mRestart">さいしょから</button>
+  <button id="mSelect">ステージをえらぶ</button>
   <button id="mSound">音：オン（M）</button>
 </div>
 <div id="toast" class="chip"></div>
@@ -106,25 +115,24 @@
 <div id="titleScreen" class="screen" hidden>
   <div class="panel chip">
     <h1>んちょめちょぽ</h1>
-    <h2>STAGE 1 ・ そよかぜの丘</h2>
-    <p>草原をぬけて、川をわたり、きのこの森をのぼって、<br>風にのって空の花畑へ。てっぺんの大きなつぼみに会いにいこう。<br>
+    <p>もちもちの芽、んちょめちょぽを動かして、<br>ステージのてっぺんで待っている大きなつぼみを咲かせよう。<br>
       <span class="pc">WASD 移動 ／ Shift 走る ／ Space ジャンプ（空中で長押しでふわふわ）／ マウス 視点</span>
       <span class="sp">左側をなぞって移動 ／ 右側をなぞって視点 ／ ジャンプボタン（空中で長押しでふわふわ）</span></p>
-    <div class="best" id="titleBest"></div>
-    <div class="row"><button class="btn" id="startBtn">はじめる</button></div>
+    <div class="stages" id="stageList"></div>
   </div>
 </div>
 <div id="clearScreen" class="screen" hidden>
   <div class="panel chip">
     <h1>ステージクリア！</h1>
-    <h2>そよかぜの丘</h2>
+    <h2 id="rStage"></h2>
     <div class="result">
       <span>タイム</span><span id="rTime"></span>
       <span>しずく</span><span id="rDrops"></span>
       <span>たね</span><span id="rSeeds"></span>
     </div>
     <div class="best" id="rBest"></div>
-    <div class="row"><button class="btn" id="againBtn">もう一度あそぶ</button><button class="btn sub" id="stayBtn">このまま散歩する</button></div>
+    <div class="row"><button class="btn" id="nextBtn">つぎのステージへ</button><button class="btn sub" id="againBtn">もう一度あそぶ</button></div>
+    <div class="row" style="margin-top:10px"><button class="btn sub" id="stayBtn">このまま散歩する</button><button class="btn sub" id="selectBtn">ステージをえらぶ</button></div>
   </div>
 </div>
 <div id="fade"></div>
@@ -161,7 +169,7 @@ const CFG = {
   accelGround: 14, accelAir: 4.5,
   jumpV: 9.2, grav: 24, shortJumpGrav: 1.7,
   glideFall: 2.3,
-  step: .45,
+  step: .45, maxSlope: 1.2,
   coyote: .12, buffer: .14,
   camDist: 7.5, camH: 1.0,
 };
@@ -193,7 +201,7 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(500, 32, 16), new THREE.Shad
 }));
 scene.add(sky);
 
-scene.add(new THREE.HemisphereLight(0xfff6e6, 0xb7d3a8, 1.25));
+const hemi = new THREE.HemisphereLight(0xfff6e6, 0xb7d3a8, 1.25); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff1dc, 2.1);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
@@ -220,12 +228,15 @@ function outline(mesh, t = .05) {
    ワールド（当たり判定・地形・仕掛け）
    ================================================================ */
 // 当たり判定： 箱 {k:'b', minX..maxZ} / 円柱 {k:'c', x,z,r,minY,maxY}。bounce = 乗ると跳ねる、mv = 動く足場
-const world = { statics: [], colliders: [], blockers: [], movers: [], updrafts: [], drops: [], seeds: [], checkpoints: [], enemies: [], signs: [], areas: [], goal: null, killY: -26, water: null, spinners: [] };
+let stage = new THREE.Group(); scene.add(stage); // ステージの物はすべてここに入れる（切り替えで丸ごと捨てる）
+const newWorld = () => ({ statics: [], colliders: [], blockers: [], movers: [], updrafts: [], drops: [], seeds: [], checkpoints: [], enemies: [], signs: [], areas: [], goal: null, killY: -26, spinners: [],
+  crumbles: [], rollers: null, shelters: [], snow: null, glints: null, pools: [], iceAt: null, hazard: null, camFloor: null });
+const world = newWorld();
 
 function addMesh(m, { shadow = true, block = true, line = .05 } = {}) {
   m.castShadow = shadow; m.receiveShadow = true;
   if (line) outline(m, line);
-  scene.add(m); if (block) world.blockers.push(m);
+  stage.add(m); if (block) world.blockers.push(m);
   world.statics.push(m);
   return m;
 }
@@ -261,8 +272,8 @@ function updateMovers(t) {
 const WATER_Y = -.9;
 const riverZ = x => 2 + 2.5 * Math.sin(x * .09);
 const bump = (dx, dz, r) => { const d2 = (dx * dx + dz * dz) / (r * r); return d2 >= 1 ? 0 : (1 - d2) * (1 - d2); };
-const TB = { x0: -46, x1: 46, z0: -68, z1: 60 };
-function terrainRaw(x, z) {
+let TB = { x0: -46, x1: 46, z0: -68, z1: 60 };
+function terrain1(x, z) {
   let h = 0;
   h += 1.4 * bump(x + 20, z - 30, 10) + 1.0 * bump(x - 18, z - 26, 8) + 2.2 * bump(x - 26, z - 44, 9) + .5 * bump(x + 8, z - 16, 6);
   h += 1.4 * smooth(-6, -50, z) + .9 * bump(x + 24, z + 32, 10) + .9 * bump(x - 24, z + 24, 9);
@@ -273,40 +284,45 @@ function terrainRaw(x, z) {
   h -= e * e * 1.3;
   return h;
 }
-const T = terrainRaw;
+let terrainFn = terrain1;
+const T = (x, z) => terrainFn(x, z);
+const slopeAt = (x, z) => Math.hypot(T(x + .3, z) - T(x - .3, z), T(x, z + .3) - T(x, z - .3)) / .6;
 function terrainH(x, z) {
   if (x < TB.x0 || x > TB.x1 || z < TB.z0 || z > TB.z1) return -Infinity;
-  return terrainRaw(x, z);
+  return T(x, z);
 }
-function buildTerrain() {
-  const NX = 92, NZ = 128;
+function buildTerrain(colorOf, NX = 92, NZ = 128) {
   const geo = new THREE.PlaneGeometry(TB.x1 - TB.x0, TB.z1 - TB.z0, NX, NZ);
   geo.rotateX(-Math.PI / 2); geo.translate((TB.x0 + TB.x1) / 2, 0, (TB.z0 + TB.z1) / 2);
   const pos = geo.attributes.position, col = [], c = new THREE.Color();
-  const cGrass = new THREE.Color(0xb4dc92), cForest = new THREE.Color(0x9fcf86), cSand = new THREE.Color(0xecd9a9), cCliff = new THREE.Color(0xe2bf98), cDeep = new THREE.Color(0xd3ad86);
   for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), z = pos.getZ(i), h = terrainRaw(x, z);
+    const x = pos.getX(i), z = pos.getZ(i), h = T(x, z);
     pos.setY(i, Math.max(h, -48));
-    const slope = Math.hypot(terrainRaw(x + .5, z) - terrainRaw(x - .5, z), terrainRaw(x, z + .5) - terrainRaw(x, z - .5));
-    c.copy(cGrass).lerp(cForest, smooth(-4, -14, z));
-    if (h < -.35) c.lerp(cSand, smooth(-.35, -.7, h));
-    if (slope > .8 || h < -3) c.copy(h < -12 ? cDeep : cCliff);
+    const slope = Math.hypot(T(x + .5, z) - T(x - .5, z), T(x, z + .5) - T(x, z - .5));
+    colorOf(c, x, z, h, slope);
     col.push(c.r, c.g, c.b);
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   geo.computeVertexNormals();
   const m = new THREE.Mesh(geo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap }));
-  m.receiveShadow = true; scene.add(m);
+  m.receiveShadow = true; stage.add(m);
+}
+const C1 = { grass: new THREE.Color(0xb4dc92), forest: new THREE.Color(0x9fcf86), sand: new THREE.Color(0xecd9a9), cliff: new THREE.Color(0xe2bf98), deep: new THREE.Color(0xd3ad86) };
+function color1(c, x, z, h, slope) {
+  c.copy(C1.grass).lerp(C1.forest, smooth(-4, -14, z));
+  if (h < -.35) c.lerp(C1.sand, smooth(-.35, -.7, h));
+  if (slope > .8 || h < -3) c.copy(h < -12 ? C1.deep : C1.cliff);
+}
+function stage1Water() {
   // 川
   const water = new THREE.Mesh(new THREE.PlaneGeometry(74, 22, 1, 1), new THREE.MeshToonMaterial({ color: 0x8fd0ee, gradientMap, transparent: true, opacity: .82 }));
-  water.rotation.x = -Math.PI / 2; water.position.set(0, WATER_Y, 2); scene.add(water);
-  world.water = water;
+  water.rotation.x = -Math.PI / 2; water.position.set(0, WATER_Y, 2); stage.add(water);
   // 水面のきらめき
   const glints = new THREE.InstancedMesh(new THREE.PlaneGeometry(.9, .12), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .75 }), 60);
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
   glints.userData.base = [];
   for (let i = 0; i < glints.count; i++) { const x = -34 + Math.random() * 68, z = riverZ(x) + (Math.random() - .5) * 7; glints.userData.base.push([x, z, Math.random() * 6]); m4.compose(new THREE.Vector3(x, WATER_Y + .02, z), q, new THREE.Vector3(1, 1, 1)); glints.setMatrixAt(i, m4); }
-  scene.add(glints); world.glints = glints;
+  stage.add(glints); world.glints = glints;
 }
 
 /* ---------- 見た目の部品 ---------- */
@@ -344,7 +360,7 @@ function cloudPad(x, z, top, r, bounce) {
   const g = new THREE.Group(); g.position.set(x, top - .45, z);
   for (let j = 0; j < 6; j++) { const a = j / 6 * Math.PI * 2, p = new THREE.Mesh(new THREE.SphereGeometry(r * .55, 14, 10), toon(0xffffff)); p.position.set(Math.cos(a) * r * .55, 0, Math.sin(a) * r * .55); p.scale.y = .55; outline(p, .06); p.castShadow = true; g.add(p); }
   const mid = new THREE.Mesh(new THREE.SphereGeometry(r * .7, 14, 10), toon(0xffffff)); mid.scale.y = .6; mid.position.y = .1; outline(mid, .06); g.add(mid);
-  scene.add(g); world.spinners.push({ g, bob: Math.random() * 6, y: g.position.y, cloud: true });
+  stage.add(g); world.spinners.push({ g, bob: Math.random() * 6, y: g.position.y, cloud: true });
   return m;
 }
 function sign(x, z, pc, sp, y = T(x, z)) {
@@ -363,18 +379,19 @@ function signTex() {
 }
 
 /* ---------- 上昇気流 ---------- */
-function updraft(x, z, r, y0, y1) {
-  const u = { x, z, r, y0, y1, rings: [] };
+function updraft(x, z, r, y0, y1, steam = false) {
+  const u = { x, z, r, y0, y1, rings: [], steam };
   const col = new THREE.Mesh(new THREE.CylinderGeometry(r, r, y1 - y0, 24, 1, true), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .07, depthWrite: false, side: THREE.DoubleSide }));
-  col.position.set(x, (y0 + y1) / 2, z); scene.add(col);
+  col.position.set(x, (y0 + y1) / 2, z); stage.add(col);
   const ringGeo = new THREE.TorusGeometry(1, .045, 6, 40);
   for (let i = 0; i < 8; i++) {
     const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false }));
-    m.rotation.x = Math.PI / 2; scene.add(m); u.rings.push({ m, t: i / 8 });
+    m.rotation.x = Math.PI / 2; stage.add(m); u.rings.push({ m, t: i / 8 });
   }
-  const leaves = new THREE.InstancedMesh(new THREE.SphereGeometry(.12, 6, 4), toon(0xb2dc94), 14); leaves.userData.p = [];
+  const leaves = steam ? new THREE.InstancedMesh(new THREE.SphereGeometry(.45, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .45, depthWrite: false }), 22)
+    : new THREE.InstancedMesh(new THREE.SphereGeometry(.12, 6, 4), toon(0xb2dc94), 14); leaves.userData.p = [];
   for (let i = 0; i < leaves.count; i++) leaves.userData.p.push([Math.random(), Math.random() * Math.PI * 2, .3 + Math.random() * .7]);
-  scene.add(leaves); u.leaves = leaves;
+  stage.add(leaves); u.leaves = leaves;
   world.updrafts.push(u); return u;
 }
 const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3(1, 1, 1);
@@ -420,7 +437,7 @@ function buildDrops() {
   const n = world.drops.length;
   dropFill = new THREE.InstancedMesh(dropGeo, new THREE.MeshToonMaterial({ color: 0x8fd0ee, gradientMap, emissive: 0x2a6f99, emissiveIntensity: .25 }), n);
   dropLineMesh = new THREE.InstancedMesh(dropGeo, INK_BACK, n);
-  dropFill.castShadow = true; scene.add(dropFill, dropLineMesh);
+  dropFill.castShadow = true; stage.add(dropFill, dropLineMesh);
   $('#dropTotal').textContent = n;
 }
 function updateDrops(t) {
@@ -444,7 +461,7 @@ function seed(x, y, z) {
   const body = new THREE.Mesh(new THREE.SphereGeometry(.32, 18, 12), toon(0xf6c95c)); body.scale.set(.8, 1.15, .8); outline(body, .045); g.add(body);
   const lf = new THREE.Mesh(new THREE.SphereGeometry(.13, 10, 8), toon(0x9fd38a)); lf.scale.set(1.5, .4, .8); lf.position.set(.1, .42, 0); lf.rotation.z = .5; outline(lf, .03); g.add(lf);
   const halo = new THREE.Mesh(new THREE.RingGeometry(.55, .62, 32), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .7, side: THREE.DoubleSide, depthWrite: false })); g.add(halo);
-  scene.add(g); world.seeds.push({ g, halo, x, y, z, got: false });
+  stage.add(g); world.seeds.push({ g, halo, x, y, z, got: false });
 }
 
 /* ---------- チェックポイント（つぼみの花） ---------- */
@@ -470,14 +487,14 @@ function checkpoint(x, z, y = null, yaw = 0, first = false) {
   const petals = new THREE.Group(); petals.position.y = 1.62; petals.scale.setScalar(.01); g.add(petals);
   petals.add(...cpPetals());
   const center = new THREE.Mesh(new THREE.SphereGeometry(.15, 12, 8), toon(0xf6c95c)); outline(center, .03); petals.add(center);
-  scene.add(g);
+  stage.add(g);
   const cp = { x, y: gy, z, yaw, g, bud, petals, on: false, open: 0, first };
   world.checkpoints.push(cp); return cp;
 }
 
 /* ---------- いがいが（敵） ---------- */
 let _iga;
-function igaSpikes() {
+function igaSpikes(col = 0x8a5a38) {
   if (!_iga) {
     const fill = [], line = [], N = 18, up = new THREE.Vector3(0, 1, 0), m = new THREE.Matrix4(), q = new THREE.Quaternion();
     for (let i = 0; i < N; i++) {
@@ -489,18 +506,18 @@ function igaSpikes() {
     }
     _iga = [mergeGeometries(fill), mergeGeometries(line)];
   }
-  const a = new THREE.Mesh(_iga[0], toon(0x8a5a38)), b = new THREE.Mesh(_iga[1], INK_BACK);
+  const a = new THREE.Mesh(_iga[0], toon(col)), b = new THREE.Mesh(_iga[1], INK_BACK);
   return [a, b];
 }
-function igaiga(path) {
+function igaiga(path, ice = false) {
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
-  const ball = new THREE.Mesh(new THREE.SphereGeometry(.55, 18, 12), toon(0xb07a4f)); outline(ball, .05); body.add(ball);
-  body.add(...igaSpikes());
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(.55, 18, 12), toon(ice ? 0xbfe2f2 : 0xb07a4f)); outline(ball, .05); body.add(ball);
+  body.add(...igaSpikes(ice ? 0x86bfdc : 0x8a5a38));
   const face = new THREE.Group(); g.add(face);
   for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(.09, 10, 8), new THREE.MeshBasicMaterial({ color: 0x2b1b14 })); e.position.set(sx * .2, .1, .52); e.scale.z = .5; face.add(e); }
   const brow = new THREE.Mesh(new THREE.BoxGeometry(.5, .05, .05), new THREE.MeshBasicMaterial({ color: 0x2b1b14 })); brow.position.set(0, .25, .53); face.add(brow);
   g.traverse(o => { if (o.isMesh && o.material !== INK_BACK) o.castShadow = true; });
-  scene.add(g);
+  stage.add(g);
   const e = { g, body, face, path, t: Math.random() * 10, stun: 0, pos: new THREE.Vector3(), roll: 0 };
   world.enemies.push(e); return e;
 }
@@ -525,7 +542,7 @@ function updateEnemies(dt) {
 }
 
 /* ---------- ゴール（大きなつぼみ） ---------- */
-function goalFlower(x, z, y) {
+function goalFlower(x, z, y, pc = [0xf7b2c0, 0xf9c4cf], core = 0xf6c95c) {
   const g = new THREE.Group(); g.position.set(x, y, z);
   const stem = new THREE.Mesh(new THREE.CylinderGeometry(.35, .5, 4.5, 12), toon(0x7fbf6a)); stem.position.y = 2.25; outline(stem, .06); g.add(stem);
   for (const s of [-1, 1]) { const lf = new THREE.Mesh(new THREE.SphereGeometry(.9, 14, 10), toon(0x9fd38a)); lf.scale.set(1.8, .3, .8); lf.position.set(s * 1.4, 1.2 + (s > 0 ? .6 : 0), 0); lf.rotation.z = -s * .45; outline(lf, .05); g.add(lf); }
@@ -533,11 +550,11 @@ function goalFlower(x, z, y) {
   const petals = [];
   for (let i = 0; i < 7; i++) {
     const piv = new THREE.Group(); piv.rotation.y = i / 7 * Math.PI * 2; head.add(piv);
-    const p = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), toon(i % 2 ? 0xf7b2c0 : 0xf9c4cf)); p.scale.set(.75, .22, 1.35); p.position.z = 1.2; outline(p, .05);
+    const p = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), toon(pc[i % 2])); p.scale.set(.75, .22, 1.35); p.position.z = 1.2; outline(p, .05);
     const hinge = new THREE.Group(); hinge.add(p); hinge.rotation.x = -1.25; piv.add(hinge); petals.push(hinge);
   }
-  const core = new THREE.Mesh(new THREE.SphereGeometry(.75, 16, 12), toon(0xf6c95c)); outline(core, .05); head.add(core);
-  scene.add(g);
+  const coreM = new THREE.Mesh(new THREE.SphereGeometry(.75, 16, 12), toon(core)); outline(coreM, .05); head.add(coreM);
+  stage.add(g);
   world.goal = { x, y, z, g, head, petals, open: 0, reached: false };
   world.colliders.push({ k: 'c', x, z, r: .5, minY: y, maxY: y + 4.2 });
 }
@@ -546,7 +563,14 @@ function goalFlower(x, z, y) {
    ステージ 1「そよかぜの丘」
    ================================================================ */
 function buildStage1() {
-  buildTerrain();
+  buildTerrain(color1); stage1Water();
+  world.killY = -26;
+  // 川に落ちたら戻る
+  world.hazard = () => {
+    if (P.pos.y < WATER_Y - .35 && P.pos.y > WATER_Y - 3 && Math.abs(P.pos.z - riverZ(P.pos.x)) < 6.5) { puff(P.pos.x, WATER_Y, P.pos.z, 12, 1.2, 0xbfe6f7); sfx.splash(); respawn(); return true; }
+    return false;
+  };
+  world.camFloor = p => Math.abs(p.z - riverZ(p.x)) < 6.5 && p.y < 2 ? WATER_Y + .6 : -Infinity;
 
   // ── はじまりの草原 ──
   world.areas.push({ name: 'はじまりの草原', en: 'MEADOW', zMin: 9 });
@@ -640,7 +664,7 @@ function buildStage1() {
   const wmx = 6.5, wmz = -79.5;
   box(wmx, wmz, 16, 1.6, 3.2, 1.6, 0xfff3dc);
   const roof = new THREE.Mesh(new THREE.ConeGeometry(1.4, 1.2, 4), toon(0xf28e8e)); roof.position.set(wmx, 19.8, wmz); roof.rotation.y = Math.PI / 4; addMesh(roof, { line: .04 });
-  const blades = new THREE.Group(); blades.position.set(wmx, 18.6, wmz + .9); scene.add(blades);
+  const blades = new THREE.Group(); blades.position.set(wmx, 18.6, wmz + .9); stage.add(blades);
   for (let i = 0; i < 4; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(.35, 2.4, .08), toon(0xfff8ea)); b.position.y = 1.2; const p = new THREE.Group(); p.rotation.z = i * Math.PI / 2; p.add(b); outline(b, .03); blades.add(p); }
   world.spinners.push({ g: blades, spin: 1.2 });
   dropLine([3, 17, -77], [5, 17, -75], 2);
@@ -672,7 +696,7 @@ function buildStage1() {
   dropLine([0, 27, -134], [0, 32, -134], 3);
   island(0, -144, 29, 6.5);
   goalFlower(0, -147, 29);
-  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; const f = new THREE.Mesh(new THREE.SphereGeometry(.18, 8, 6), toon([0xf7b2c0, 0xfff8ea, 0xf6dc8f, 0xcdbff0][i % 4])); f.position.set(Math.cos(a) * 4.5, 29.15, -144 + Math.sin(a) * 4.5); f.scale.y = .6; scene.add(f); }
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; const f = new THREE.Mesh(new THREE.SphereGeometry(.18, 8, 6), toon([0xf7b2c0, 0xfff8ea, 0xf6dc8f, 0xcdbff0][i % 4])); f.position.set(Math.cos(a) * 4.5, 29.15, -144 + Math.sin(a) * 4.5); f.scale.y = .6; stage.add(f); }
 
   // 草と花（当たり判定なし）
   const rnd = (() => { let s = 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
@@ -683,14 +707,14 @@ function buildStage1() {
   const pos = () => { for (let k = 0; k < 200; k++) { const x = -36 + rnd() * 72, z = -57 + rnd() * 108, h = T(x, z); if (h > -.4 && free(x, z)) return [x, h, z]; } return [0, -99, 0]; };
   for (let i = 0; i < grass.count; i++) { const [x, h, z] = pos(); e.set((rnd() - .5) * .4, 0, (rnd() - .5) * .4); q.setFromEuler(e); m4.compose(new THREE.Vector3(x, h + .18, z), q, new THREE.Vector3(1, .6 + rnd() * .8, 1)); grass.setMatrixAt(i, m4); }
   for (let i = 0; i < flower.count; i++) { const [x, h, z] = pos(); m4.compose(new THREE.Vector3(x, h + .12, z), q.identity(), new THREE.Vector3(1, .7, 1)); flower.setMatrixAt(i, m4); flower.setColorAt(i, new THREE.Color(cols[i % 4])); }
-  grass.receiveShadow = flower.receiveShadow = true; scene.add(grass, flower);
+  grass.receiveShadow = flower.receiveShadow = true; stage.add(grass, flower);
 
   // 遠くの雲
   for (let i = 0; i < 22; i++) {
     const g = new THREE.Group(), a = i / 22 * Math.PI * 2 + .3, r = 130 + (i % 3) * 40;
     g.position.set(Math.cos(a) * r, (i % 2 ? 34 : -22) + (i % 4) * 7, -40 + Math.sin(a) * r);
     for (let j = 0; j < 4; j++) { const p = new THREE.Mesh(new THREE.SphereGeometry(6 + (j % 2) * 3, 12, 8), toon(0xffffff)); p.castShadow = false; p.position.set(j * 7 - 10, (j % 2) * 1.5, (j % 3) * 2); p.scale.y = .62; outline(p, .3); g.add(p); }
-    scene.add(g); world.statics.push(g);
+    stage.add(g); world.statics.push(g);
   }
   buildDrops();
   bakeStatics();
@@ -710,16 +734,311 @@ function bakeStatics() {
     for (const k of Object.keys(geo.attributes)) if (!['position', 'normal', 'uv'].includes(k)) geo.deleteAttribute(k);
     geo.applyMatrix4(o.matrixWorld); g.geos.push(geo);
   });
-  for (const o of loose) scene.attach(o);
+  for (const o of loose) stage.attach(o);
   for (const root of world.statics) root.traverse(o => { if (o.isMesh && !loose.includes(o)) o.visible = false; });
   for (const g of groups.values()) {
     const idx = g.geos.filter(x => x.index), non = g.geos.filter(x => !x.index);
     for (const list of [idx, non]) {
       if (!list.length) continue;
-      const m = new THREE.Mesh(mergeGeometries(list), g.mat); m.castShadow = g.cast; m.receiveShadow = true; m.matrixAutoUpdate = false; m.raycast = () => {}; scene.add(m);
+      const m = new THREE.Mesh(mergeGeometries(list), g.mat); m.castShadow = g.cast; m.receiveShadow = true; m.matrixAutoUpdate = false; m.raycast = () => {}; stage.add(m);
     }
   }
   for (const root of world.statics) root.traverse(o => { o.matrixAutoUpdate = false; });
+}
+
+/* ================================================================
+   STAGE 2 の仕掛け：くずれる氷・ころころ雪玉・雪・温泉
+   ================================================================ */
+// 乗ると少しふるえて落ちる足場（4 秒ほどで元にもどる）
+function crumble(mesh) {
+  world.statics.splice(world.statics.indexOf(mesh), 1);
+  const c = mesh.userData.c, k = { mesh, c, x: mesh.position.x, y: mesh.position.y, z: mesh.position.z, minY: c.minY, maxY: c.maxY, st: 0, t: 0 };
+  world.crumbles.push(k); return k;
+}
+function updateCrumbles(dt) {
+  for (const k of world.crumbles) {
+    k.t += dt;
+    if (k.st === 0) { if (P.onGround && P.groundC === k.c) { k.st = 1; k.t = 0; sfx.crack(); } }
+    else if (k.st === 1) {
+      k.mesh.position.x = k.x + Math.sin(k.t * 70) * .07;
+      if (k.t > .9) { k.st = 2; k.t = 0; k.c.minY = k.c.maxY = -1e4; puff(k.x, k.y, k.z, 8, .8, 0xdff3fb); sfx.breakIce(); }
+    } else if (k.st === 2) {
+      k.mesh.position.set(k.x, k.y - 9 * k.t * k.t, k.z);
+      if (k.t > 3.2) { k.st = 3; k.t = 0; k.mesh.position.set(k.x, k.y, k.z); k.mesh.scale.setScalar(.01); k.c.minY = k.minY; k.c.maxY = k.maxY; }
+    } else if (k.st === 3) {
+      const s = Math.min(1, k.t * 3); k.mesh.scale.setScalar(Math.max(.01, s)); if (s >= 1) k.st = 0;
+    }
+  }
+}
+// 坂の上からころがってくる雪玉（ばらばらの位置・大きさ・速さ）
+function rollerZone(o) {
+  const balls = [], geo = new THREE.SphereGeometry(1, 20, 14);
+  for (let i = 0; i < 10; i++) {
+    const m = new THREE.Mesh(geo, toon(0xffffff)); outline(m, .05); m.castShadow = true; m.visible = false; stage.add(m);
+    for (let j = 0; j < 5; j++) { const dot = new THREE.Mesh(new THREE.SphereGeometry(.12, 6, 4), toon(0xdbe8f2)); const a = j * 1.3, b = j * 2.1; dot.position.set(Math.cos(a) * Math.cos(b), Math.sin(b), Math.sin(a) * Math.cos(b)).multiplyScalar(.97); m.add(dot); }
+    balls.push({ m, on: false, x: 0, z: 0, r: 1, v: 0, grow: 0 });
+  }
+  world.rollers = { ...o, balls, t: 1 };
+}
+function updateRollers(dt) {
+  const R = world.rollers; if (!R) return;
+  R.t -= dt;
+  if (R.t <= 0 && !R.off) {
+    R.t = R.every * (.7 + Math.random() * .6);
+    const b = R.balls.find(b => !b.on);
+    if (b) {
+      b.on = true; b.r = R.rMin + Math.random() * (R.rMax - R.rMin);
+      for (let k = 0; k < 6; k++) { b.x = R.x0 + b.r + Math.random() * (R.x1 - R.x0 - 2 * b.r); if (!R.avoid || !R.avoid.some(([ax, w]) => Math.abs(b.x - ax) < w)) break; }
+      b.z = R.z0;
+      b.v = R.vMin + Math.random() * (R.vMax - R.vMin); b.grow = 0; b.m.visible = true;
+    }
+  }
+  for (const b of R.balls) {
+    if (!b.on) continue;
+    b.grow = Math.min(1, b.grow + dt * 3);
+    b.z += b.v * dt;
+    const y = T(b.x, b.z) + b.r;
+    b.m.position.set(b.x, y, b.z); b.m.scale.setScalar(b.r * b.grow); b.m.rotation.x += b.v * dt / b.r;
+    let burst = b.z > R.z1;
+    for (const s of world.shelters) if ((b.x - s.x) ** 2 + (b.z - s.z) ** 2 < (s.r + b.r * .45) ** 2) burst = true;
+    if (game.playing && !burst && P.hurt <= 0) {
+      const dx = P.pos.x - b.x, dz = P.pos.z - b.z, dy = P.pos.y + .5 - y;
+      if (dx * dx + dz * dz + dy * dy < (b.r + .72) ** 2) { hurtPlayer(dx, dz + 2, 8); burst = true; }
+    }
+    if (burst) { b.on = false; b.m.visible = false; puff(b.x, y - b.r * .5, b.z, 10, 1.3, 0xffffff); if (Math.hypot(P.pos.x - b.x, P.pos.z - b.z) < 25) sfx.snowball(); }
+  }
+}
+// ふる雪
+function snowfall(n = 1300) {
+  const p = new Float32Array(n * 3), ph = new Float32Array(n);
+  for (let i = 0; i < n; i++) { p[i * 3] = (Math.random() - .5) * 60; p[i * 3 + 1] = Math.random() * 30; p[i * 3 + 2] = (Math.random() - .5) * 60; ph[i] = Math.random() * 6.3; }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  const cv = document.createElement('canvas'); cv.width = cv.height = 32; const x = cv.getContext('2d');
+  const gr = x.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.5, 'rgba(255,255,255,.8)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 32, 32);
+  const tex = new THREE.CanvasTexture(cv);
+  const m = new THREE.Points(g, new THREE.PointsMaterial({ size: .22, map: tex, transparent: true, depthWrite: false, color: 0xffffff }));
+  m.frustumCulled = false; stage.add(m);
+  world.snow = { m, p, ph, n };
+}
+function updateSnow(dt, t) {
+  const S = world.snow; if (!S) return;
+  const p = S.p, c = camera.position;
+  for (let i = 0; i < S.n; i++) {
+    const j = i * 3;
+    p[j + 1] -= dt * (1 + (i % 5) * .15);
+    p[j] += Math.sin(t * .7 + S.ph[i]) * dt * .4;
+    if (p[j] < c.x - 30) p[j] += 60; else if (p[j] > c.x + 30) p[j] -= 60;
+    if (p[j + 2] < c.z - 30) p[j + 2] += 60; else if (p[j + 2] > c.z + 30) p[j + 2] -= 60;
+    if (p[j + 1] < c.y - 14) p[j + 1] += 30; else if (p[j + 1] > c.y + 16) p[j + 1] -= 30;
+  }
+  S.m.geometry.attributes.position.needsUpdate = true;
+}
+// 温泉（入ると「ぽかぽか」、湯気が立つ）
+function onsen(x, z, r, y) {
+  const w = new THREE.Mesh(new THREE.CircleGeometry(r - .3, 40), new THREE.MeshToonMaterial({ color: 0x9fd8e8, gradientMap, transparent: true, opacity: .85 }));
+  w.rotation.x = -Math.PI / 2; w.position.set(x, y, z); stage.add(w);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(r - .15, .32, 8, 40), toon(0xc9c3bb)); rim.rotation.x = -Math.PI / 2; rim.position.set(x, y + .05, z); addMesh(rim, { block: false, line: .04 });
+  world.pools.push({ x, z, r, y, t: Math.random() });
+}
+function updatePools(dt) {
+  for (const p of world.pools) {
+    p.t -= dt;
+    if (p.t < 0) { p.t = .25 + Math.random() * .3; const a = Math.random() * 6.3, rr = Math.random() * (p.r - 1); steam(p.x + Math.cos(a) * rr, p.y, p.z + Math.sin(a) * rr); }
+  }
+  const inPool = world.pools.find(p => (P.pos.x - p.x) ** 2 + (P.pos.z - p.z) ** 2 < (p.r - .6) ** 2 && P.pos.y < p.y + .5);
+  if (inPool && !P.inPool && game.playing) { toast('ぽかぽか〜', 1.6); sfx.onsen(); }
+  P.inPool = !!inPool;
+}
+const steams = [];
+function steam(x, y, z) {
+  let s = steams.find(s => s.life <= 0);
+  if (!s) { if (steams.length > 40) return; const m = new THREE.Mesh(puffGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false })); scene.add(m); s = { m, life: 0 }; steams.push(s); }
+  s.life = 1; s.m.visible = true; s.m.position.set(x, y + .2, z); s.vx = (Math.random() - .5) * .3;
+}
+function updateSteam(dt) {
+  for (const s of steams) {
+    if (s.life <= 0) continue;
+    s.life -= dt * .45; if (s.life <= 0 || !world.pools.length) { s.life = 0; s.m.visible = false; continue; }
+    s.m.position.y += dt * 1.1; s.m.position.x += s.vx * dt;
+    s.m.scale.setScalar(1.5 + (1 - s.life) * 4); s.m.material.opacity = Math.sin(s.life * Math.PI) * .35;
+  }
+}
+
+/* ---------- 雪山の部品 ---------- */
+function pine(x, z, s = 1, y = T(x, z)) {
+  const tr = new THREE.Mesh(new THREE.CylinderGeometry(.2 * s, .28 * s, 1.2 * s, 8), trunkM); tr.position.set(x, y + .6 * s, z); addMesh(tr, { line: .035 });
+  for (let k = 0; k < 3; k++) {
+    const r = (1.5 - k * .38) * s, h = 1.5 * s, yy = y + (1.5 + k * .95) * s;
+    const c = new THREE.Mesh(new THREE.ConeGeometry(r, h, 10), toon(0x6fa88e)); c.position.set(x, yy, z); addMesh(c, { block: false, line: .05 });
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(r * .58, h * .44, 10), toon(0xf7fbff)); cap.position.set(x, yy + h * .29, z); addMesh(cap, { block: false, line: 0, shadow: false });
+  }
+  world.colliders.push({ k: 'c', x, z, r: .3 * s, minY: y - 1, maxY: y + 4.8 * s });
+}
+function snowman(x, z, s = 1, yaw = 0, y = T(x, z)) {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = yaw;
+  const b1 = new THREE.Mesh(new THREE.SphereGeometry(.85 * s, 18, 12), toon(0xffffff)); b1.position.y = .75 * s; outline(b1, .05); g.add(b1);
+  const b2 = new THREE.Mesh(new THREE.SphereGeometry(.58 * s, 18, 12), toon(0xffffff)); b2.position.y = 1.95 * s; outline(b2, .045); g.add(b2);
+  for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(.07 * s, 8, 6), new THREE.MeshBasicMaterial({ color: 0x2b1b14 })); e.position.set(sx * .2 * s, 2.05 * s, .52 * s); g.add(e); }
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(.08 * s, .4 * s, 8), toon(0xf2a45c)); nose.rotation.x = Math.PI / 2; nose.position.set(0, 1.92 * s, .72 * s); outline(nose, .02); g.add(nose);
+  const sc = new THREE.Mesh(new THREE.TorusGeometry(.5 * s, .1 * s, 8, 20), toon(0xf28e8e)); sc.rotation.x = Math.PI / 2; sc.position.y = 1.5 * s; outline(sc, .02); g.add(sc);
+  g.traverse(o => { if (o.isMesh && o.material !== INK_BACK) o.castShadow = true; });
+  stage.add(g); world.statics.push(g);
+  world.colliders.push({ k: 'c', x, z, r: .8 * s, minY: y - 1, maxY: y + 2.5 * s });
+}
+function mound(x, z, r = 1.4) {
+  const y = T(x, z);
+  cyl(x, z, y - 1, r, 2.4, 0xf4f8fc, { rTop: r * .75, seg: 20 });
+  const top = new THREE.Mesh(new THREE.SphereGeometry(r * .75, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), toon(0xf4f8fc)); top.scale.y = .5; top.position.set(x, y + 1.4, z); addMesh(top, { line: .04 });
+  world.shelters.push({ x, z, r });
+}
+function iceBlock(x, z, y0, w, h, d, opt = {}) { return box(x, z, y0, w, h, d, opt.color ?? 0xbfe4f4, opt); }
+function frostMushroom(x, z, y0, capR, stemH, bounce) { return mushroom(x, z, y0, capR, stemH, bounce, 0x9fd2ec); }
+function icicles(x0, x1, z, y, n) {
+  for (let i = 0; i < n; i++) {
+    const x = x0 + (x1 - x0) * (i + .5) / n + Math.sin(i * 7.1) * .4, h = 1 + (i * 37 % 10) / 10 * 1.6;
+    const c = new THREE.Mesh(new THREE.ConeGeometry(.22, h, 6), toon(0xd8f0fb)); c.rotation.x = Math.PI; c.position.set(x, y - h / 2, z); addMesh(c, { block: false, line: .025, shadow: false });
+  }
+}
+
+/* ================================================================
+   ステージ 2「こなゆき山」
+   ================================================================ */
+const POOLS2 = [[-12, -37, 5], [8, -41, 4], [-1, -47.5, 2.8]];
+function terrain2(x, z) {
+  let h = .8 * bump(x - 20, z - 44, 8) + 1.0 * bump(x + 26, z - 46, 9) + .7 * bump(x - 28, z - 30, 7) + .5 * bump(x - 6, z - 40, 5);
+  h += (-.25 - h) * (1 - smooth(8.5, 10.5, Math.hypot(x + 14, z - 34)));       // こおりの池（平ら）
+  const rb = 1 - smooth(3, 6, Math.abs(x - 22));                                  // 東のゆるい坂道
+  const c1 = 16 + 4 * rb, hw = 1 + 5 * rb;
+  h += 5 * smooth(c1 + hw, c1 - hw, z);                                             // 1 段目の崖（0 → 5）
+  h += 8 * smooth(14, -20, z);                                                      // ころころ坂（5 → 13）
+  h += 4 * smooth(-22, -24, z);                                                     // 2 段目の崖（13 → 17）
+  for (const [px, pz, r] of POOLS2) h -= .7 * (1 - smooth(r - 1.2, r, Math.hypot(x - px, z - pz)));
+  h += 16 * smooth(-54, -56.5, z);                                                  // つららの崖（17 → 33）
+  const halfW = 37 - 17 * smooth(-50, -58, z);
+  const ex = Math.max(0, Math.abs(x) - halfW), ez = Math.max(0, z - 52, -82 - z), e = Math.hypot(ex, ez);
+  return h - e * e * 1.3;
+}
+const C2 = { snow: new THREE.Color(0xe9f0f7), shade: new THREE.Color(0xd3dfec), ice: new THREE.Color(0xbfe4f4), rock: new THREE.Color(0xb7c3d4), rock2: new THREE.Color(0xa3b0c4), basin: new THREE.Color(0xd2c9bf) };
+function color2(c, x, z, h, slope) {
+  c.copy(C2.snow).lerp(C2.shade, clamp(slope * .9, 0, 1));
+  if (Math.hypot(x + 14, z - 34) < 9.5 && h < 0) c.copy(C2.ice);
+  for (const [px, pz, r] of POOLS2) if (Math.hypot(x - px, z - pz) < r + .4) c.copy(C2.basin);
+  if (slope > 1.25) c.copy(h > 20 ? C2.rock : C2.rock2);
+  if (h < -4) c.copy(C2.rock2);
+}
+function buildStage2() {
+  buildTerrain(color2, 88, 144);
+  world.killY = -20;
+  world.iceAt = (x, z) => Math.hypot(x + 14, z - 34) < 9 && T(x, z) < 0;
+  snowfall();
+
+  // ── ふもとの雪原 ──
+  world.areas.push({ name: 'ふもとの雪原', en: 'SNOWFIELD', test: p => p.z >= 15 });
+  checkpoint(0, 46, null, 0, true);
+  sign(3, 41, '雪の山をのぼって、てっぺんの花を咲かせよう');
+  dropLine(g1(0, 40), g1(0, 34), 4);
+  sign(-5, 30, 'こおりの池は つるつる。止まりたいときは早めに！');
+  // こおりの池：すべりながら跳んで、まんなかの柱へ
+  iceBlock(-9.5, 32, -1, 2.4, 2.1, 2.4, { ice: true }).userData.c.ice = true;
+  iceBlock(-12, 35.5, -1, 2.4, 3.2, 2.4).userData.c.ice = true;
+  cyl(-15, 38.5, -1, 1.1, 4.3, 0xa9d8ee, { seg: 16 }).userData.c.ice = true;
+  seed(-15, 4.3, 38.5);
+  for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; drop(-14 + Math.cos(a) * 6.5, .7, 34 + Math.sin(a) * 6.5); }
+  igaiga({ type: 'line', a: [7, 33], b: [17, 33], speed: 1.8 }, true);
+  dropLine(g1(9, 30), g1(15, 30), 3);
+  // 1 段目の崖：まんなかは氷の階段、東は雪の坂道
+  [[18.6, 1.3], [17.2, 2.6], [15.8, 3.9]].forEach(([z, top]) => { iceBlock(0, z, -1, 3, top + 1, 1.4); drop(0, top + .9, z); });
+  dropLine(g1(22, 24), g1(22, 16), 4);
+  for (const [x, z, s] of [[-28, 46, 1.2], [-32, 38, 1], [-24, 50, .9], [28, 46, 1.3], [32, 36, 1.1], [26, 40, .8], [-30, 22, 1.2], [-22, 20, 1], [32, 22, 1], [-6, 52, 1], [8, 50, .9]]) pine(x, z, s);
+  snowman(6, 42, 1, -.4); snowman(-26, 28, .9, .8);
+  for (const [x, z] of [[12, 38], [-4, 24]]) rock(x, z, .9);
+
+  // ── ころころ坂 ──
+  world.areas.push({ name: 'ころころ坂', en: 'SNOWBALL SLOPE', test: p => p.z >= -23 });
+  checkpoint(0, 11.5);
+  sign(4.5, 10, '雪玉がころがってくる！ 雪の山のかげに かくれながら のぼろう');
+  // 坂の両側の氷の壁（坂の上の段まで）
+  for (const sx of [-1, 1]) for (let z = 12; z > -24; z -= 6) {
+    const zc = z - 3, x = sx * 13;
+    iceBlock(x, zc, Math.min(T(x, z), T(x, z - 6)) - 1, 1.6, Math.max(T(x, z), T(x, z - 6)) - Math.min(T(x, z), T(x, z - 6)) + 5, 6.05, { color: 0xcfe9f6 });
+  }
+  for (const [x, z] of [[-6, 5], [5, -2], [-3, -10], [6, -15]]) mound(x, z, 1.4);
+  rollerZone({ x0: -11.5, x1: 11.5, z0: -18.6, z1: 11, every: 1.05, rMin: .9, rMax: 1.3, vMin: 6, vMax: 8.5, avoid: [[6, 2.8]] }); // 青いきのこの上には出さない
+  for (const [x, z] of [[-6, 3], [5, -4], [-3, -12], [6, -17], [0, 6], [-9, -6]]) drop(x, T(x, z) + .9, z);
+  // 2 段目の崖：西は氷の段、東は雪のきのこ
+  [[-20.6, 14.2], [-21.9, 15.4], [-23.2, 16.6]].forEach(([z, top], i) => iceBlock(-6, z, 12, 2.6, top - 12, 1.3));
+  dropLine([-6, 15.3, -20.6], [-6, 17.7, -23.2], 3);
+  frostMushroom(6, -21, T(6, -21), 1.5, .9, 15);
+  sign(10, -18.5, '青いきのこに乗ると、上の段まで とどくよ');
+
+  // ── ゆけむり温泉 ──
+  world.areas.push({ name: 'いただき', en: 'SUMMIT', test: p => p.y >= 32 && p.z < -55 });
+  world.areas.push({ name: 'つららの崖', en: 'ICICLE CLIFF', test: p => p.y >= 22.5 && p.z < -48 });
+  world.areas.push({ name: 'ゆけむり温泉', en: 'HOT SPRING', test: () => true });
+  checkpoint(0, -27, 17);
+  for (const [x, z, r] of POOLS2) onsen(x, z, r, 16.55);
+  sign(-4, -30, 'ひとやすみ。温泉に入ると ぽかぽか', null, 17);
+  dropLine([-12, 17.4, -33], [-12, 17.4, -41], 3);
+  dropLine([8, 17.4, -38], [8, 17.4, -44], 2);
+  igaiga({ type: 'circle', c: [-2, -36], r: 3.2, speed: .8 }, true);
+  igaiga({ type: 'line', a: [15, -28], b: [15, -46], speed: 1.8 }, true);
+  // かくれたたね：きのこで跳んで氷の柱の上へ
+  frostMushroom(-17, -29, 17, 1.4, .9, 17);
+  cyl(-22.5, -31, 16, 1.3, 7, 0xa9d8ee, { seg: 16 });
+  seed(-22.5, 24, -31);
+  for (const [x, z, s] of [[-26, -26, 1.2], [24, -30, 1.1], [26, -40, 1.3], [-28, -44, 1.2], [20, -50, 1], [-20, -50, .9]]) pine(x, z, s, 17);
+  snowman(18, -36, .9, -1.2, 17);
+
+  // ── つららの崖：湯気で上がって、くずれる氷をわたり、上下する足場でいただきへ ──
+  sign(-6, -50, '湯気の上で ふわふわすると、上へのぼれる。うすい氷は すぐ割れるよ', '湯気の上でジャンプ長押しで、上へのぼれる。うすい氷は すぐ割れるよ', 17);
+  const vent = (x, z) => { const r = new THREE.Mesh(new THREE.TorusGeometry(1.6, .45, 8, 24), toon(0xb7b0a8)); r.rotation.x = -Math.PI / 2; r.position.set(x, 17.1, z); addMesh(r, { block: false, line: .05 }); };
+  updraft(-10, -50.6, 2.4, 16, 25.5, true); vent(-10, -50.6);
+  dropLine([-10, 19, -50.6], [-10, 24, -50.6], 3);
+  iceBlock(-10, -54.3, 23.2, 3.2, .8, 2.6, { color: 0xc9dbe8 });
+  [[-6.2, 24.9], [-2.4, 25.8]].forEach(([x, top]) => { crumble(iceBlock(x, -54.6, top - .5, 2.8, .5, 2.8, { color: 0xe4f6fd })); drop(x, top + .9, -54.6); });
+  iceBlock(1.4, -54.6, 26.2, 3, .5, 2.8, { color: 0xc9dbe8 }); drop(1.4, 27.6, -54.6); // ここはくずれない：上下する足場を待つ場所
+  const elev = box(5.6, -54.6, 30.2, 3, .5, 3, 0xf6dc8f);
+  mover(elev, t => new THREE.Vector3(5.6, 30.35 + 3.25 * Math.sin(t * .6), -54.6)); // 上面 26.85〜33.85
+  // わき道：もう 1 本の湯気 → 高い出っぱり → たね
+  updraft(13, -50.6, 2.2, 16, 31.5, true); vent(13, -50.6);
+  iceBlock(13.5, -54.4, 29.2, 3, .8, 2.6, { color: 0xc9dbe8 });
+  seed(13.5, 31, -54.6);
+  icicles(-18, 18, -56.3, 33, 22);
+
+  // ── いただき ──
+  checkpoint(4, -61, 33, 0);
+  sign(-3, -62, 'あと少し！', null, 33);
+  dropLine([0, 34, -64], [0, 34, -69], 3);
+  igaiga({ type: 'line', a: [-9, -62], b: [-9, -76], speed: 1.6 }, true);
+  goalFlower(0, -75, 33, [0xf4f7ff, 0xd9cff5], 0xf6dc8f);
+  for (const [x, z, s] of [[-14, -66, 1], [14, -68, 1.1], [-12, -78, .9], [12, -79, 1], [6, -62, .7]]) pine(x, z, s, 33);
+  snowman(-6, -71, .8, .6, 33);
+
+  // 遠くの山と雲
+  for (let i = 0; i < 9; i++) {
+    const a = i / 9 * Math.PI * 2 + .2, r = 150 + (i % 3) * 30, h = 50 + (i * 37 % 5) * 12;
+    const m = new THREE.Mesh(new THREE.ConeGeometry(28 + (i % 3) * 8, h, 7), toon(0xd5e3f0)); m.position.set(Math.cos(a) * r, -30 + h / 2, -20 + Math.sin(a) * r); m.castShadow = false; outline(m, .4);
+    const cap = new THREE.Mesh(new THREE.ConeGeometry((28 + (i % 3) * 8) * .42, h * .42, 7), toon(0xffffff)); cap.position.y = h * .29; m.add(cap);
+    stage.add(m); world.statics.push(m);
+  }
+  for (let i = 0; i < 14; i++) {
+    const g = new THREE.Group(), a = i / 14 * Math.PI * 2 + .5, r = 120 + (i % 3) * 40;
+    g.position.set(Math.cos(a) * r, (i % 2 ? 40 : -10) + (i % 4) * 6, -20 + Math.sin(a) * r);
+    for (let j = 0; j < 4; j++) { const p = new THREE.Mesh(new THREE.SphereGeometry(6 + (j % 2) * 3, 12, 8), toon(0xffffff)); p.castShadow = false; p.position.set(j * 7 - 10, (j % 2) * 1.5, (j % 3) * 2); p.scale.y = .62; outline(p, .3); g.add(p); }
+    stage.add(g); world.statics.push(g);
+  }
+  // 雪のきらきら（当たり判定なし）
+  const rnd = (() => { let s = 11; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+  const lumps = new THREE.InstancedMesh(new THREE.SphereGeometry(.3, 8, 4), toon(0xf6f9fc), 420);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+  for (let i = 0; i < lumps.count; i++) {
+    let x, z, h, k = 0; do { x = -34 + rnd() * 68; z = -80 + rnd() * 130; h = T(x, z); k++; } while ((h < -1 || slopeAt(x, z) > .8) && k < 50);
+    m4.compose(new THREE.Vector3(x, h - .02, z), q, new THREE.Vector3(1 + rnd() * 1.5, .32, 1 + rnd() * 1.5)); lumps.setMatrixAt(i, m4);
+  }
+  lumps.receiveShadow = true; stage.add(lumps);
+  buildDrops();
+  bakeStatics();
 }
 
 /* ================================================================
@@ -803,19 +1122,27 @@ const sfx = {
   splash() { noise(.45, { vol: .2, freq: 1400, q: .7 }); tone(600, .2, { to: 200, vol: .05 }); },
   fall() { tone(700, .7, { type: 'triangle', to: 120, vol: .08 }); },
   wind() { noise(.6, { vol: .05, freq: 600, q: .5 }); },
+  crack() { noise(.12, { vol: .1, freq: 3200, q: 3 }); tone(1800, .08, { type: 'square', to: 900, vol: .03 }); },
+  breakIce() { noise(.35, { vol: .14, freq: 2600, q: 1.5 }); [2093, 2637, 3136].forEach((f, i) => tone(f, .25, { type: 'sine', vol: .04, delay: i * .03 })); },
+  snowball() { noise(.3, { vol: .12, freq: 700, q: .6 }); },
+  onsen() { [64, 67, 72].forEach((n, i) => tone(N(n), .5, { type: 'sine', vol: .06, delay: i * .12 })); },
   clear() { [[72, 0], [76, .15], [79, .3], [84, .45], [79, .7], [84, .85], [88, 1.0]].forEach(([n, d]) => { tone(N(n), .45, { type: 'triangle', vol: .13, delay: d }); tone(N(n - 12), .45, { type: 'sine', vol: .06, delay: d }); }); },
 };
 // BGM：ゆったりした 5 音音階のループ
-const MEL = [76, 0, 79, 81, 79, 0, 76, 74, 72, 0, 74, 76, 74, 0, 0, 0, 76, 0, 79, 84, 81, 0, 79, 76, 74, 0, 76, 79, 76, 0, 0, 0,
+const MEL1 = [76, 0, 79, 81, 79, 0, 76, 74, 72, 0, 74, 76, 74, 0, 0, 0, 76, 0, 79, 84, 81, 0, 79, 76, 74, 0, 76, 79, 76, 0, 0, 0,
   81, 0, 79, 76, 79, 0, 81, 84, 79, 0, 76, 74, 72, 0, 74, 0, 76, 0, 74, 72, 74, 0, 76, 79, 72, 0, 0, 0, 0, 0, 0, 0];
-const BASS = [48, 45, 41, 43, 48, 45, 41, 43];
+const BASS1 = [48, 45, 41, 43, 48, 45, 41, 43];
+// STAGE 2：すんだ鈴のような、少し静かなループ
+const MEL2 = [81, 0, 0, 76, 79, 0, 81, 0, 84, 0, 81, 79, 76, 0, 0, 0, 74, 0, 76, 79, 76, 0, 74, 72, 69, 0, 0, 0, 72, 74, 76, 0,
+  81, 0, 84, 86, 84, 0, 81, 79, 81, 0, 79, 76, 74, 0, 0, 0, 76, 0, 74, 72, 74, 0, 76, 79, 69, 0, 0, 0, 0, 0, 0, 0];
+const BASS2 = [45, 41, 43, 40, 45, 41, 43, 45];
 function bgmTick() {
   const ac = Snd.ac; if (!ac || !Snd.on || !game.started) return;
-  const stepDur = .26;
+  const mu = DEF.music, MEL = mu.mel, BASS = mu.bass, stepDur = mu.step;
   if (Snd.next < ac.currentTime - .5) Snd.next = ac.currentTime + .05;
   while (Snd.next < ac.currentTime + .25) {
     const i = Snd.step % MEL.length, t = Snd.next - ac.currentTime;
-    if (MEL[i]) tone(N(MEL[i]), .5, { type: 'triangle', vol: .07, delay: t, bus: 'bgm', attack: .02 });
+    if (MEL[i]) { tone(N(MEL[i]), mu.bell ? 1.1 : .5, { type: mu.bell ? 'sine' : 'triangle', vol: .07, delay: t, bus: 'bgm', attack: .02 }); if (mu.bell) tone(N(MEL[i] + 24), .5, { type: 'sine', vol: .018, delay: t, bus: 'bgm' }); }
     if (i % 8 === 0) { const b = BASS[(i / 8) % BASS.length]; tone(N(b), 1.9, { type: 'sine', vol: .11, delay: t, bus: 'bgm', attack: .04 }); tone(N(b + 7), 1.6, { type: 'sine', vol: .04, delay: t, bus: 'bgm', attack: .08 }); }
     if (i % 4 === 2) tone(N(BASS[Math.floor(i / 8) % BASS.length] + 24), .25, { type: 'sine', vol: .025, delay: t, bus: 'bgm' });
     Snd.next += stepDur; Snd.step++;
@@ -902,7 +1229,8 @@ function readInput() {
 /* ================================================================
    ゲームの状態
    ================================================================ */
-const game = { started: false, playing: false, time: 0, drops: 0, seeds: 0, cp: null, area: -1, cleared: false, seenAreas: new Set(), dyingT: 0 };
+const game = { started: false, playing: false, time: 0, drops: 0, seeds: 0, cp: null, area: -1, cleared: false, seenAreas: new Set(), dyingT: 0, stageIdx: 0 };
+let DEF = null; // いまのステージの設定（STAGES の 1 つ）
 
 /* ================================================================
    プレイヤー
@@ -930,16 +1258,28 @@ function respawn(manual = false) {
 }
 
 let wasGround = true;
+// 地形が壁になる：段差より高い、または急すぎる上り
+function terrainBlocks(x, z) {
+  const h = terrainH(x, z);
+  if (h > P.pos.y + CFG.step) return true;
+  return h > P.pos.y + .05 && slopeAt(x, z) > CFG.maxSlope;
+}
+function hurtPlayer(dx, dz, power = 9) {
+  const d = Math.hypot(dx, dz) || 1;
+  P.vel.set(dx / d * power, 6.5, dz / d * power); P.onGround = false; P.stun = .35; P.hurt = 1.4; A.sv -= 3;
+  sfx.hurt(); puff(P.pos.x, P.pos.y + .5, P.pos.z, 6, .7);
+}
 function updatePlayer(dt) {
   // 動く足場に乗っていたら一緒に動く
   if (P.onGround && P.groundC && P.groundC.mv) P.pos.add(P.groundC.mv.d);
   const inp = readInput();
   const sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
   const mx = inp.x * cy - inp.y * sy, mz = -inp.x * sy - inp.y * cy;
-  const mag = Math.min(1, Math.hypot(inp.x, inp.y)), ml = Math.hypot(mx, mz) || 1;
+  const mag = Math.min(1, Math.hypot(inp.x, inp.y)), ml = Math.hypot(mx, mz) || 1; P.inputMag = mag;
   const speed = (inp.run ? CFG.run : CFG.walk) * mag;
   P.stun = Math.max(0, P.stun - dt); P.hurt = Math.max(0, P.hurt - dt);
-  const acc = P.stun > 0 ? .5 : P.onGround ? CFG.accelGround : CFG.accelAir;
+  P.onIce = P.onGround && (P.groundC ? !!P.groundC.ice : !!(world.iceAt && world.iceAt(P.pos.x, P.pos.z)));
+  const acc = P.stun > 0 ? .5 : P.onGround ? (P.onIce ? 1.4 : CFG.accelGround) : CFG.accelAir;
   P.vel.x = damp(P.vel.x, mx / ml * speed, acc, dt);
   P.vel.z = damp(P.vel.z, mz / ml * speed, acc, dt);
 
@@ -960,8 +1300,8 @@ function updatePlayer(dt) {
   const n = Math.ceil(Math.hypot(P.vel.x, P.vel.z) * dt / (CFG.R * .5)) || 1;
   for (let i = 0; i < n; i++) {
     const ox = P.pos.x, oz = P.pos.z;
-    P.pos.x += P.vel.x * dt / n; if (terrainH(P.pos.x, P.pos.z) > P.pos.y + CFG.step) P.pos.x = ox;
-    P.pos.z += P.vel.z * dt / n; if (terrainH(P.pos.x, P.pos.z) > P.pos.y + CFG.step) P.pos.z = oz;
+    P.pos.x += P.vel.x * dt / n; if (terrainBlocks(P.pos.x, P.pos.z)) { P.pos.x = ox; P.vel.x *= .5; }
+    P.pos.z += P.vel.z * dt / n; if (terrainBlocks(P.pos.x, P.pos.z)) { P.pos.z = oz; P.vel.z *= .5; }
     for (let k = 0; k < 2; k++) for (const c of world.colliders)
       if (c.maxY > P.pos.y + CFG.step && c.minY < P.pos.y + CFG.H) pushOutXZ(c, P.pos, CFG.R);
   }
@@ -973,6 +1313,11 @@ function updatePlayer(dt) {
   else if (P.onGround && P.vel.y <= 0 && P.pos.y - gr.h < CFG.step) { P.pos.y = gr.h; P.vel.y = 0; }
   else P.onGround = false;
   P.groundC = P.onGround ? gr.c : null;
+  // 急な斜面ではすべり落ちる
+  if (P.onGround && !P.groundC) {
+    const sl = slopeAt(P.pos.x, P.pos.z);
+    if (sl > CFG.maxSlope) { const gx = (T(P.pos.x + .3, P.pos.z) - T(P.pos.x - .3, P.pos.z)) / .6, gz = (T(P.pos.x, P.pos.z + .3) - T(P.pos.x, P.pos.z - .3)) / .6; P.vel.x -= gx * 9 * dt; P.vel.z -= gz * 9 * dt; }
+  }
 
   if (P.onGround && !wasGround) onLand(-fallV);
   if (P.onGround) P.bounced = false;
@@ -983,7 +1328,7 @@ function updatePlayer(dt) {
 
   // 落ちた
   if (game.dyingT <= 0) {
-    if (P.pos.y < WATER_Y - .35 && P.pos.y > WATER_Y - 3 && Math.abs(P.pos.z - riverZ(P.pos.x)) < 6.5) { puff(P.pos.x, WATER_Y, P.pos.z, 12, 1.2, 0xbfe6f7); sfx.splash(); respawn(); }
+    if (world.hazard && world.hazard()) { /* ステージごとの危ない場所 */ }
     else if (P.pos.y < world.killY) { sfx.fall(); respawn(); }
   }
 
@@ -1040,9 +1385,7 @@ function updateInteractions(dt) {
     if (P.vel.y < -1 && P.pos.y > e.pos.y + .05) {
       e.stun = 3.2; P.vel.y = 10.5; P.onGround = false; P.bounced = true; sfx.stomp(); puff(e.pos.x, e.pos.y, e.pos.z, 8, .8); A.sv += 3;
     } else if (P.hurt <= 0) {
-      const k = 1 / Math.max(d, .01);
-      P.vel.set(dx * k * 9, 6.5, dz * k * 9); P.onGround = false; P.stun = .35; P.hurt = 1.4; A.sv -= 3;
-      sfx.hurt(); puff(P.pos.x, P.pos.y + .5, P.pos.z, 6, .7);
+      hurtPlayer(dx, dz, 9);
     }
   }
   // 看板
@@ -1050,10 +1393,10 @@ function updateInteractions(dt) {
   for (const s of world.signs) if ((s.x - px) ** 2 + (s.z - pz) ** 2 < 12 && Math.abs(s.y - P.pos.y) < 3) near = s;
   if (near) toast(isTouch ? near.sp : near.pc, .3);
   // エリア
-  let ai = 0; while (ai < world.areas.length - 1 && P.pos.z < world.areas[ai].zMin) ai++;
+  let ai = world.areas.findIndex(a => a.test ? a.test(P.pos) : P.pos.z >= a.zMin); if (ai < 0) ai = world.areas.length - 1;
   if (ai !== game.area) {
     game.area = ai; const a = world.areas[ai];
-    $('#areaName').textContent = 'STAGE 1 ・ ' + a.name;
+    $('#areaName').textContent = `STAGE ${DEF.id} ・ ` + a.name;
     if (!game.seenAreas.has(ai)) { game.seenAreas.add(ai); banner(a.name, a.en); }
   }
   // ゴール
@@ -1075,7 +1418,7 @@ function onLand(v) {
 function animateChar(dt) {
   A.t += dt;
   const hs = P.hs, running = hs > (CFG.walk + CFG.run) / 2;
-  const targetAmp = P.onGround && hs > .35 ? (running ? .24 : .13) * clamp(hs / CFG.walk, .5, 1.2) : 0;
+  const targetAmp = P.onGround && hs > .35 && !(P.onIce && P.inputMag < .1) ? (running ? .24 : .13) * clamp(hs / CFG.walk, .5, 1.2) : 0;
   A.amp = damp(A.amp, targetAmp, 10, dt);
   if (A.amp > .01) {
     A.phase += dt * (2.3 + hs * .28);
@@ -1185,7 +1528,7 @@ function updateCamera(dt) {
   cam.target.z = damp(cam.target.z, P.pos.z, 18, dt);
   // 落ちていくときはカメラが残って見送る（さいごの花より 8m 下まで、川なら水面まで）
   let floorY = (game.cp ? game.cp.y : 0) - 8;
-  if (Math.abs(P.pos.z - riverZ(P.pos.x)) < 6.5 && P.pos.y < 2) floorY = Math.max(floorY, WATER_Y + .6);
+  if (world.camFloor) floorY = Math.max(floorY, world.camFloor(P.pos));
   cam.target.y = damp(cam.target.y, Math.max(P.visY + CFG.camH, floorY), P.onGround ? 10 : 5, dt);
   camDir.set(Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch));
   raycaster.set(cam.target, camDir); raycaster.far = cam.dist + .3;
@@ -1215,22 +1558,24 @@ function updateUI(dt) {
   if (game.playing && !game.cleared) { game.time += dt; $('#timer').textContent = fmtTime(game.time); }
   if (game.dyingT > 0) game.dyingT -= dt;
 }
-function bestText() {
-  const b = store.get('best_s1', null);
-  return b ? `ベスト：${fmtTime(b.time)}　しずく ${b.drops} / ${world.drops.length}　たね ${b.seeds} / 3` : '';
+function bestText(def = DEF) {
+  const b = store.get('best_s' + def.id, null);
+  return b ? `ベスト ${fmtTime(b.time)}　しずく ${b.drops}${b.total ? ' / ' + b.total : ''}　たね ${b.seeds} / 3` : 'まだクリアしていません';
 }
 function onClear() {
   game.cleared = true; sfx.clear(); puff(P.pos.x, P.pos.y + 1, P.pos.z, 16, 1.4, 0xf7b2c0);
-  const b = store.get('best_s1', null);
-  const nb = { time: Math.min(b?.time ?? Infinity, game.time), drops: Math.max(b?.drops ?? 0, game.drops), seeds: Math.max(b?.seeds ?? 0, game.seeds) };
+  const key = 'best_s' + DEF.id, b = store.get(key, null);
+  const nb = { time: Math.min(b?.time ?? Infinity, game.time), drops: Math.max(b?.drops ?? 0, game.drops), seeds: Math.max(b?.seeds ?? 0, game.seeds), total: world.drops.length };
   const isBest = !b || game.time < b.time;
-  store.set('best_s1', nb);
+  store.set(key, nb);
   setTimeout(() => {
     game.playing = false; if (locked()) document.exitPointerLock();
     $('#rTime').textContent = fmtTime(game.time) + (isBest ? '　ベスト！' : '');
     $('#rDrops').textContent = `${game.drops} / ${world.drops.length}`;
     $('#rSeeds').textContent = `${game.seeds} / 3`;
     $('#rBest').textContent = bestText();
+    $('#rStage').textContent = `STAGE ${DEF.id} ・ ${DEF.name}`;
+    $('#nextBtn').hidden = !STAGES[game.stageIdx + 1];
     $('#clearScreen').hidden = false;
   }, 2600);
 }
@@ -1240,6 +1585,8 @@ function resetStage() {
   for (const s of world.seeds) { s.got = false; s.g.scale.setScalar(1); s.g.position.y = s.y; }
   for (const cp of world.checkpoints) cp.on = false;
   for (const e of world.enemies) e.stun = 0;
+  for (const k of world.crumbles) { k.st = 0; k.t = 0; k.mesh.position.set(k.x, k.y, k.z); k.mesh.scale.setScalar(1); k.c.minY = k.minY; k.c.maxY = k.maxY; }
+  if (world.rollers) for (const b of world.rollers.balls) { b.on = false; b.m.visible = false; }
   world.goal.reached = false;
   game.cp = world.checkpoints[0]; game.cp.on = true;
   $('#dropCount').textContent = 0; document.querySelectorAll('#seeds .seed').forEach(el => el.classList.remove('got'));
@@ -1248,10 +1595,30 @@ function resetStage() {
 function startGame() {
   audioInit(); $('#titleScreen').hidden = true; $('#clearScreen').hidden = true;
   game.started = true; game.playing = true; tryLock();
-  setTimeout(() => $('#help').classList.add('fade'), 20000);
+  $('#help').classList.remove('fade'); clearTimeout(startGame.t); startGame.t = setTimeout(() => $('#help').classList.add('fade'), 20000);
 }
-$('#startBtn').onclick = startGame;
+function showTitle() {
+  game.playing = false; if (locked()) document.exitPointerLock();
+  $('#clearScreen').hidden = true; $('#menu').hidden = true;
+  const list = $('#stageList'); list.innerHTML = '';
+  STAGES.forEach((d, i) => {
+    const b = document.createElement('button'); b.className = 'stageCard'; b.style.setProperty('--c', d.color);
+    b.innerHTML = `<small>STAGE ${d.id}</small><b></b><em></em><span></span>`;
+    b.querySelector('b').textContent = d.name; b.querySelector('em').textContent = d.en; b.querySelector('span').textContent = bestText(d);
+    b.onclick = () => chooseStage(i);
+    list.appendChild(b);
+  });
+  $('#titleScreen').hidden = false;
+}
+function chooseStage(i) {
+  audioInit();
+  if (i !== game.stageIdx) loadStage(i); else resetStage();
+  startGame();
+}
 $('#againBtn').onclick = () => { resetStage(); startGame(); };
+$('#nextBtn').onclick = () => chooseStage(game.stageIdx + 1);
+$('#selectBtn').onclick = showTitle;
+$('#mSelect').onclick = showTitle;
 $('#stayBtn').onclick = () => { $('#clearScreen').hidden = true; game.playing = true; tryLock(); };
 $('#menuBtn').onclick = () => { $('#menu').hidden = !$('#menu').hidden; };
 $('#mRespawn').onclick = () => { $('#menu').hidden = true; if (game.playing) respawn(true); };
@@ -1260,6 +1627,38 @@ $('#mSound').onclick = () => { audioInit(); setSound(!Snd.on); };
 setSound(Snd.on);
 function fitView() { camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 1 ? 72 : 55; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); }
 addEventListener('resize', fitView); fitView();
+
+/* ================================================================
+   ステージの一覧と切り替え
+   ================================================================ */
+const STAGES = [
+  { id: 1, name: 'そよかぜの丘', en: 'BREEZY HILL', color: '#b4dc92', build: buildStage1, terrain: terrain1, tb: { x0: -46, x1: 46, z0: -68, z1: 60 },
+    env: { sky: [0x8fc8f2, 0xd4ecf7, 0xfdf1dc], fog: [0xeef4f2, 70, 200], hemi: [0xfff6e6, 0xb7d3a8, 1.25], sun: [0xfff1dc, 2.1] },
+    music: { mel: MEL1, bass: BASS1, step: .26 } },
+  { id: 2, name: 'こなゆき山', en: 'POWDER PEAK', color: '#9fd2ec', build: buildStage2, terrain: terrain2, tb: { x0: -44, x1: 44, z0: -86, z1: 58 },
+    env: { sky: [0x86b6e6, 0xd6e7f6, 0xf6f1f6], fog: [0xe6eef7, 60, 190], hemi: [0xf4f8ff, 0xc4d2e4, 1.3], sun: [0xfff4ea, 2.0] },
+    music: { mel: MEL2, bass: BASS2, step: .3, bell: true } },
+];
+function setEnv(e) {
+  const u = sky.material.uniforms; u.top.value.setHex(e.sky[0]); u.mid.value.setHex(e.sky[1]); u.bottom.value.setHex(e.sky[2]);
+  scene.fog.color.setHex(e.fog[0]); scene.fog.near = e.fog[1]; scene.fog.far = e.fog[2];
+  hemi.color.setHex(e.hemi[0]); hemi.groundColor.setHex(e.hemi[1]); hemi.intensity = e.hemi[2];
+  sun.color.setHex(e.sun[0]); sun.intensity = e.sun[1];
+  renderer.setClearColor(e.fog[0]);
+}
+function loadStage(i) {
+  stage.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+  scene.remove(stage); stage = new THREE.Group(); scene.add(stage);
+  for (const s of steams) { s.life = 0; s.m.visible = false; }
+  Object.assign(world, newWorld());
+  DEF = STAGES[i]; game.stageIdx = i; store.set('lastStage', i);
+  TB = DEF.tb; terrainFn = DEF.terrain;
+  setEnv(DEF.env);
+  DEF.build();
+  $('#stageChip b').textContent = DEF.name;
+  Snd.step = 0;
+  resetStage();
+}
 
 /* ================================================================
    モデルの読み込み（gzip＋base64 で埋め込み）
@@ -1288,25 +1687,28 @@ async function loadModel() {
 /* ================================================================
    開始
    ================================================================ */
-buildStage1();
-resetStage();
+loadStage(clamp(store.get('lastStage', 0) | 0, 0, STAGES.length - 1));
 try { await loadModel(); }
 catch (e) { console.error(e); $('#loading div').textContent = 'モデルを読み込めませんでした：' + (e.message || e); }
 $('#loading').classList.add('hide');
-$('#titleBest').textContent = bestText();
-$('#titleScreen').hidden = false;
+showTitle();
 
 const clock = new THREE.Clock();
 let gameT = 0;
 function step(dt) {
   gameT += dt; const t = gameT;
   updateMovers(t);
+  updateCrumbles(dt);
   updatePlayer(dt);
   if (game.playing) updateInteractions(dt);
   animateChar(dt);
   updateEnemies(dt);
   updateDrops(t);
   updateUpdrafts(t, dt);
+  updateRollers(dt);
+  updateSnow(dt, t);
+  updatePools(dt);
+  updateSteam(dt);
   updateDecor(t, dt);
   updatePuffs(dt);
   updateCamera(dt);
