@@ -96,6 +96,11 @@ body.touch #touchLayer{pointer-events:auto}
 .card .meta small{color:var(--muted);font-size:11px}
 .card .acts{display:flex;flex-wrap:wrap;gap:5px;padding:6px 10px 10px}
 .card .acts button{padding:5px 10px;font-size:12px}
+.easelpick{display:flex;gap:14px;align-items:center;margin-top:12px;padding:12px;border-radius:14px;background:#fffdf8;border:1px solid var(--line)}
+.easelpick img{width:160px;aspect-ratio:4/3;object-fit:cover;border-radius:8px;flex:none}
+.easelpick b{display:block;font-weight:500}.easelpick small{color:var(--muted);font-size:12px}
+.easelpick .row{margin-top:8px}
+@media (max-width:600px){.easelpick{flex-direction:column;align-items:stretch}.easelpick img{width:100%}}
 .empty{text-align:center;color:var(--muted);padding:40px 0;line-height:1.9;grid-column:1/-1}
 .supplies{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
 .supply{border-radius:14px;text-align:left;padding:14px;display:grid;grid-template-columns:42px 1fr;gap:2px 10px;align-items:start;white-space:normal}
@@ -230,6 +235,7 @@ body.touch #touchLayer{pointer-events:auto}
       <button id="pNew">新規</button>
       <button id="pOpen">開く</button>
       <button id="pClear">全消去</button>
+      <button id="pHang">壁に飾る</button>
       <button id="pSave" class="primary">保存</button>
     </div>
   </header>
@@ -1414,6 +1420,7 @@ const PaintUI = {
     $('#pClear').addEventListener('click', () => this.askClear());
     $('#pNew').addEventListener('click', () => this.askNew());
     $('#pSave').addEventListener('click', () => this.save());
+    $('#pHang').addEventListener('click', () => Game.askHangEasel());
     $('#pOpen').addEventListener('click', () => Game.openGallery('paint'));
     $('#pBack').addEventListener('click', () => this.exit());
     $('#pSideToggle').addEventListener('click', () => $('#paint').classList.toggle('side-open'));
@@ -2414,7 +2421,6 @@ const World = {
       this.mesh(new THREE.SphereGeometry(0.05, 14, 10), bM, 0, 2.62, 0, pg, { cast: false });
       const L = new THREE.PointLight(0xffc98a, 0.9, 6, 2); L.position.set(0, 2.52, 0); pg.add(L);
       const lamp = this.addLamp(L, [bM], 0.9);
-      this.box(0.55, 0.45, 0.55, inv, 0, 2.62, 0, pg, { cast: false });
       this.addInteract(pg, { kind: 'lamp', lamp, label: 'ペンダントランプ', actions: [{ key: 'E', text: '明かりを切り替える', id: 'lamp' }] });
     });
     // --- チェスト（左の壁）
@@ -3217,9 +3223,10 @@ const Game = {
   async texFor(id) {
     if (this.workTex.has(id)) return this.workTex.get(id);
     const w = this.works.find(x => x.id === id); if (!w) return null;
-    const img = await loadImage(w.img);
-    const t = new THREE.Texture(img); t.encoding = THREE.sRGBEncoding; t.needsUpdate = true;
-    t.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+    let img;
+    try { img = await loadImage(w.img); } catch (e) { console.warn('work image failed', id, e); return null; }
+    const c = mkCanvas(1024, 768); ctxOf(c).drawImage(img, 0, 0, 1024, 768);
+    const t = Tex.t(c); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.needsUpdate = true;
     this.workTex.set(id, t); return t;
   },
   async refreshFramesAndSketch() {
@@ -3229,8 +3236,8 @@ const Game = {
       if (c === 'default') { m.map = f.defaultTex; m.color.set(0xffffff); }
       else if (c === 'empty') { m.map = null; m.color.set(0xefe9dc); }
       else {
-        const t = await this.texFor(c);
-        if (t) { m.map = t; m.color.set(0xffffff); } else { m.map = f.defaultTex; this.state.frames[f.index] = 'default'; }
+        let t = null; try { t = await this.texFor(c); } catch (e) { console.warn(e); }
+        if (t) { m.map = t; m.color.set(0xffffff); } else { m.map = f.defaultTex; m.color.set(0xffffff); }
       }
       m.needsUpdate = true;
     }
@@ -3607,7 +3614,11 @@ const Game = {
     const ws = [...this.works].sort((a, b) => b.updated - a.updated);
     const title = ctx === 'frame' ? '額縁に飾る作品を選ぶ' : ctx === 'paint' ? '作品を開く' : 'スケッチブック ― 作品一覧';
     let extra = '';
-    if (ctx === 'frame') extra = `<div class="row"><button data-fx="default">元の絵に戻す</button><button data-fx="empty">空にする</button></div>`;
+    if (ctx === 'frame') {
+      const easelThumb = makeThumb(World.easelTex.canvas);
+      extra = `<div class="easelpick"><img src="${easelThumb}" alt=""><div><b>いまイーゼルにある絵</b><small>${escapeHtml(PaintUI.workName || '無題')}${this.engine.changed || !PaintUI.workId ? '（自動で保存してから飾ります）' : ''}</small>
+        <div class="row"><button class="primary" data-fx="easel">この絵を飾る</button><button data-fx="default">元の絵に戻す</button><button data-fx="empty">空にする</button></div></div></div>`;
+    }
     const cards = ws.length ? ws.map(w => `
       <div class="card" data-id="${w.id}">
         <img src="${w.thumb}" alt="">
@@ -3620,12 +3631,15 @@ const Game = {
     this.showPanel('gallery', html, 'wide' + (ctx === 'paint' ? ' over' : ''));
     const body = $('#panelBody');
     $('#galClose').addEventListener('click', () => this.closePanel());
-    $$('[data-fx]', body).forEach(b => b.addEventListener('click', async () => { this.state.frames[frame.index] = b.dataset.fx; await this.refreshFramesAndSketch(); this.saveStateSoon(); Sound.click(); this.closePanel(); }));
+    $$('[data-fx]', body).forEach(b => b.addEventListener('click', async () => {
+      if (b.dataset.fx === 'easel') { b.disabled = true; await this.hangEasel(frame.index); this.closePanel(); return; }
+      this.state.frames[frame.index] = b.dataset.fx; await this.refreshFramesAndSketch(); this.saveStateNow(); Sound.click(); this.closePanel();
+    }));
     $$('.card', body).forEach(card => {
       const id = card.dataset.id;
       $$('[data-a]', card).forEach(b => b.addEventListener('click', async () => {
         const a = b.dataset.a, w = this.works.find(x => x.id === id);
-        if (a === 'hang') { this.state.frames[frame.index] = id; await this.refreshFramesAndSketch(); this.saveStateSoon(); Sound.chime(); toast(`「${w.name}」を額に飾りました`); this.closePanel(); }
+        if (a === 'hang') { this.state.frames[frame.index] = id; await this.refreshFramesAndSketch(); this.saveStateNow(); Sound.chime(); toast(`「${w.name}」を額に飾りました`); this.closePanel(); }
         if (a === 'open') await this.openWorkInCanvas(w, ctx);
         if (a === 'sketch') { this.state.sketch = id; await this.refreshFramesAndSketch(); this.saveStateSoon(); toast('スケッチブックに挟みました'); Sound.page(); }
         if (a === 'hangmenu') this.chooseFrameFor(w);
@@ -3639,12 +3653,38 @@ const Game = {
       }));
     });
   },
+  FRAME_NAMES: ['左の壁（大）', '左の壁（小）', '手前の壁', '机の上の壁'],
+  saveStateNow() { clearTimeout(this._st); this.saveStateSoon(); clearTimeout(this._st);
+    this.state.lamps = World.lamps.map(l => l.on); this.state.updated = Date.now();
+    const copy = JSON.parse(JSON.stringify(this.state)); Store.setKV('state', copy);
+    clearTimeout(this._stc); this._stc = setTimeout(() => Store.cloudSet('state', copy), 800); },
+  /* イーゼルの絵を（必要なら保存してから）額に飾る */
+  async hangEasel(idx) {
+    if (this.engine.stroke) this.engine.end();
+    let id = PaintUI.workId;
+    const exists = id && this.works.find(w => w.id === id);
+    if (!exists || this.engine.changed) {
+      const name = PaintUI.workName && PaintUI.workName !== '無題' ? PaintUI.workName : `作品 ${new Date().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}`;
+      const w = await this.saveWork(name, false);
+      id = w.id; PaintUI.workId = id; PaintUI.workName = w.name; PaintUI.updateTitle(); this.engine.changed = false;
+    }
+    this.refreshEasel();
+    this.state.frames[idx] = id;
+    await this.refreshFramesAndSketch(); this.saveStateNow();
+    Sound.chime(); toast(`${this.FRAME_NAMES[idx]}の額に飾りました`);
+  },
+  async askHangEasel() {
+    const r = await Dialog.open({ title: '壁に飾る', html: '<p>いま描いている絵を、どの額縁に飾りますか？<br><span class="muted">保存していない絵は自動で保存されます。</span></p>',
+      buttons: [{ label: 'やめる', value: null }, ...this.FRAME_NAMES.map((n, i) => ({ label: n, value: String(i) }))] });
+    if (r === null || r === undefined) return;
+    await this.hangEasel(+r);
+  },
   async chooseFrameFor(w) {
     const names = ['左の壁（大）', '左の壁（小）', '手前の壁', '机の上の壁'];
     const html = `<p>「${escapeHtml(w.name)}」をどの額縁に飾りますか？</p>`;
     const r = await Dialog.open({ title: '壁に飾る', html, buttons: [{ label: 'やめる', value: null }, ...names.map((n, i) => ({ label: n, value: String(i) }))] });
     if (r === null || r === undefined) return;
-    this.state.frames[+r] = w.id; await this.refreshFramesAndSketch(); this.saveStateSoon(); Sound.chime(); toast(`「${w.name}」を${names[+r]}の額に飾りました`);
+    this.state.frames[+r] = w.id; await this.refreshFramesAndSketch(); this.saveStateNow(); Sound.chime(); toast(`「${w.name}」を${names[+r]}の額に飾りました`);
   },
   async openWorkInCanvas(w, ctx) {
     if (this.engine.changed) {
