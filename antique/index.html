@@ -2418,9 +2418,17 @@ function buildOutside() {
     const CK = ROOT.t([-36, -46, -300]);
     const parts = [];
     const add = (geo, p, s, base = 0x22232a) => { geo.applyMatrix4(M(p, [0, 0, 0], s || 1)); hazeColors(geo, base, haze, -40, 130, .12); parts.push(geo); };
-    const crag = G.lathe(spline2([[0, 70], [16, 66], [30, 56], [44, 30], [60, 0], [80, -40], [110, -80]], 24), 28);
-    const cp = crag.attributes.position; for (let i = 0; i < cp.count; i++) { const x = cp.getX(i), y = cp.getY(i), z = cp.getZ(i); const nn = fbm2(x * .05 + 3, z * .05 + y * .03, 4, 9); const f = 1 + (nn - .5) * .6; cp.setX(i, x * f); cp.setZ(i, z * f * .8); }
-    crag.computeVertexNormals(); add(crag, [0, 0, 0], 1, 0x1c1c1e);
+    // a broad rock plateau that carries the whole footprint, falling steeply into the mist and down to the valley
+    const crag = G.lathe(spline2([[0, 71], [36, 71], [46, 69], [50, 62], [53, 48], [57, 30], [63, 8], [72, -20], [86, -50], [104, -80], [128, -120]], 30), 36);
+    const cp = crag.attributes.position; for (let i = 0; i < cp.count; i++) { const x = cp.getX(i), y = cp.getY(i), z = cp.getZ(i); if (y > 70.5) continue; const nn = fbm2(x * .05 + 3, z * .05 + y * .04, 4, 9); const f = 1 + (nn - .5) * (y > 60 ? .18 : .5); cp.setX(i, x * f); cp.setZ(i, z * f * .82); }
+    crag.computeVertexNormals(); add(crag, [0, 0, 0], 1, 0x18181a);
+    // rock shoulders and spurs breaking the rim line
+    for (let i = 0; i < 14; i++) { const a = i / 14 * TAU + rr(-.15, .15), rad = rr(40, 50); const g = new THREE.DodecahedronGeometry(rr(6, 11), 0); g.scale(1, rr(1.2, 2.2), 1); add(g, [Math.cos(a) * rad, rr(52, 64), Math.sin(a) * rad * .8], 1, 0x1a1a1c); }
+    for (let i = 0; i < 6; i++) { const a = rr(-.9, .9) + PI / 2, rad = rr(52, 64); const g = new THREE.DodecahedronGeometry(rr(9, 16), 0); g.scale(1, rr(1.6, 2.6), 1); add(g, [Math.cos(a) * rad, rr(10, 38), Math.sin(a) * rad * .8], 1, 0x18181a); }
+    // battered stone foundations and a curtain wall, rooted in the rock
+    add(G.box(66, 14, 38), [0, 66, 0], 1, 0x1e1f24); add(G.box(74, 6, 44), [0, 62, 0], 1, 0x1c1c20);
+    add(G.box(70, 8, 1.6), [0, 74, 19], 1, 0x202128); add(G.box(70, 8, 1.6), [0, 74, -19], 1, 0x202128); add(G.box(1.6, 8, 38), [35, 74, 0], 1, 0x202128); add(G.box(1.6, 8, 38), [-35, 74, 0], 1, 0x202128);
+    for (let x = -34; x <= 34; x += 3.4) add(G.box(1.5, 1.6, 1.8), [x, 78.6, 19], 1, 0x202128);
     add(G.box(44, 26, 26), [0, 82, 0]); add(G.box(56, 14, 34), [0, 76, 0]);
     const towers = [[-26, -12, 6, 56], [26, -12, 6, 52], [-24, 14, 5, 46], [22, 15, 5, 48], [4, -4, 8, 86], [-10, 6, 4.5, 70], [14, 4, 4, 64], [-34, 2, 3.5, 40], [36, 0, 3.5, 38]];
     for (const [x, z, r, h] of towers) {
@@ -3643,6 +3651,7 @@ function bindTouch() {
    sound: synthesized ambience (no audio files)
    ========================================================= */
 const AUDIO = (() => {
+  const AMB = .45; // ambient bed (room, wind, rain, fire, ticks); thunder and inspected objects are not scaled
   let ctx = null, master = null, rev = null, dry = null, noiseBuf = null, started = false;
   const amb = {};
   let tickNext = 0, tickPhase = 0, crackleNext = 0;
@@ -3661,7 +3670,7 @@ const AUDIO = (() => {
     dry = ctx.createGain(); dry.gain.value = 1; dry.connect(comp);
     const conv = ctx.createConvolver(); conv.buffer = mkIR(3.2); rev = ctx.createGain(); rev.gain.value = .32; rev.connect(conv); conv.connect(comp);
     noiseBuf = mkNoise(6);
-    amb.room = loop('lowpass', 220, .5, .05);
+    amb.room = loop('lowpass', 220, .5, .05 * AMB);
     amb.wind = loop('bandpass', 420, .9, 0);
     amb.rain = loop('highpass', 2600, .4, 0);
     amb.fire = loop('lowpass', 520, .7, 0);
@@ -3687,18 +3696,18 @@ const AUDIO = (() => {
     const now = ctx.currentTime;
     const ox = FXi(P.x), oz = FZi(P.z), nearWin = clamp(1 - (oz + 13) / 14, 0, 1);
     const dFire = Math.hypot(ox - 9, oz - 13), dClock = Math.hypot(ox - 16, oz + 5);
-    amb.wind.g.gain.setTargetAtTime(.03 + nearWin * .09 + SKY.flash * .05, now, .5);
+    amb.wind.g.gain.setTargetAtTime((.03 + nearWin * .09) * AMB + SKY.flash * .05, now, .5);
     amb.wind.f.frequency.setTargetAtTime(380 + 140 * Math.sin(now * .13) + 80 * Math.sin(now * .37), now, .4);
-    amb.rain.g.gain.setTargetAtTime(.008 + nearWin * .02, now, .5);
-    amb.fire.g.gain.setTargetAtTime(clamp(1 - dFire / 9, 0, 1) * .12, now, .3);
+    amb.rain.g.gain.setTargetAtTime((.008 + nearWin * .02) * AMB, now, .5);
+    amb.fire.g.gain.setTargetAtTime(clamp(1 - dFire / 9, 0, 1) * .12 * AMB, now, .3);
     // fire crackles
-    if (now > crackleNext) { crackleNext = now + Math.random() * .25 + .03; const k = clamp(1 - dFire / 8, 0, 1); if (k > .02) click(now + .01, 1800 + Math.random() * 3000, k * (.05 + Math.random() * .12), .02 + Math.random() * .03, .2, 'highpass'); }
+    if (now > crackleNext) { crackleNext = now + Math.random() * .25 + .03; const k = clamp(1 - dFire / 8, 0, 1); if (k > .02) click(now + .01, 1800 + Math.random() * 3000, k * AMB * (.05 + Math.random() * .12), .02 + Math.random() * .03, .2, 'highpass'); }
     // clock ticks (pendulum: 1 s)
     if (now > tickNext - .05) {
       const t = Math.max(now, tickNext); tickNext = t + 1; tickPhase ^= 1;
       const k = clamp(1 - dClock / 18, 0, 1) * .85 + .05;
-      click(t, tickPhase ? 3200 : 2500, .09 * k, .025, .5);
-      if (k > .3) click(t + .37, 4200, .03 * k, .015, .4);
+      click(t, tickPhase ? 3200 : 2500, .09 * k * AMB, .025, .5);
+      if (k > .3) click(t + .37, 4200, .03 * k * AMB, .015, .4);
     }
   }
   return {
