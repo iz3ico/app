@@ -168,6 +168,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
   <div class="row"><label>歩く速さ</label><input type="range" id="sSpeed" min="0.5" max="1.8" step="0.05"></div>
   <div class="row"><label>歩くときの揺れ</label><div class="seg" id="sBob"><button data-v="1">オン</button><button data-v="0">オフ</button></div></div>
   <div class="row"><label>音</label><div class="seg" id="sSound"><button data-v="1">オン</button><button data-v="0">オフ</button></div></div>
+  <div class="row"><label>BGM</label><div class="seg" id="sBgm"><button data-v="1">オン</button><button data-v="0">オフ</button></div></div>
   <div class="row"><label>音量</label><input type="range" id="sVol" min="0" max="1" step="0.05"></div>
   <div class="note" id="sNote">画質「高」では窓からの光が本物の影を落とします。</div>
   <div class="col" style="margin-top:16px"><button class="btn" id="sBack">もどる</button></div>
@@ -202,7 +203,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem('antiqueroom_' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem('antiqueroom_' + k, JSON.stringify(v)); } catch (e) { } }
 };
-const SETTINGS = Object.assign({ quality: IS_TOUCH ? 'mid' : 'high', painterly: !IS_TOUCH, sens: 1, speed: 1, bob: true, sound: true, volume: 0.7 }, store.get('settings', {}));
+const SETTINGS = Object.assign({ quality: IS_TOUCH ? 'mid' : 'high', painterly: !IS_TOUCH, sens: 1, speed: 1, bob: true, sound: true, bgm: true, volume: 0.7 }, store.get('settings', {}));
 const QUALITY = {
   low:  { dpr: 1.0, shadows: false, msaa: 0, lights: 4, bloom: 0.5 },
   mid:  { dpr: 1.5, shadows: false, msaa: IS_TOUCH ? 0 : 2, lights: 7, bloom: 0.5 },
@@ -3522,7 +3523,7 @@ function openSettings(from) {
 }
 function syncSettings() {
   const seg = (id, v) => $(id).querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === String(v)));
-  seg('#sQuality', SETTINGS.quality); seg('#sPaint', SETTINGS.painterly ? 1 : 0); seg('#sBob', SETTINGS.bob ? 1 : 0); seg('#sSound', SETTINGS.sound ? 1 : 0);
+  seg('#sQuality', SETTINGS.quality); seg('#sPaint', SETTINGS.painterly ? 1 : 0); seg('#sBob', SETTINGS.bob ? 1 : 0); seg('#sSound', SETTINGS.sound ? 1 : 0); seg('#sBgm', SETTINGS.bgm !== false ? 1 : 0);
   $('#sSens').value = SETTINGS.sens; $('#sSpeed').value = SETTINGS.speed; $('#sVol').value = SETTINGS.volume;
 }
 function saveSettings() { store.set('settings', SETTINGS); }
@@ -3547,6 +3548,7 @@ function bindUI() {
   bindSeg('#sQuality', v => { SETTINGS.quality = v; applyQuality(); });
   bindSeg('#sPaint', v => { SETTINGS.painterly = v === '1'; applyQuality(); });
   bindSeg('#sBob', v => { SETTINGS.bob = v === '1'; });
+  bindSeg('#sBgm', v => { SETTINGS.bgm = v === '1'; if (window.AUDIO) AUDIO.setBgm(SETTINGS.bgm); });
   bindSeg('#sSound', v => { SETTINGS.sound = v === '1'; if (window.AUDIO) AUDIO.setOn(SETTINGS.sound); });
   $('#sSens').oninput = e => { SETTINGS.sens = +e.target.value; saveSettings(); };
   $('#sSpeed').oninput = e => { SETTINGS.speed = +e.target.value; saveSettings(); };
@@ -3648,12 +3650,22 @@ function bindTouch() {
 }
 
 /* =========================================================
-   sound: synthesized ambience (no audio files)
+   sound: synthesized ambience + background music (bgm.mp3 next to index.html)
    ========================================================= */
 const AUDIO = (() => {
   const AMB = .45; // ambient bed (room, wind, rain, fire, ticks); thunder and inspected objects are not scaled
   let ctx = null, master = null, rev = null, dry = null, noiseBuf = null, started = false;
   const amb = {};
+  /* background music: fetched early, decoded once the context exists, played whole with a pause between plays */
+  const BGM_LEVEL = .2, BGM_GAP = 6;
+  let bgmGain = null, bgmBuf = null, bgmSrc = null, bgmNext = 0, duckUntil = 0;
+  const bgmBytes = fetch('bgm.mp3').then(r => r.ok ? r.arrayBuffer() : null).catch(() => null);
+  function bgmTarget() { return SETTINGS.bgm === false ? 0 : BGM_LEVEL * (ctx && ctx.currentTime < duckUntil ? .22 : 1); }
+  function bgmPlay(at) {
+    if (!bgmBuf || SETTINGS.bgm === false) return;
+    const s = ctx.createBufferSource(); s.buffer = bgmBuf; s.connect(bgmGain); s.start(at); bgmSrc = s;
+    bgmNext = at + bgmBuf.duration + BGM_GAP;
+  }
   let tickNext = 0, tickPhase = 0, crackleNext = 0;
   function mkNoise(sec) { const b = ctx.createBuffer(2, ctx.sampleRate * sec, ctx.sampleRate); for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); let last = 0; for (let i = 0; i < d.length; i++) { const w = Math.random() * 2 - 1; last = (last + .02 * w) / 1.02; d[i] = c === 0 ? w * .5 + last * 2 : w * .5 + last * 2; } } return b; }
   function mkIR(sec) { const b = ctx.createBuffer(2, ctx.sampleRate * sec, ctx.sampleRate); for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < d.length; i++) { const t = i / d.length; d[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 3.2) * (i < 400 ? i / 400 : 1); } } return b; }
@@ -3674,6 +3686,8 @@ const AUDIO = (() => {
     amb.wind = loop('bandpass', 420, .9, 0);
     amb.rain = loop('highpass', 2600, .4, 0);
     amb.fire = loop('lowpass', 520, .7, 0);
+    bgmGain = ctx.createGain(); bgmGain.gain.value = 0; bgmGain.connect(master);
+    bgmBytes.then(b => b && ctx.decodeAudioData(b)).then(buf => { if (!buf) return; bgmBuf = buf; bgmGain.gain.setValueAtTime(0, ctx.currentTime); bgmGain.gain.linearRampToValueAtTime(bgmTarget(), ctx.currentTime + 4); bgmPlay(ctx.currentTime + .3); }).catch(() => {});
     started = true;
   }
   function env(g, t0, a, peak, d) { g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(peak, t0 + a); g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + d); }
@@ -3694,6 +3708,7 @@ const AUDIO = (() => {
   function update(dt) {
     if (!started || !ctx || ctx.state !== 'running') return;
     const now = ctx.currentTime;
+    if (bgmBuf) { if (SETTINGS.bgm !== false && now > bgmNext - .2) bgmPlay(Math.max(now, bgmNext)); bgmGain.gain.setTargetAtTime(bgmTarget(), now, now < duckUntil ? .4 : 1.2); }
     const ox = FXi(P.x), oz = FZi(P.z), nearWin = clamp(1 - (oz + 13) / 14, 0, 1);
     const dFire = Math.hypot(ox - 9, oz - 13), dClock = Math.hypot(ox - 16, oz + 5);
     amb.wind.g.gain.setTargetAtTime((.03 + nearWin * .09) * AMB + SKY.flash * .05, now, .5);
@@ -3712,14 +3727,17 @@ const AUDIO = (() => {
   }
   return {
     get ok() { return !!ctx; },
+    get bgm() { return bgmBuf ? { dur: +bgmBuf.duration.toFixed(1), gain: +bgmGain.gain.value.toFixed(3), playing: !!bgmSrc } : null; },
     start() { init(); if (ctx && ctx.state === 'suspended') ctx.resume(); },
     update,
     setOn(v) { if (master) master.gain.setTargetAtTime(v ? SETTINGS.volume : 0, ctx.currentTime, .1); },
+    setBgm(v) { if (!ctx || !bgmGain) return; if (!v && bgmSrc) { try { bgmSrc.stop(ctx.currentTime + 1.5); } catch (e) {} bgmSrc = null; bgmNext = Infinity; } if (v && bgmNext === Infinity) bgmNext = ctx.currentTime + .5; bgmGain.gain.setTargetAtTime(bgmTarget(), ctx.currentTime, .4); },
     setVol(v) { if (master && SETTINGS.sound) master.gain.setTargetAtTime(v, ctx.currentTime, .1); },
     step(kind, run) { if (!started) return; const t = ctx.currentTime; click(t, kind === 1 ? 420 : (kind === 2 ? 300 : 230), run ? .16 : .11, .07, .25, 'lowpass'); if (Math.random() < .15) click(t + .05, 900 + Math.random() * 400, .02, .12, .3); },
     thunder(delay) { if (!started) return; const t = ctx.currentTime + delay; const s = ctx.createBufferSource(); s.buffer = noiseBuf; const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 160; const g = ctx.createGain(); s.connect(f); f.connect(g); g.connect(dry); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(.35, t + .3); g.gain.exponentialRampToValueAtTime(.12, t + 1.2); g.gain.exponentialRampToValueAtTime(0.0001, t + 4.5); s.start(t); s.stop(t + 5); },
     inspect(it) {
       if (!started) return; const t = ctx.currentTime + .15;
+      if (it.sound && it.sound !== 'tick') duckUntil = t + (it.sound === 'chime' ? 8 : 6);   // let the object be heard over the music
       if (it.sound === 'piano') { const seq = [62, 65, 69, 74, 72, 69, 65, 64, 62, 57, 62, 65]; seq.forEach((n, i) => tone(t + i * .34, NOTE(n), 1.6, .09, 'sine', [1, .45, .2, .1, .05], 1.4)); tone(t, NOTE(38), 3, .07, 'sine', [1, .4, .2]); tone(t + 1.36, NOTE(41), 3, .06, 'sine', [1, .4, .2]); tone(t + 2.72, NOTE(45), 3, .06, 'sine', [1, .4, .2]); }
       else if (it.sound === 'chime') { [76, 72, 74, 67].forEach((n, i) => tone(t + i * .7, NOTE(n), 2.2, .07, 'sine', [1, .3, .55, .12], 1.6)); [43, 43, 43].forEach((n, i) => tone(t + 3.4 + i * 1.6, NOTE(n), 3, .09, 'sine', [1, .5, .7, .2], 1.6)); }
       else if (it.sound === 'musicbox') { const seq = [84, 88, 91, 88, 86, 83, 86, 84, 79, 81, 83, 84]; seq.forEach((n, i) => tone(t + i * .28 + (i % 4 === 3 ? .1 : 0), NOTE(n), .9, .05, 'triangle', [1, .2, .35], 1.1)); }
