@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>あそびば — やっつの扉</title>
+<title>あそびば — ここのつの扉</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
@@ -47,6 +47,7 @@ h1{margin:18px 0 0;font-weight:700;font-size:clamp(46px,8vw,78px);letter-spacing
 .gate:nth-child(6){animation-delay:.75s}
 .gate:nth-child(7){animation-delay:.9s}
 .gate:nth-child(8){animation-delay:1.05s}
+.gate:nth-child(9){animation-delay:1.2s}
 .arch{position:relative;width:100%;aspect-ratio:4/5;border-radius:999px 999px 18px 18px;padding:10px;
   background:linear-gradient(180deg,rgba(255,243,201,.9),var(--gold) 30%,var(--gold2) 70%,#7a5f2c);
   box-shadow:0 0 0 1px rgba(0,0,0,.6),0 30px 60px -30px rgba(0,0,0,.9),0 0 40px -12px var(--a);transition:box-shadow .5s,transform .5s cubic-bezier(.2,.8,.2,1)}
@@ -71,6 +72,7 @@ h1{margin:18px 0 0;font-weight:700;font-size:clamp(46px,8vw,78px);letter-spacing
 .ttl{margin:0;font-weight:700;font-size:clamp(24px,3vw,30px);letter-spacing:.26em;text-indent:.26em;color:var(--ink);text-shadow:0 0 18px color-mix(in srgb,var(--a) 50%,transparent)}
 .ttl.long{font-size:clamp(20px,2.3vw,25px);letter-spacing:.14em;text-indent:.14em;white-space:nowrap}
 .ttl.latin{font-family:var(--en);font-weight:600;letter-spacing:.14em;text-indent:.14em;white-space:nowrap}
+.ttl.latin.long{white-space:normal;font-size:clamp(20px,2.2vw,26px);letter-spacing:.1em;text-indent:.1em;line-height:1.25}
 .sub{margin-top:6px}
 .desc{margin:12px auto 0;max-width:22em;color:var(--sub);font-size:14px;line-height:1.95;letter-spacing:.06em}
 .btn{display:inline-flex;align-items:center;gap:10px;margin-top:18px;padding:10px 26px 10px 30px;border-radius:999px;font-size:14px;letter-spacing:.36em;
@@ -99,8 +101,8 @@ footer{position:relative;z-index:1;text-align:center;padding:8px 0 40px}
   <header>
     <div class="orn"><i></i>✦<i></i></div>
     <h1>あそびば</h1>
-    <p class="lead">やっつの扉</p>
-    <div class="en">Eight Gates</div>
+    <p class="lead">ここのつの扉</p>
+    <div class="en">Nine Gates</div>
   </header>
   <section class="gates" id="gates"></section>
 </main>
@@ -137,6 +139,9 @@ const GAMES=[
   {id:'taketori',title:'竹取物語',en:'The Bamboo Cutter', rune:'BAMBUSA · LUNA', accent:'#dfd27a',
    desc:'ひたすら竹を切る。光る竹の手がかりを追い、霧の結界の奥へ、かぐや姫を探しに。',
    path:'taketori/',artifact:'https://claude.ai/artifact/CMVodXJLcvx7fzH813pZic', thumb:'__THUMB_taketori__'},
+  {id:'antique',title:'THE ANTIQUE ROOM',en:'時の止まった洋館', rune:'TEMPUS · LIBRI', accent:'#e89aa0',
+   desc:'ゴシックの窓、二層の書架、時計の回廊。時の止まった洋館を、歩いて、眺める。',
+   path:'antique/',artifact:'https://claude.ai/artifact/WKTZDrMEhDHUUMjc57rNMK', thumb:'__THUMB_antique__'},
 ];
 const LOCAL=location.protocol==='file:'||/github\.io$/.test(location.hostname)||/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 const hrefOf=g=>LOCAL?(location.protocol==='file:'?g.path+'index.html':g.path):g.artifact;
@@ -149,7 +154,7 @@ for(const g of GAMES){const a=document.createElement('a');a.className='gate';a.h
     <div class="win"><img alt=""><span class="glint"></span><div class="rune"></div></div></div>
     <div class="plate"><h2 class="ttl"></h2><div class="en sub"></div><p class="desc"></p><span class="btn">扉をひらく</span></div>`;
   a.querySelector('img').src=g.thumb;a.querySelector('img').alt=g.title;a.querySelector('.rune').textContent=g.rune;
-  a.querySelector('.ttl').textContent=g.title;if(/^[\x20-\x7e]+$/.test(g.title))a.querySelector('.ttl').classList.add('latin');else if([...g.title].length>7)a.querySelector('.ttl').classList.add('long');a.querySelector('.sub').textContent=g.en;a.querySelector('.desc').textContent=g.desc;
+  a.querySelector('.ttl').textContent=g.title;if(/^[\x20-\x7e]+$/.test(g.title)){a.querySelector('.ttl').classList.add('latin');if(g.title.length>12)a.querySelector('.ttl').classList.add('long');}else if([...g.title].length>7)a.querySelector('.ttl').classList.add('long');a.querySelector('.sub').textContent=g.en;a.querySelector('.desc').textContent=g.desc;
   gates.appendChild(a);}
 gates.style.setProperty('--cols',GAMES.length<=4?GAMES.length:Math.ceil(GAMES.length/2));   // 5 枚以上は 2 段（例：3＋2）
 document.getElementById('foot').textContent=GAMES.length+' gates';

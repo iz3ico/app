@@ -17,6 +17,7 @@ ITEMS = [  # (ファイル名, タイトル, 小見出し, URL, アクセント�
     ('nchomechopo', 'んちょめちょぽ', 'アクション', 'https://iz3ico.github.io/app/nchomechopo/', (180, 224, 143)),
     ('atelier', 'ひだまりのアトリエ', 'お絵描き', 'https://iz3ico.github.io/app/atelier/', (232, 185, 138)),
     ('taketori', '竹取物語', '竹切り探索', 'https://iz3ico.github.io/app/taketori/', (223, 210, 122)),
+    ('antique', 'THE ANTIQUE ROOM', '洋館さんぽ', 'https://iz3ico.github.io/app/antique/', (232, 154, 160)),
 ]
 SERIF = '/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc'
 SANS = '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'
