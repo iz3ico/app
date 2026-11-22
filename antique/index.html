@@ -76,7 +76,22 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-actio
 #inspect .h .btns{display:flex;gap:8px}
 #inspect .h button[hidden]{display:none}
 #typeBar{position:fixed;left:50%;top:18px;transform:translate(-50%,-8px);z-index:16;display:flex;align-items:center;gap:10px;padding:10px 14px 10px 18px;opacity:0;pointer-events:none;transition:opacity .4s,transform .4s;font-size:12px;letter-spacing:.12em;color:#e8d8b4;white-space:nowrap}
-body.typing #reticle,body.typing #areaBanner{opacity:0!important}
+body.typing #reticle,body.typing #areaBanner,body.playing #reticle,body.playing #areaBanner{opacity:0!important}
+#pianoBar{position:fixed;left:50%;bottom:16px;transform:translate(-50%,10px);width:min(760px,calc(100vw - 20px));z-index:16;padding:10px 12px 12px;opacity:0;pointer-events:none;transition:opacity .4s,transform .4s;touch-action:none;user-select:none;-webkit-user-select:none}
+#pianoBar.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+#pianoBar .row1{display:flex;align-items:center;gap:8px;margin-bottom:9px;font-size:11px;letter-spacing:.1em;color:#e8d8b4}
+#pianoBar .tt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#pianoBar button{font-family:'Shippori Mincho',serif;font-size:12px;letter-spacing:.1em;color:#f0e2c2;background:rgba(40,28,18,.6);border:1px solid rgba(201,167,100,.5);padding:5px 10px;cursor:pointer}
+#pianoBar button.on{background:rgba(201,167,100,.45);color:#1a120c}
+#pnOct{min-width:2.4em;text-align:center;font-size:12px;color:#f0e2c2}
+#pnKeys{position:relative;height:118px;touch-action:none}
+#pnKeys .pk{position:absolute;top:0;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;font-size:10px;letter-spacing:0}
+#pnKeys .pk.w{height:100%;background:linear-gradient(#efe4cc,#e2d4b4);border:1px solid #6a5238;border-radius:0 0 4px 4px;color:#7a6044;padding-bottom:5px}
+#pnKeys .pk.b{height:62%;z-index:2;background:linear-gradient(#2a201a,#0c0908);border:1px solid #000;border-radius:0 0 3px 3px;color:#b89a70;padding-bottom:4px}
+#pnKeys .pk.w.on{background:linear-gradient(#d8c49a,#c9b07e)}
+#pnKeys .pk.b.on{background:linear-gradient(#4a3a2a,#2a2018)}
+#pnKeys .pk b{position:absolute;bottom:20px;font-weight:400;font-size:9px;color:#a08868}
+@media (max-width:620px){#pianoBar .tt{display:none}#pnKeys{height:132px}#pnKeys .pk span{display:none}}
 #typeBar.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 #typeBar button{font-family:'Shippori Mincho',serif;font-size:12px;letter-spacing:.12em;color:#f0e2c2;background:rgba(40,28,18,.6);border:1px solid rgba(201,167,100,.5);padding:6px 12px;cursor:pointer}
 #typeIn{position:fixed;left:50%;bottom:0;width:2px;height:2px;opacity:0;font-size:16px;border:0;padding:0;resize:none;pointer-events:none;z-index:-1}
@@ -122,6 +137,11 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 </div>
 
 <div id="typeBar" class="panel"><span class="tt">タイプライター ・ キーボードで打つ（Enter で改行）</span><button id="tyNew">新しい紙</button><button id="tyEnd">やめる</button></div>
+<div id="pianoBar" class="panel">
+  <div class="row1"><span class="tt">ピアノ ・ A〜; の段で白鍵、W E T Y U O P で黒鍵 ・ Z / X でオクターブ ・ Space でペダル</span>
+    <button id="pnDown">◀</button><span id="pnOct">C4</span><button id="pnUp">▶</button><button id="pnPedal">ペダル</button><button id="pnEnd">やめる</button></div>
+  <div id="pnKeys"></div>
+</div>
 <textarea id="typeIn" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="タイプライターに打つ"></textarea>
 
 <div id="title" class="layer hide">
@@ -2536,9 +2556,7 @@ function piano(K) {
     K.add(G.rbox(.07, .3, kz - dc + .06, .01, 1), MAT.lacquer, [s * (w / 2 - .035), .87, dc + (kz - dc) / 2], { c: 0x120c0a });
     K.add(turnedGeo(.62, .04, 12), MAT.lacquer, [s * (w / 2 - .06), 0, kz - .05], { c: 0x120c0a });
   }
-  const nw = 52, kw = (w - .16) / nw;
-  for (let i = 0; i < nw; i++) K.add(G.box(kw - .0015, .022, .15), MAT.ceramic, [-w / 2 + .08 + kw * (i + .5), .745, kz - .07], { c: 0xf0e6d2, noShadow: true });
-  for (let i = 0; i < nw - 1; i++) { if ([0, 2, 3, 5, 6].includes(i % 7)) K.add(G.box(kw * .55, .02, .09), MAT.lacquer, [-w / 2 + .08 + kw * (i + 1), .765, kz - .1], { c: 0x0c0a0a, noShadow: true }); }
+  pnMake(K, w, kz);   // the 88 keys are live: they go down when played
   K.add(G.box(w - .16, .05, .02), MAT.fabric, [0, .76, kz - .155], { c: C.bordeaux, noShadow: true });
   K.add(G.rbox(w - .14, .12, .03, .01, 1), MAT.lacquer, [0, .84, dc + .06], { r: [-.5, 0, 0], c: 0x120c0a });
   const md = K.t([0, 1.0, dc + .02], 0, 1, -.12);
@@ -2940,7 +2958,7 @@ function layoutLiving() {
   const ch = lv.t([0, RH, -.4]); chandelier(ch, 1.15, 2, 5.0, C.gold); spill(ROOT, [LV[0], .02, LV[2] - .4], 8, 8, WARM(.2), { floor: true });
   // piano
   const pi = wallK(17.98, 11.4, -PI / 2); piano(pi);
-  I(pi, [0, 1.0, .4], .8, 'アップライトピアノ', 'Upright Piano', '譜面台に開かれた夜想曲。鑑賞すると、誰もいない鍵盤から、いくつかの音がこぼれ落ちる。', { sound: 'piano' });
+  I(pi, [0, 1.0, .4], .8, 'アップライトピアノ', 'Upright Piano', '譜面台に開かれた夜想曲。鑑賞すると、誰もいない鍵盤から、いくつかの音がこぼれ落ちる。椅子に座って、弾くこともできる。', { sound: 'piano', piano: true });
   frame(wallK(17.98, 11.4, -PI / 2, 3.25), 1.15, 1.44, ATL.ART.r.flowers, { light: true });
   I(wallK(17.98, 11.4, -PI / 2, 3.25), [0, 0, .1], .8, '花の静物画', 'Still Life with Flowers', '暗がりに浮かぶ花束。描かれてから百年以上、一枚の花びらも散っていない。');
   // gramophone
@@ -3448,7 +3466,7 @@ function startInspect(it) {
   if (!IS_TOUCH) { UI.inspectRelease = true; releasePointer(); }
   if (window.AUDIO) AUDIO.inspect(it);
 }
-function endInspect() { if (MODE !== 'inspect' || IV.back) return; if (TYPE.on) stopTyping(true); IV.back = 1; IV.t = 0; hideInspect(); requestLook(); }
+function endInspect() { if (MODE !== 'inspect' || IV.back) return; if (TYPE.on) stopTyping(true); if (PIANO.on) stopPiano(true); IV.back = 1; IV.t = 0; hideInspect(); requestLook(); }
 const _ip = new THREE.Vector3(), _iq = new THREE.Quaternion(), _m4 = new THREE.Matrix4(), _lk = new THREE.Vector3(), _rt = new THREE.Vector3();
 function inspectStep(dt) {
   const it = INSPECTING;
@@ -3459,11 +3477,11 @@ function inspectStep(dt) {
     if (IV.t >= 1) { MODE = 'play'; INSPECTING = null; IV.cur = null; }
     return;
   }
-  if (TYPE.on) INPUT.look[0] = INPUT.look[1] = 0;
+  if (TYPE.on || PIANO.on) INPUT.look[0] = INPUT.look[1] = 0;
   IV.oy = clamp(IV.oy + INPUT.look[0], -1.15, 1.15); IV.op = clamp(IV.op + INPUT.look[1], -.45, .75); INPUT.look[0] = INPUT.look[1] = 0;
   const pmin = Math.min(-.5, (it.pitch ?? 0) - .3), pmax = Math.max(1.2, (it.pitch ?? 0) + .3);
   const yaw = IV.yaw + IV.oy, pit = clamp(IV.pitch + IV.op, pmin, pmax);
-  const tgt = TYPE.on && TW ? TW.focus : it.pos;
+  const tgt = TYPE.on && TW ? TW.focus : PIANO.on && PN ? PN.focus : it.pos;
   _ip.set(tgt.x + Math.sin(yaw) * Math.cos(pit) * IV.dist, tgt.y + Math.sin(pit) * IV.dist, tgt.z + Math.cos(yaw) * Math.cos(pit) * IV.dist);
   _ip.x = clamp(_ip.x, ROOM.x0 + .15, ROOM.x1 - .15); _ip.z = clamp(_ip.z, ROOM.z0 + .15, ROOM.z1 - .15); _ip.y = clamp(_ip.y, .25, 12.6);
   // keep the object clear of the description panel
@@ -3515,8 +3533,8 @@ function updateHUD(dt) {
 }
 function showInspect(it) {
   $('#inEn').textContent = it.en || ''; $('#inName').textContent = it.name; $('#inDesc').textContent = it.desc || '';
-  $('#inHint').textContent = IS_TOUCH ? 'ドラッグで眺める' : (it.type ? 'T で打つ ・ E / Esc でもどる' : 'マウスで眺める ・ E / Esc でもどる');
-  $('#inType').hidden = !it.type;
+  $('#inHint').textContent = IS_TOUCH ? 'ドラッグで眺める' : (it.type ? 'T で打つ ・ E / Esc でもどる' : it.piano ? 'P で弾く ・ E / Esc でもどる' : 'マウスで眺める ・ E / Esc でもどる');
+  $('#inType').hidden = !(it.type || it.piano); $('#inType').textContent = it.piano ? '弾く' : '打つ';
   $('#inspect').classList.add('on'); gradeInspect(1);
   const r = $('#inspect').getBoundingClientRect(); IV.panel = { side: r.width < innerWidth * .66, w: r.width, h: r.height };
   if (IS_TOUCH) { $('#tInspect').classList.remove('on'); }
@@ -3567,9 +3585,10 @@ function bindUI() {
   $('#sSpeed').oninput = e => { SETTINGS.speed = +e.target.value; saveSettings(); };
   $('#sVol').oninput = e => { SETTINGS.volume = +e.target.value; if (window.AUDIO) AUDIO.setVol(SETTINGS.volume); saveSettings(); };
 
-  initTyping();
+  initTyping(); initPiano();
   addEventListener('keydown', e => {
     if (TYPE.on) return;
+    if (PIANO.on) { pianoKey(e, true); return; }
     KEYS[e.code] = true;
     if (e.code === 'Tab') e.preventDefault();
     if (MODE === 'play') {
@@ -3577,11 +3596,12 @@ function bindUI() {
       else if (e.code === 'Escape' || e.code === 'Tab' || e.code === 'KeyM') openMenu();
     } else if (MODE === 'inspect') {
       if (e.code === 'KeyT' && INSPECTING && INSPECTING.type) { e.preventDefault(); startTyping(); return; }
+      if (e.code === 'KeyP' && INSPECTING && INSPECTING.piano) { e.preventDefault(); startPiano(); return; }
       if (e.code === 'KeyE' || e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space') endInspect();
     } else if (MODE === 'menu') { if (e.code === 'Escape' || e.code === 'Tab') closeMenu(); }
     else if (MODE === 'title' && e.code === 'Enter' && !$('#title').classList.contains('hide')) startGame();
   });
-  addEventListener('keyup', e => { KEYS[e.code] = false; });
+  addEventListener('keyup', e => { KEYS[e.code] = false; if (PIANO.on) pianoKey(e, false); });
   addEventListener('blur', () => { for (const k in KEYS) KEYS[k] = false; });
 
   // mouse
@@ -3796,12 +3816,137 @@ function initTyping() {
   ta.addEventListener('keyup', e => e.stopPropagation());
   // keep the caret at the end even if something moves it
   ta.addEventListener('select', () => { const n = ta.value.length; if (ta.selectionStart !== n) ta.setSelectionRange(n, n); });
-  $('#inType').onclick = e => { e.stopPropagation(); startTyping(); };
+  $('#inType').onclick = e => { e.stopPropagation(); if (INSPECTING && INSPECTING.piano) startPiano(); else startTyping(); };
   $('#tyEnd').onclick = e => { e.stopPropagation(); stopTyping(); };
   $('#tyNew').onclick = e => { e.stopPropagation(); newSheet(); };
   // tapping the scene while typing brings the keyboard back (phones close it easily)
   $('#typeBar').addEventListener('pointerdown', e => e.stopPropagation());
   addEventListener('pointerup', e => { if (TYPE.on && e.target.tagName === 'CANVAS') ta.focus({ preventScroll: true }); });
+}
+
+/* =========================================================
+   the upright piano: play it from the computer keyboard or the on-screen keys
+   ========================================================= */
+const PIANO = { on: false, oct: 4, sustain: false, held: new Map(), keyAnim: new Float32Array(128) };
+let PN = null;   // set by pnMake(): { white, black, idx: midi -> [mesh, i, matrix], focus, yaw }
+
+/* the 88 keys of the model: 52 white keys from A0 */
+function pnMake(K, w, kz) {
+  const nw = 52, kw = (w - .16) / nw;
+  const wm = new THREE.MeshStandardMaterial({ color: 0xf0e6d2, roughness: .32, metalness: 0 });
+  const bm = new THREE.MeshStandardMaterial({ color: 0x0e0b0a, roughness: .28, metalness: 0 });
+  const white = new THREE.InstancedMesh(new THREE.BoxGeometry(kw - .0015, .022, .15), wm, nw);
+  const black = new THREE.InstancedMesh(new THREE.BoxGeometry(kw * .55, .02, .09), bm, 36);
+  for (const im of [white, black]) { im.receiveShadow = true; im.castShadow = false; K.m.decompose(im.position, im.quaternion, im.scale); scene.add(im); }
+  const idx = {}, WSTEP = [2, 1, 2, 2, 1, 2, 2];   // A→B, B→C, C→D, D→E, E→F, F→G, G→A
+  let midi = 21, bi = 0; const m4 = new THREE.Matrix4();
+  for (let i = 0; i < nw; i++) {
+    const x = -w / 2 + .08 + kw * (i + .5);
+    m4.makeTranslation(x, .745, kz - .07); white.setMatrixAt(i, m4); idx[midi] = { im: white, i, x, y: .745, z: kz - .07, black: false };
+    const hasBlack = [0, 2, 3, 5, 6].includes(i % 7) && i < nw - 1;
+    if (hasBlack) { const bx = -w / 2 + .08 + kw * (i + 1); m4.makeTranslation(bx, .765, kz - .1); black.setMatrixAt(bi, m4); idx[midi + 1] = { im: black, i: bi, x: bx, y: .765, z: kz - .1, black: true }; bi++; }
+    midi += WSTEP[i % 7];
+  }
+  black.count = bi;
+  const d = new THREE.Vector3(0, 0, 1).transformDirection(K.m);
+  PN = { white, black, idx, K, kz, focus: K.pt(0, .77, kz - .1), yaw: Math.atan2(d.x, d.z) };
+  // pressed keys dip and spring back
+  const tmp = new THREE.Matrix4(), rot = new THREE.Matrix4();
+  onTick((t, dt) => {
+    if (!PN) return; let dirty = false;
+    for (const m in idx) {
+      const n = +m, k = idx[m], want = PIANO.held.has(n) ? 1 : 0, a = PIANO.keyAnim[n];
+      const na = want ? Math.min(1, a + dt * 30) : Math.max(0, a - dt * 9);
+      if (na !== a) {
+        PIANO.keyAnim[n] = na; dirty = true;
+        // pivot near the back of the key: the front edge drops about 8 mm
+        tmp.makeTranslation(k.x, k.y, k.z - .07); rot.makeRotationX(na * (k.black ? .11 : .1)); tmp.multiply(rot); tmp.multiply(rot.makeTranslation(0, 0, .07));
+        k.im.setMatrixAt(k.i, tmp); k.im.instanceMatrix.needsUpdate = true;
+      }
+    }
+  });
+}
+
+/* computer keys → semitones above the current octave's C */
+const PN_KEYS = { KeyA: 0, KeyW: 1, KeyS: 2, KeyE: 3, KeyD: 4, KeyF: 5, KeyT: 6, KeyG: 7, KeyY: 8, KeyH: 9, KeyU: 10, KeyJ: 11, KeyK: 12, KeyO: 13, KeyL: 14, KeyP: 15, Semicolon: 16, Quote: 17, BracketRight: 18, Backslash: 19 };
+const PN_LABEL = { 0: 'A', 1: 'W', 2: 'S', 3: 'E', 4: 'D', 5: 'F', 6: 'T', 7: 'G', 8: 'Y', 9: 'H', 10: 'U', 11: 'J', 12: 'K', 13: 'O', 14: 'L', 15: 'P', 16: ';', 17: ':' };
+
+function pnDown(midi, src, vel = .8) {
+  if (midi < 21 || midi > 108) return;
+  if (PIANO.held.has(midi)) pnUp(midi, true);
+  const v = window.AUDIO && AUDIO.pianoOn ? AUDIO.pianoOn(midi, vel) : null;
+  PIANO.held.set(midi, { v, src });
+  pnMark(midi, true);
+}
+function pnUp(midi, quiet) {
+  const h = PIANO.held.get(midi); if (!h) return;
+  PIANO.held.delete(midi); pnMark(midi, false);
+  if (PIANO.sustain && !quiet) { (PIANO.sus || (PIANO.sus = [])).push(h.v); return; }   // the pedal keeps it ringing
+  if (window.AUDIO && AUDIO.pianoOff) AUDIO.pianoOff(h.v);
+}
+function pnPedal(on) {
+  PIANO.sustain = on; $('#pnPedal').classList.toggle('on', on);
+  if (!on && PIANO.sus) { for (const v of PIANO.sus) if (window.AUDIO && AUDIO.pianoOff) AUDIO.pianoOff(v); PIANO.sus = []; }
+}
+function pnAllOff() { for (const m of [...PIANO.held.keys()]) pnUp(m, true); pnPedal(false); }
+
+/* on-screen keyboard: two octaves from the current C */
+function pnBuildKeys() {
+  const box = $('#pnKeys'); box.innerHTML = ''; const base = 12 * (PIANO.oct + 1);
+  const whites = []; for (let s = 0; s <= 24; s++) if (![1, 3, 6, 8, 10].includes(s % 12)) whites.push(s);
+  const ww = 100 / whites.length;
+  whites.forEach((s, i) => { const k = document.createElement('div'); k.className = 'pk w'; k.dataset.m = base + s; k.style.left = (i * ww) + '%'; k.style.width = ww + '%'; k.innerHTML = `<span>${PN_LABEL[s] || ''}</span>${s % 12 === 0 ? `<b>C${PIANO.oct + s / 12}</b>` : ''}`; box.appendChild(k); });
+  for (let s = 0; s < 24; s++) if ([1, 3, 6, 8, 10].includes(s % 12)) { const wi = whites.indexOf(s - 1); const k = document.createElement('div'); k.className = 'pk b'; k.dataset.m = base + s; k.style.left = ((wi + 1) * ww - ww * .3) + '%'; k.style.width = (ww * .6) + '%'; k.innerHTML = `<span>${PN_LABEL[s] || ''}</span>`; box.appendChild(k); }
+  $('#pnOct').textContent = 'C' + PIANO.oct;
+  for (const m of PIANO.held.keys()) pnMark(m, true);
+}
+function pnMark(m, on) { const el = document.querySelector(`#pnKeys .pk[data-m="${m}"]`); if (el) el.classList.toggle('on', on); }
+function pnShift(d) { const o = clamp(PIANO.oct + d, 1, 6); if (o === PIANO.oct) return; for (const [m, h] of [...PIANO.held]) if (h.src === 'key') pnUp(m); PIANO.oct = o; pnBuildKeys(); }
+
+function startPiano() {
+  if (!PN || PIANO.on || MODE !== 'inspect') return;
+  PIANO.on = true; document.body.classList.add('playing');
+  IV.from.pos.copy(camera.position); IV.from.q.copy(camera.quaternion); IV.cur = null; IV.t = 0;
+  IV.save = { yaw: IV.yaw, pitch: IV.pitch, dist: IV.dist, panel: IV.panel };
+  IV.yaw = PN.yaw; IV.pitch = IS_TOUCH ? .78 : .62; IV.dist = IS_TOUCH ? 1.25 : 1.0; IV.oy = IV.op = 0; IV.panel = null;
+  $('#inspect').classList.remove('on'); $('#pianoBar').classList.add('on');
+  pnBuildKeys();
+  if (window.AUDIO && AUDIO.hush) AUDIO.hush(true);
+}
+function stopPiano(leave) {
+  if (!PIANO.on) return;
+  pnAllOff(); PIANO.on = false; document.body.classList.remove('playing');
+  $('#pianoBar').classList.remove('on');
+  if (IV.save) { IV.from.pos.copy(camera.position); IV.from.q.copy(camera.quaternion); IV.cur = null; IV.t = 0; Object.assign(IV, { yaw: IV.save.yaw, pitch: IV.save.pitch, dist: IV.save.dist, panel: IV.save.panel }); IV.save = null; }
+  if (!leave && MODE === 'inspect') $('#inspect').classList.add('on');
+  if (window.AUDIO && AUDIO.hush) AUDIO.hush(false);
+}
+
+function pianoKey(e, down) {
+  if (e.code === 'Escape') { if (down) stopPiano(); return; }
+  if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) pnPedal(down); return; }
+  if (down && !e.repeat && (e.code === 'KeyZ' || e.code === 'Minus')) { pnShift(-1); return; }
+  if (down && !e.repeat && (e.code === 'KeyX' || e.code === 'Equal')) { pnShift(1); return; }
+  const s = PN_KEYS[e.code]; if (s == null) return;
+  e.preventDefault(); if (e.repeat) return;
+  const m = 12 * (PIANO.oct + 1) + s;
+  if (down) pnDown(m, 'key', e.shiftKey ? 1 : .8); else { for (const [mm, h] of [...PIANO.held]) if (h.src === 'key' && h.code === e.code) pnUp(mm); }
+  if (down && PIANO.held.get(m)) PIANO.held.get(m).code = e.code;
+}
+
+function initPiano() {
+  const box = $('#pnKeys'); const ptr = new Map();   // pointerId → midi (lets you slide across the keys)
+  const at = e => { const el = document.elementFromPoint(e.clientX, e.clientY); return el && el.closest ? el.closest('.pk') : null; };
+  box.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); box.setPointerCapture(e.pointerId); const k = at(e); if (!k) return; const m = +k.dataset.m; ptr.set(e.pointerId, m); const r = k.getBoundingClientRect(); pnDown(m, 'ptr', clamp(.45 + (e.clientY - r.top) / r.height * .55, .4, 1)); });
+  box.addEventListener('pointermove', e => { if (!ptr.has(e.pointerId)) return; const k = at(e); const m = k ? +k.dataset.m : null; if (m === ptr.get(e.pointerId)) return; pnUp(ptr.get(e.pointerId)); ptr.set(e.pointerId, m); if (m != null) pnDown(m, 'ptr', .7); });
+  const up = e => { if (!ptr.has(e.pointerId)) return; const m = ptr.get(e.pointerId); ptr.delete(e.pointerId); if (m != null) pnUp(m); };
+  box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
+  $('#pianoBar').addEventListener('pointerdown', e => e.stopPropagation());
+  $('#pnDown').onclick = e => { e.stopPropagation(); pnShift(-1); };
+  $('#pnUp').onclick = e => { e.stopPropagation(); pnShift(1); };
+  $('#pnEnd').onclick = e => { e.stopPropagation(); stopPiano(); };
+  $('#pnPedal').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); pnPedal(!PIANO.sustain); });
+  addEventListener('blur', () => { if (PIANO.on) pnAllOff(); });
 }
 
 /* =========================================================
@@ -3820,7 +3965,7 @@ const AUDIO = (() => {
     if (el && el.textContent.length > 100) { const bin = atob(el.textContent.trim()); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); el.textContent = ''; return u.buffer; }
     try { const r = await fetch('bgm.mp3'); return r.ok ? await r.arrayBuffer() : null; } catch (e) { return null; }
   })();
-  function bgmTarget() { return SETTINGS.bgm === false ? 0 : BGM_LEVEL * (ctx && ctx.currentTime < duckUntil ? .22 : 1); }
+  function bgmTarget() { return SETTINGS.bgm === false || duckUntil === Infinity ? 0 : BGM_LEVEL * (ctx && ctx.currentTime < duckUntil ? .22 : 1); }
   function bgmPlay(at) {
     if (!bgmBuf || SETTINGS.bgm === false) return;
     const s = ctx.createBufferSource(); s.buffer = bgmBuf; s.connect(bgmGain); s.start(at); bgmSrc = s;
@@ -3895,6 +4040,32 @@ const AUDIO = (() => {
     setVol(v) { if (master && SETTINGS.sound) master.gain.setTargetAtTime(v, ctx.currentTime, .1); },
     step(kind, run) { if (!started) return; const t = ctx.currentTime; click(t, kind === 1 ? 420 : (kind === 2 ? 300 : 230), run ? .16 : .11, .07, .25, 'lowpass'); if (Math.random() < .15) click(t + .05, 900 + Math.random() * 400, .02, .12, .3); },
     thunder(delay) { if (!started) return; const t = ctx.currentTime + delay; const s = ctx.createBufferSource(); s.buffer = noiseBuf; const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 160; const g = ctx.createGain(); s.connect(f); f.connect(g); g.connect(dry); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(.35, t + .3); g.gain.exponentialRampToValueAtTime(.12, t + 1.2); g.gain.exponentialRampToValueAtTime(0.0001, t + 4.5); s.start(t); s.stop(t + 5); },
+    /* piano voice: slightly inharmonic partials that die away faster up high, a felt hammer thump, panned by pitch */
+    pianoOn(m, vel = .8) {
+      if (!started) return null; const t = ctx.currentTime + .004, f = NOTE(m);
+      const out = ctx.createGain(); out.gain.value = 1;
+      const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null; if (pan) { pan.pan.value = clamp((m - 64) / 40, -.7, .7); out.connect(pan); pan.connect(dry); const rg = ctx.createGain(); rg.gain.value = .55; pan.connect(rg); rg.connect(rev); } else { out.connect(dry); }
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(Math.min(16000, f * (4 + vel * 10)), t); lp.frequency.setTargetAtTime(Math.min(9000, f * 3), t + .02, .6); lp.connect(out);
+      const tau = clamp(3.2 * Math.pow(60 / m, 1.6), .35, 6), amp = .055 * (.35 + vel * .75) * clamp(1.25 - (m - 40) / 90, .55, 1.25);
+      const parts = [1, .52, .3, .2, .12, .08, .05], oscs = [];
+      for (let i = 0; i < parts.length; i++) {
+        const n = i + 1, fn = f * n * Math.sqrt(1 + .0004 * n * n); if (fn > 15000) break;
+        for (const det of i === 0 ? [-.6, .6] : [0]) {
+          const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = fn; o.detune.value = det;
+          const g = ctx.createGain(); const a = amp * parts[i] * (i === 0 ? .6 : 1);
+          g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(a, t + .003); g.gain.setTargetAtTime(a * .35, t + .004, .09 / (1 + i * .3)); g.gain.setTargetAtTime(0, t + .15, tau / (1 + i * .45));
+          o.connect(g); g.connect(lp); o.start(t); o.stop(t + tau * 5 + .5); oscs.push(o);
+        }
+      }
+      click(t, Math.min(4000, f * 2.2), .02 + vel * .03, .03, .2, 'bandpass');
+      return { out, oscs, t };
+    },
+    pianoOff(v) {
+      if (!v || !ctx) return; const t = ctx.currentTime;
+      v.out.gain.cancelScheduledValues(t); v.out.gain.setValueAtTime(v.out.gain.value, t); v.out.gain.setTargetAtTime(0, t, .09);
+      for (const o of v.oscs) { try { o.stop(t + .8); } catch (e) {} }
+    },
+    hush(on) { duckUntil = on ? Infinity : 0; if (on) for (const k of ['wind', 'rain', 'fire']) if (amb[k]) amb[k].g.gain.setTargetAtTime(amb[k].g.gain.value * .5, ctx.currentTime, .5); },
     typeKey(k) {
       if (!started) return; const t = ctx.currentTime + .005, r = Math.random();
       if (k === 'key') { click(t, 2600 + r * 1400, .13, .018, .18); click(t, 420 + r * 120, .09, .045, .1, 'lowpass'); click(t + .028, 1500, .03, .02, .15); }
