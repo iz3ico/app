@@ -73,6 +73,14 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-actio
 #inspect h2{margin:6px 0 10px;font-weight:600;font-size:21px;letter-spacing:.14em;color:#f4e6c6}
 #inspect p{margin:0;font-size:14px;line-height:1.95;letter-spacing:.06em;color:#dccaa6}
 #inspect .h{margin-top:12px;font-size:11px;letter-spacing:.15em;color:var(--dim);display:flex;justify-content:space-between;align-items:center;gap:12px}
+#inspect .h .btns{display:flex;gap:8px}
+#inspect .h button[hidden]{display:none}
+#typeBar{position:fixed;left:50%;top:18px;transform:translate(-50%,-8px);z-index:16;display:flex;align-items:center;gap:10px;padding:10px 14px 10px 18px;opacity:0;pointer-events:none;transition:opacity .4s,transform .4s;font-size:12px;letter-spacing:.12em;color:#e8d8b4;white-space:nowrap}
+body.typing #reticle,body.typing #areaBanner{opacity:0!important}
+#typeBar.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+#typeBar button{font-family:'Shippori Mincho',serif;font-size:12px;letter-spacing:.12em;color:#f0e2c2;background:rgba(40,28,18,.6);border:1px solid rgba(201,167,100,.5);padding:6px 12px;cursor:pointer}
+#typeIn{position:fixed;left:50%;bottom:0;width:2px;height:2px;opacity:0;font-size:16px;border:0;padding:0;resize:none;pointer-events:none;z-index:-1}
+@media (max-width:620px){#typeBar .tt{display:none}}
 #inspect .h button{pointer-events:auto;font-family:'Shippori Mincho',serif;font-size:12px;letter-spacing:.15em;color:#f0e2c2;background:rgba(40,28,18,.6);border:1px solid rgba(201,167,100,.5);padding:6px 14px;cursor:pointer}
 /* menus */
 .dlg{background:rgba(0,0,0,.45);z-index:30}
@@ -113,6 +121,9 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
   <div class="err hide" id="loadErr"></div>
 </div>
 
+<div id="typeBar" class="panel"><span class="tt">タイプライター ・ キーボードで打つ（Enter で改行）</span><button id="tyNew">新しい紙</button><button id="tyEnd">やめる</button></div>
+<textarea id="typeIn" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="タイプライターに打つ"></textarea>
+
 <div id="title" class="layer hide">
   <div class="pre">— a room where time stood still —</div>
   <h1>THE ANTIQUE<br>ROOM</h1>
@@ -145,7 +156,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
   <div class="en" id="inEn"></div>
   <h2 id="inName"></h2>
   <p id="inDesc"></p>
-  <div class="h"><span id="inHint">ドラッグで眺める</span><button id="inBack">もどる</button></div>
+  <div class="h"><span id="inHint">ドラッグで眺める</span><span class="btns"><button id="inType" hidden>打つ</button><button id="inBack">もどる</button></span></div>
 </div>
 
 <div id="lockHint" class="hide">クリックで視点を動かせます</div>
@@ -2214,7 +2225,7 @@ function typewriter(K) {
   for (let i = 0; i < 26; i++) { const a = PI * (.1 + i / 25 * .8); K.add(G.box(.003, .003, .09), MAT.metal, [Math.cos(a) * .09, .12, -.02 - Math.sin(a) * .05], { r: [0, a - PI / 2, 0], c: 0x888888, noShadow: true }); }
   K.add(G.cyl(.035, .035, .46, 20), MAT.lacquer, [0, .2, -.13], { r: [0, 0, PI / 2], c: 0x0e0e0e });
   for (const s of [-1, 1]) K.add(G.cyl(.04, .04, .02, 16), MAT.metal, [s * .24, .2, -.13], { r: [0, 0, PI / 2], c: C.silver });
-  printPlane(K, .22, .26, 'typed', [0, .3, -.15], { r: [-.25, 0, 0] });
+  twMake(K, [0, .3, -.15], [-.25, 0, 0]);   // the sheet you can type on
   K.add(G.tube([[-.25, .2, -.13], [-.3, .24, -.1], [-.31, .26, -.04]], .006, 8, 4), MAT.metal, [0, 0, 0], { c: C.silver });
 }
 function gramophone(K) {
@@ -2771,7 +2782,7 @@ function layoutLibrary() {
   // secretary nook (south wall under the mezzanine)
   const bu = ROOT.t([BU, 0, RZ], PI); bureau(bu);
   I(bu, [0, 1.3, .2], .6, '秘書机', 'Secretary Desk', '小さな引き出しと仕切りがぎっしり並ぶ書き物机。整理された手紙の奥に、誰にも見せない一通がしまわれている。');
-  I(bu, [-.18, 1.0, .7], .2, 'タイプライター', 'Typewriter', '黒い漆塗りの古いタイプライター。紙が一枚、打ちかけのまま挟まっている。', { sound: 'tick' });
+  I(bu, [-.18, 1.0, .7], .2, 'タイプライター', 'Typewriter', '黒い漆塗りの古いタイプライター。紙が一枚、打ちかけのまま挟まっている。続きを打つこともできる。', { sound: 'tick', type: true, vd: 1.0 });
   chair(ROOT.t([BU, 0, RZ - 1.5], 0), C.moss);
   const ct = ROOT.t([BU, 2.72, RZ - .01], PI); curiosityTray(ct, 1.3, .86);
   I(ct, [0, 0, .05], .55, '標本箱', 'Cabinet of Curiosities', '活字ケースを転用した標本棚。貝殻、鉱石、小瓶、骨のかけら——ひとマスにひとつずつ、小さな世界がおさまっている。');
@@ -3437,7 +3448,7 @@ function startInspect(it) {
   if (!IS_TOUCH) { UI.inspectRelease = true; releasePointer(); }
   if (window.AUDIO) AUDIO.inspect(it);
 }
-function endInspect() { if (MODE !== 'inspect' || IV.back) return; IV.back = 1; IV.t = 0; hideInspect(); requestLook(); }
+function endInspect() { if (MODE !== 'inspect' || IV.back) return; if (TYPE.on) stopTyping(true); IV.back = 1; IV.t = 0; hideInspect(); requestLook(); }
 const _ip = new THREE.Vector3(), _iq = new THREE.Quaternion(), _m4 = new THREE.Matrix4(), _lk = new THREE.Vector3(), _rt = new THREE.Vector3();
 function inspectStep(dt) {
   const it = INSPECTING;
@@ -3448,10 +3459,11 @@ function inspectStep(dt) {
     if (IV.t >= 1) { MODE = 'play'; INSPECTING = null; IV.cur = null; }
     return;
   }
+  if (TYPE.on) INPUT.look[0] = INPUT.look[1] = 0;
   IV.oy = clamp(IV.oy + INPUT.look[0], -1.15, 1.15); IV.op = clamp(IV.op + INPUT.look[1], -.45, .75); INPUT.look[0] = INPUT.look[1] = 0;
   const pmin = Math.min(-.5, (it.pitch ?? 0) - .3), pmax = Math.max(1.2, (it.pitch ?? 0) + .3);
   const yaw = IV.yaw + IV.oy, pit = clamp(IV.pitch + IV.op, pmin, pmax);
-  const tgt = it.pos;
+  const tgt = TYPE.on && TW ? TW.focus : it.pos;
   _ip.set(tgt.x + Math.sin(yaw) * Math.cos(pit) * IV.dist, tgt.y + Math.sin(pit) * IV.dist, tgt.z + Math.cos(yaw) * Math.cos(pit) * IV.dist);
   _ip.x = clamp(_ip.x, ROOM.x0 + .15, ROOM.x1 - .15); _ip.z = clamp(_ip.z, ROOM.z0 + .15, ROOM.z1 - .15); _ip.y = clamp(_ip.y, .25, 12.6);
   // keep the object clear of the description panel
@@ -3503,7 +3515,8 @@ function updateHUD(dt) {
 }
 function showInspect(it) {
   $('#inEn').textContent = it.en || ''; $('#inName').textContent = it.name; $('#inDesc').textContent = it.desc || '';
-  $('#inHint').textContent = IS_TOUCH ? 'ドラッグで眺める' : 'マウスで眺める ・ E / Esc でもどる';
+  $('#inHint').textContent = IS_TOUCH ? 'ドラッグで眺める' : (it.type ? 'T で打つ ・ E / Esc でもどる' : 'マウスで眺める ・ E / Esc でもどる');
+  $('#inType').hidden = !it.type;
   $('#inspect').classList.add('on'); gradeInspect(1);
   const r = $('#inspect').getBoundingClientRect(); IV.panel = { side: r.width < innerWidth * .66, w: r.width, h: r.height };
   if (IS_TOUCH) { $('#tInspect').classList.remove('on'); }
@@ -3554,13 +3567,16 @@ function bindUI() {
   $('#sSpeed').oninput = e => { SETTINGS.speed = +e.target.value; saveSettings(); };
   $('#sVol').oninput = e => { SETTINGS.volume = +e.target.value; if (window.AUDIO) AUDIO.setVol(SETTINGS.volume); saveSettings(); };
 
+  initTyping();
   addEventListener('keydown', e => {
+    if (TYPE.on) return;
     KEYS[e.code] = true;
     if (e.code === 'Tab') e.preventDefault();
     if (MODE === 'play') {
       if (e.code === 'KeyE' || e.code === 'Enter') startInspect(TARGET);
       else if (e.code === 'Escape' || e.code === 'Tab' || e.code === 'KeyM') openMenu();
     } else if (MODE === 'inspect') {
+      if (e.code === 'KeyT' && INSPECTING && INSPECTING.type) { e.preventDefault(); startTyping(); return; }
       if (e.code === 'KeyE' || e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space') endInspect();
     } else if (MODE === 'menu') { if (e.code === 'Escape' || e.code === 'Tab') closeMenu(); }
     else if (MODE === 'title' && e.code === 'Enter' && !$('#title').classList.contains('hide')) startGame();
@@ -3647,6 +3663,145 @@ function bindTouch() {
   canvas.addEventListener('touchend', end); canvas.addEventListener('touchcancel', end);
   $('#tInspect').addEventListener('touchstart', e => { e.preventDefault(); if (MODE === 'play' && TARGET) startInspect(TARGET); }, { passive: false });
   $('#tRun').addEventListener('touchstart', e => { e.preventDefault(); INPUT.run = !INPUT.run; $('#tRun').classList.toggle('on', INPUT.run); $('#tRun').textContent = INPUT.run ? '走る' : '歩く'; }, { passive: false });
+}
+
+/* =========================================================
+   the typewriter: what you type lands on its sheet of paper
+   (a hidden textarea collects keys and IME input; the sheet is a canvas texture)
+   ========================================================= */
+const TYPE = { on: false, text: '', cols: 30, lineH: 30, bump: 0, lastLen: 0, belled: -1 };
+const TYPE_DEFAULT = 'My dear friend,\n\nThe clocks of this house have stopped again,\nall of them at the very same minute. ';
+let TW = null;   // set by typewriter(): { mesh, ctx, tex, focus, yaw, base }
+
+function twMake(K, p, r) {
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 606;
+  const ctx = cv.getContext('2d');
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: .92, metalness: 0, side: THREE.DoubleSide });
+  mat.userData.uv = 'native'; mat.name = 'typesheet';
+  const mesh = K.mesh(G.plane(.22, .26), mat, p, { r, keepUV: true, noShadow: true });
+  mesh.castShadow = false;
+  // paper ground: warm, slightly uneven, darker at the edges
+  const bg = document.createElement('canvas'); bg.width = cv.width; bg.height = cv.height; const b = bg.getContext('2d');
+  b.fillStyle = '#ece1c6'; b.fillRect(0, 0, bg.width, bg.height);
+  for (let i = 0; i < 900; i++) { b.fillStyle = `rgba(${120 + rr(0, 60) | 0},${100 + rr(0, 40) | 0},${60 + rr(0, 30) | 0},${rr(.01, .04)})`; b.fillRect(rr(0, bg.width), rr(0, bg.height), rr(1, 4), rr(1, 4)); }
+  const v = b.createRadialGradient(bg.width / 2, bg.height / 2, bg.height * .3, bg.width / 2, bg.height / 2, bg.height * .75); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(90,60,30,.28)'); b.fillStyle = v; b.fillRect(0, 0, bg.width, bg.height);
+  TW = { mesh, ctx, tex, bg, base: mesh.position.clone(), focus: K.pt(0, .29, -.13), yaw: (() => { const d = new THREE.Vector3(0, 0, 1).transformDirection(K.m); return Math.atan2(d.x, d.z); })() };
+  TYPE.text = store.get('typed', TYPE_DEFAULT); if (typeof TYPE.text !== 'string') TYPE.text = TYPE_DEFAULT;
+  TYPE.lastLen = TYPE.text.length;
+  twDraw();
+  // the painterly filter smears small type, so it fades out while typing
+  onTick((t, dt) => { if (typeof paintPass === 'undefined' || !paintPass) return; const want = (SETTINGS.painterly ? 1 : 0) * (TYPE.on ? 0 : 1), u = paintPass.uniforms.uAmt; u.value += (want - u.value) * Math.min(1, dt * 4); if (Math.abs(u.value - want) < .01) u.value = want; });
+  onTick((t, dt) => { if (!TW) return; TYPE.bump = Math.max(0, TYPE.bump - dt * 9); TW.mesh.position.copy(TW.base); TW.mesh.position.y += TYPE.bump * .0025; });
+}
+
+/* width in cells: full-width characters take two */
+const twW = ch => /[ᄀ-ᅟ⺀-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦]/.test(ch) ? 2 : 1;
+function twLines(text) {
+  const out = []; let cur = '', w = 0;
+  for (const ch of text) {
+    if (ch === '\n') { out.push(cur); cur = ''; w = 0; continue; }
+    const cw = twW(ch);
+    if (w + cw > TYPE.cols) {
+      // carry an unfinished word over to the next line; text without spaces simply breaks
+      const sp = cur.lastIndexOf(' ');
+      if (ch !== ' ' && sp > 0 && sp < cur.length - 1 && cur.length - sp < 16) { out.push(cur.slice(0, sp)); cur = cur.slice(sp + 1); w = [...cur].reduce((a, c) => a + twW(c), 0); }
+      else { out.push(cur); cur = ''; w = 0; if (ch === ' ') continue; }
+    }
+    cur += ch; w += cw;
+  }
+  out.push(cur); return { lines: out, col: w };
+}
+function twHash(i) { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+
+function twDraw() {
+  if (!TW) return;
+  const { ctx, bg } = TW, W = bg.width, H = bg.height, L = 34, cell = (W - 2 * L) / TYPE.cols, lh = TYPE.lineH;
+  ctx.drawImage(bg, 0, 0);
+  const { lines, col } = twLines(TYPE.text);
+  const baseY = Math.round(H * .69);         // the printing line sits just above the platen (the lower part of the sheet is behind it)
+  const first = Math.max(0, lines.length - Math.floor((baseY - 20) / lh) - 1);
+  ctx.textBaseline = 'alphabetic';
+  let idx = 0; for (let i = 0; i < first; i++) idx += [...lines[i]].length + 1;
+  for (let li = first; li < lines.length; li++) {
+    const y0 = baseY - (lines.length - 1 - li) * lh; let x = L;
+    for (const ch of lines[li]) {
+      const cw = twW(ch), h1 = twHash(idx), h2 = twHash(idx + 71.3), h3 = twHash(idx + 19.9);
+      if (ch !== ' ' && ch !== '　') {
+        ctx.save(); ctx.translate(x + cell * cw / 2 + (h1 - .5) * 1.4, y0 + (h2 - .5) * 2.2); ctx.rotate((h3 - .5) * .05);
+        ctx.font = cw === 2 ? '600 25px "Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif' : '600 25px "Courier New",Courier,monospace';
+        ctx.textAlign = 'center'; ctx.fillStyle = `rgba(26,19,14,${.68 + h1 * .27})`; ctx.fillText(ch, 0, 0);
+        if (h2 > .8) { ctx.fillStyle = 'rgba(26,19,14,.18)'; ctx.fillText(ch, .8, .6); }   // a heavier strike now and then
+        ctx.restore();
+      }
+      x += cell * cw; idx++;
+    }
+    idx++;
+  }
+  // the type guide: a faint mark where the next letter will strike
+  if (TYPE.on) { const gx = L + cell * Math.min(col, TYPE.cols - .5); ctx.fillStyle = 'rgba(150,40,30,.55)'; ctx.fillRect(gx + 1, baseY + 6, cell - 2, 2.5); }
+  TW.tex.needsUpdate = true;
+}
+
+function typeInput() {
+  const ta = $('#typeIn'); let v = ta.value;
+  if (v.length > 6000) { v = v.slice(-6000); ta.value = v; }
+  const prev = TYPE.text, grew = v.length - prev.length;
+  TYPE.text = v;
+  if (grew > 0 && window.AUDIO && AUDIO.typeKey) {
+    const added = v.slice(-grew);
+    if (added.includes('\n')) AUDIO.typeKey('ret');
+    else { AUDIO.typeKey(/\s/.test(added) ? 'space' : 'key'); TYPE.bump = 1; }
+    const { lines, col } = twLines(v);
+    if (col >= TYPE.cols - 5 && TYPE.belled !== lines.length) { TYPE.belled = lines.length; AUDIO.typeKey('bell'); }
+  } else if (grew < 0 && window.AUDIO && AUDIO.typeKey) AUDIO.typeKey('back');
+  store.set('typed', TYPE.text);
+  twDraw();
+}
+
+function startTyping() {
+  if (!TW || TYPE.on || MODE !== 'inspect') return;
+  TYPE.on = true; document.body.classList.add('typing');
+  const ta = $('#typeIn'); ta.value = TYPE.text; ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length);
+  // glide the camera down to the sheet, square to the machine
+  IV.from.pos.copy(camera.position); IV.from.q.copy(camera.quaternion); IV.cur = null; IV.t = 0;
+  IV.save = { yaw: IV.yaw, pitch: IV.pitch, dist: IV.dist, panel: IV.panel };
+  IV.yaw = TW.yaw; IV.pitch = .42; IV.dist = IS_TOUCH ? .55 : .44; IV.oy = IV.op = 0; IV.panel = null;
+  $('#inspect').classList.remove('on'); $('#typeBar').classList.add('on');
+  TYPE.belled = twLines(TYPE.text).lines.length;
+  twDraw();
+}
+function stopTyping(leave) {
+  if (!TYPE.on) return;
+  TYPE.on = false; document.body.classList.remove('typing'); const ta = $('#typeIn'); ta.blur();
+  $('#typeBar').classList.remove('on');
+  if (IV.save) { IV.from.pos.copy(camera.position); IV.from.q.copy(camera.quaternion); IV.cur = null; IV.t = 0; Object.assign(IV, { yaw: IV.save.yaw, pitch: IV.save.pitch, dist: IV.save.dist, panel: IV.save.panel }); IV.save = null; }
+  if (!leave && MODE === 'inspect') $('#inspect').classList.add('on');
+  twDraw();
+}
+function newSheet() {
+  if (window.AUDIO && AUDIO.typeKey) AUDIO.typeKey('sheet');
+  TYPE.text = ''; $('#typeIn').value = ''; TYPE.belled = -1; store.set('typed', ''); twDraw();
+  if (TYPE.on) $('#typeIn').focus({ preventScroll: true });
+}
+
+function initTyping() {
+  const ta = $('#typeIn');
+  ta.addEventListener('input', typeInput);
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); stopTyping(); }
+    else if (e.key === 'Tab' || e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End' || e.key === 'PageUp' || e.key === 'PageDown') e.preventDefault();   // typing only goes forward
+    e.stopPropagation();
+  });
+  ta.addEventListener('keyup', e => e.stopPropagation());
+  // keep the caret at the end even if something moves it
+  ta.addEventListener('select', () => { const n = ta.value.length; if (ta.selectionStart !== n) ta.setSelectionRange(n, n); });
+  $('#inType').onclick = e => { e.stopPropagation(); startTyping(); };
+  $('#tyEnd').onclick = e => { e.stopPropagation(); stopTyping(); };
+  $('#tyNew').onclick = e => { e.stopPropagation(); newSheet(); };
+  // tapping the scene while typing brings the keyboard back (phones close it easily)
+  $('#typeBar').addEventListener('pointerdown', e => e.stopPropagation());
+  addEventListener('pointerup', e => { if (TYPE.on && e.target.tagName === 'CANVAS') ta.focus({ preventScroll: true }); });
 }
 
 /* =========================================================
@@ -3740,6 +3895,15 @@ const AUDIO = (() => {
     setVol(v) { if (master && SETTINGS.sound) master.gain.setTargetAtTime(v, ctx.currentTime, .1); },
     step(kind, run) { if (!started) return; const t = ctx.currentTime; click(t, kind === 1 ? 420 : (kind === 2 ? 300 : 230), run ? .16 : .11, .07, .25, 'lowpass'); if (Math.random() < .15) click(t + .05, 900 + Math.random() * 400, .02, .12, .3); },
     thunder(delay) { if (!started) return; const t = ctx.currentTime + delay; const s = ctx.createBufferSource(); s.buffer = noiseBuf; const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 160; const g = ctx.createGain(); s.connect(f); f.connect(g); g.connect(dry); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(.35, t + .3); g.gain.exponentialRampToValueAtTime(.12, t + 1.2); g.gain.exponentialRampToValueAtTime(0.0001, t + 4.5); s.start(t); s.stop(t + 5); },
+    typeKey(k) {
+      if (!started) return; const t = ctx.currentTime + .005, r = Math.random();
+      if (k === 'key') { click(t, 2600 + r * 1400, .13, .018, .18); click(t, 420 + r * 120, .09, .045, .1, 'lowpass'); click(t + .028, 1500, .03, .02, .15); }
+      else if (k === 'space') { click(t, 300, .1, .05, .1, 'lowpass'); click(t + .02, 1900, .03, .015, .15); }
+      else if (k === 'back') { click(t, 900, .06, .03, .1, 'lowpass'); }
+      else if (k === 'bell') { tone(t + .03, NOTE(93), 1.6, .06, 'sine', [1, .5, .3, .15], 1.6); }
+      else if (k === 'ret') { click(t, 500, .1, .05, .15, 'lowpass'); for (let i = 0; i < 7; i++) click(t + .05 + i * .045, 3400 + Math.random() * 600, .045, .012, .2); click(t + .42, 260, .13, .08, .2, 'lowpass'); }
+      else if (k === 'sheet') { for (let i = 0; i < 14; i++) click(t + i * .035, 4200 + Math.random() * 2000, .025, .02, .2, 'highpass'); }
+    },
     inspect(it) {
       if (!started) return; const t = ctx.currentTime + .15;
       if (it.sound && it.sound !== 'tick') duckUntil = t + (it.sound === 'chime' ? 8 : 6);   // let the object be heard over the music
