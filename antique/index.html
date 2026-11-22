@@ -1213,18 +1213,29 @@ function buildMaterials() {
 /* =========================================================
    architecture: the great room
    ========================================================= */
-const ROOM = { x0: -18, x1: 18, z0: -14, z1: 14, h: 13 };
+/* room size. Positions written for the original 36x28 m hall are pulled in with FX/FZ:
+   anything within a few metres of a wall keeps its distance to that wall, the open middle shrinks. */
+const OLD = { X: 18, Z: 14 };
+const ROOM = { x0: -14, x1: 14, z0: -11, z1: 11, h: 13 };
+const RX = ROOM.x1, RZ = ROOM.z1;
+function _map(v, W, W2, m) { const d = W - Math.abs(v); const d2 = d < m ? d : m + (d - m) * (W2 - m) / (W - m); return Math.sign(v || 1) * (W2 - d2); }
+function _unmap(v, W, W2, m) { const d2 = W2 - Math.abs(v); const d = d2 < m ? d2 : m + (d2 - m) * (W - m) / (W2 - m); return Math.sign(v || 1) * (W - d); }
+const FX = x => _map(x, OLD.X, RX, 4), FZ = z => _map(z, OLD.Z, RZ, 3.5);
+const FXi = x => _unmap(x, OLD.X, RX, 4), FZi = z => _unmap(z, OLD.Z, RZ, 3.5);
 const MEZ_Y = 4.6;
-const STAIR = { x: -13.1, z: -5.0, r: 2.0, ri: 0.22, n: 36, turns: 1.5 };
+const MEZ_X = -RX + 3;             // inner edge of the west gallery
+const MEZ_Z = RZ - 3;              // inner edge of the south gallery
+const MEZ_END = +FX(-4).toFixed(2); // east end of the south gallery
+const ARC_W = [-RZ, -7.83, -4.67, -1.5, 1.67, 4.83, MEZ_Z];   // shaft z positions on x = MEZ_X
+const ARC_S = [MEZ_X, +(MEZ_X + (MEZ_END - MEZ_X) / 3).toFixed(3), +(MEZ_X + 2 * (MEZ_END - MEZ_X) / 3).toFixed(3), MEZ_END];
+const STAIR = { x: MEZ_X + 1.9, z: -3.05, r: 2.0, ri: 0.22, n: 36, turns: 1.5 };
 STAIR.sweep = TAU * STAIR.turns; STAIR.d = STAIR.sweep / STAIR.n; STAIR.rise = MEZ_Y / STAIR.n;
-const DOME = { x: 0, z: -1, r: 4.4 };
-const WIN_N = [{ x: 0, w: 5.2, bot: 0.5, sill: 1.0, spring: 6.0, big: true }, { x: -7, w: 2.4, bot: 1.3, sill: 1.3, spring: 6.2 }, { x: 7, w: 2.4, bot: 1.3, sill: 1.3, spring: 6.2 }];
-const WIN_E = { z: 7, w: 2.2, bot: 1.32, sill: 1.32, spring: 4.6 };
-const DOOR = { x: 0.5, w: 2.4, spring: 3.0 };
-const ARC_W = []; for (let i = 0; i <= 7; i++) ARC_W.push(-14 + i * 25 / 7);   // shaft z positions on x=-15
-const ARC_S = [-15, -11.333, -7.667, -4];                                 // shaft x positions on z=11
-const GROUND_COLS = [[-15, -10.429], [-15, -3.286], [-15, 3.857], [-15, 11], [-11.333, 11], [-4, 11]];
-const K_N = ROOT.t([-18, 0, -14], 0), K_S = ROOT.t([18, 0, 14], PI), K_E = ROOT.t([18, 0, -14], -PI / 2), K_W = ROOT.t([-18, 0, 14], PI / 2);
+const DOME = { x: 0, z: +FZ(-1).toFixed(2), r: 4.2 };
+const WIN_N = [{ x: 0, w: 5.2, bot: 0.5, sill: 1.0, spring: 6.0, big: true }, { x: -5.75, w: 2.2, bot: 1.3, sill: 1.3, spring: 6.2 }, { x: 5.75, w: 2.2, bot: 1.3, sill: 1.3, spring: 6.2 }];
+const WIN_E = { z: +FZ(7).toFixed(2), w: 2.2, bot: 1.32, sill: 1.32, spring: 4.6 };
+const DOOR = { x: +FX(.5).toFixed(2), w: 2.4, spring: 3.0 };
+const GROUND_COLS = [[MEZ_X, ARC_W[1]], [MEZ_X, ARC_W[3]], [MEZ_X, ARC_W[5]], [MEZ_X, MEZ_Z], [ARC_S[2], MEZ_Z], [MEZ_END, MEZ_Z]];
+const K_N = ROOT.t([-RX, 0, -RZ], 0), K_S = ROOT.t([RX, 0, RZ], PI), K_E = ROOT.t([RX, 0, -RZ], -PI / 2), K_W = ROOT.t([-RX, 0, RZ], PI / 2);
 
 function headPath(x0, x1, ys) { const s = new THREE.Shape(); const w = x1 - x0; s.moveTo(x0, ys); s.lineTo(x1, ys); s.absarc(x0, ys, w, 0, PI / 3, false); s.absarc(x1, ys, w, PI * 2 / 3, PI, false); return s; }
 function circlePath(cx, cy, r) { const p = new THREE.Path(); p.absarc(cx, cy, r, 0, TAU, false); return p; }
@@ -1238,30 +1249,30 @@ function rectPath(x0, y0, x1, y1, shape) { const p = shape ? new THREE.Shape() :
 
 /* ---------------- floor & walls ---------------- */
 function buildFloorWalls() {
-  const fl = G.plane(36, 28); fl.rotateX(-PI / 2);
+  const fl = G.plane(2 * RX, 2 * RZ); fl.rotateX(-PI / 2);
   addGeo(fl, MAT.floor, new THREE.Matrix4(), 0xffffff, { axis: 0 });
   // NORTH wall: thick stone with window openings
-  const nw = rectPath(-18, 0, 18, 13, true);
+  const nw = rectPath(-RX, 0, RX, 13, true);
   for (const w of WIN_N) nw.holes.push(archPath(w.x - w.w / 2, w.x + w.w / 2, w.bot, w.spring));
-  ROOT.add(G.ext(nw, 1.2, 0, 20), MAT.stoneW, [0, 0, -15.2], { c: 0xd8d0c4 });
+  ROOT.add(G.ext(nw, 1.2, 0, 20), MAT.stoneW, [0, 0, -RZ - 1.2], { c: 0xd8d0c4 });
   // stone plinth along north wall
-  const segs = [[-18, -2.6], [2.6, 18]];
-  for (const [a, b] of segs) { ROOT.add(G.box(b - a, .34, .1), MAT.stone, [(a + b) / 2, .17, -13.95], { c: 0xb8ae9c }); ROOT.add(G.box(b - a, .06, .14), MAT.stone, [(a + b) / 2, .37, -13.93], { c: 0xb8ae9c }); }
+  const segs = [[-RX, -2.6], [2.6, RX]];
+  for (const [a, b] of segs) { ROOT.add(G.box(b - a, .34, .1), MAT.stone, [(a + b) / 2, .17, -RZ + .05], { c: 0xb8ae9c }); ROOT.add(G.box(b - a, .06, .14), MAT.stone, [(a + b) / 2, .37, -RZ + .07], { c: 0xb8ae9c }); }
   // WEST wall (behind shelves)
-  K_W.add(G.shape(rectPath(0, 0, 28, 13, true)), MAT.wallpaper, [0, 0, 0], { c: 0x8a9480 });
+  K_W.add(G.shape(rectPath(0, 0, 2 * RZ, 13, true)), MAT.wallpaper, [0, 0, 0], { c: 0x8a9480 });
   // SOUTH wall with door hole
-  const sw = rectPath(0, 0, 36, 13, true); const dl = 18 - DOOR.x;
+  const sw = rectPath(0, 0, 2 * RX, 13, true); const dl = RX - DOOR.x;
   sw.holes.push(archPath(dl - DOOR.w / 2, dl + DOOR.w / 2, 0.001, DOOR.spring));
   K_S.add(G.shape(sw), MAT.wallpaper, [0, 0, 0]);
   // EAST wall with window hole
-  const ew = rectPath(0, 0, 28, 13, true); const el = WIN_E.z + 14;
+  const ew = rectPath(0, 0, 2 * RZ, 13, true); const el = WIN_E.z + RZ;
   ew.holes.push(archPath(el - WIN_E.w / 2, el + WIN_E.w / 2, WIN_E.bot, WIN_E.spring));
   K_E.add(G.shape(ew), MAT.wallpaper, [0, 0, 0]);
   // wainscot
-  wainscot(K_S, 0, dl - DOOR.w / 2 - .35, true); wainscot(K_S, dl + DOOR.w / 2 + .35, 22);
-  wainscot(K_E, 0, 28);
+  wainscot(K_S, 0, dl - DOOR.w / 2 - .35, true); wainscot(K_S, dl + DOOR.w / 2 + .35, RX - MEZ_END);
+  wainscot(K_E, 0, 2 * RZ);
   // frieze + cornice all round
-  for (const [K, L] of [[K_S, 36], [K_E, 28], [K_W, 28], [K_N, 36]]) cornice(K, 0, L, K === K_N);
+  for (const [K, L] of [[K_S, 2 * RX], [K_E, 2 * RZ], [K_W, 2 * RZ], [K_N, 2 * RX]]) cornice(K, 0, L, K === K_N);
 }
 function wainscot(K, a, b) {
   const L = b - a; if (L < .3) return; const H = 1.24, mid = a + L / 2;
@@ -1300,7 +1311,7 @@ function glassPiece(K, shape, kind, region, z, tint = 1.55) {
 function buildWindows() {
   // north windows: local frame at window centre, z = depth from inner face (-14)
   for (const w of WIN_N) {
-    const K = ROOT.t([w.x, 0, -14.9]);
+    const K = ROOT.t([w.x, 0, -RZ - .9]);
     const hw = w.w / 2;
     const tr = archPath(-hw - .02, hw + .02, w.bot, w.spring);
     const holes = [];
@@ -1331,16 +1342,16 @@ function buildWindows() {
     }
     // stone sill / seat
     if (w.big) {
-      ROOT.add(G.box(w.w - .02, .5, .86), MAT.stone, [w.x, .25, -14.45], { c: 0xb8ae9c });
+      ROOT.add(G.box(w.w - .02, .5, .86), MAT.stone, [w.x, .25, -RZ - .45], { c: 0xb8ae9c });
     } else {
-      ROOT.add(G.box(w.w + .1, .08, .95), MAT.stone, [w.x, w.bot - .04, -14.45], { c: 0xb8ae9c });
+      ROOT.add(G.box(w.w + .1, .08, .95), MAT.stone, [w.x, w.bot - .04, -RZ - .45], { c: 0xb8ae9c });
     }
     // inner moulded surround
-    ROOT.add(G.ext(archRing(-hw, hw, w.bot, w.spring, .28), .1, .02, 24), MAT.stone, [w.x, 0, -14.02], { c: 0xcfc5b0 });
+    ROOT.add(G.ext(archRing(-hw, hw, w.bot, w.spring, .28), .1, .02, 24), MAT.stone, [w.x, 0, -RZ - .02], { c: 0xcfc5b0 });
   }
   // east window (in a wallpaper wall: needs a reveal)
   {
-    const K = K_E.t([WIN_E.z + 14, 0, 0]);
+    const K = K_E.t([WIN_E.z + RZ, 0, 0]);
     const hw = WIN_E.w / 2;
     K.add(G.ext(archRing(-hw, hw, WIN_E.bot, WIN_E.spring, .3), .8, 0, 24), MAT.stone, [0, 0, -.8], { c: 0xc8bea8 });
     K.add(G.ext(archRing(-hw, hw, WIN_E.bot, WIN_E.spring, .26), .1, .02, 24), MAT.stone, [0, 0, 0], { c: 0xcfc5b0 });
@@ -1357,26 +1368,28 @@ function buildWindows() {
 
 /* ---------------- ceiling ---------------- */
 function buildCeiling() {
-  const cs = rectPath(-18, -14, 18, 14, true); cs.holes.push(circlePath(DOME.x, DOME.z, DOME.r));
+  const cs = rectPath(-RX, -RZ, RX, RZ, true); cs.holes.push(circlePath(DOME.x, DOME.z, DOME.r));
   const cg = G.shape(cs, 48); cg.rotateX(PI / 2);
   addGeo(cg, MAT.plaster, M([0, 13, 0]), 0x2e403a, { axis: 0 });
   const bw = .34, bd = .5, y = 13 - bd / 2;
   const inDome = (x, z, pad) => Math.hypot(x - DOME.x, z - DOME.z) < DOME.r + pad;
-  for (let x = -18; x <= 18.01; x += 4) for (let z = -14; z < 14; z += 4) {
-    const cx = x, cz = z + 2; if (inDome(cx, cz, .6)) continue;
-    ROOT.add(G.box(bw, bd, 4), MAT.wood, [cx, y, cz], { c: C.darkwood });
-    ROOT.add(G.box(.05, .02, 4), MAT.metal, [cx, 13 - bd - .005, cz], { c: C.gold, noShadow: true });
+  const NX = 7, NZ = 6, SX = 2 * RX / NX, SZ = 2 * RZ / NZ;
+  for (let i = 0; i <= NX; i++) for (let j = 0; j < NZ; j++) {
+    const cx = -RX + i * SX, cz = -RZ + (j + .5) * SZ; if (inDome(cx, cz, .6)) continue;
+    ROOT.add(G.box(bw, bd, SZ), MAT.wood, [cx, y, cz], { c: C.darkwood });
+    ROOT.add(G.box(.05, .02, SZ), MAT.metal, [cx, 13 - bd - .005, cz], { c: C.gold, noShadow: true });
   }
-  for (let z = -14; z <= 14.01; z += 4) for (let x = -18; x < 18; x += 4) {
-    const cx = x + 2, cz = z; if (inDome(cx, cz, .6)) continue;
-    ROOT.add(G.box(4, bd, bw), MAT.wood, [cx, y, cz], { c: C.darkwood });
-    ROOT.add(G.box(4, .02, .05), MAT.metal, [cx, 13 - bd - .005, cz], { c: C.gold, noShadow: true });
+  for (let j = 0; j <= NZ; j++) for (let i = 0; i < NX; i++) {
+    const cx = -RX + (i + .5) * SX, cz = -RZ + j * SZ; if (inDome(cx, cz, .6)) continue;
+    ROOT.add(G.box(SX, bd, bw), MAT.wood, [cx, y, cz], { c: C.darkwood });
+    ROOT.add(G.box(SX, .02, .05), MAT.metal, [cx, 13 - bd - .005, cz], { c: C.gold, noShadow: true });
   }
   const ros = G.slathe([[0, -.09], [.12, -.07], [.2, -.03], [.26, 0]], 10, 6);
-  for (let x = -16; x < 18; x += 4) for (let z = -12; z < 14; z += 4) {
+  for (let i = 0; i < NX; i++) for (let j = 0; j < NZ; j++) {
+    const x = -RX + (i + .5) * SX, z = -RZ + (j + .5) * SZ;
     if (inDome(x, z, 1.6)) continue;
     ROOT.add(ros.clone(), MAT.metal, [x, 13, z], { c: C.gold, noShadow: true });
-    for (const [dx, dz, w, d] of [[0, -1.3, 2.6, .04], [0, 1.3, 2.6, .04], [-1.3, 0, .04, 2.6], [1.3, 0, .04, 2.6]]) ROOT.add(G.box(w, .03, d), MAT.metal, [x + dx, 12.985, z + dz], { c: C.oldgold, noShadow: true });
+    for (const [dx, dz, w, d] of [[0, -SZ * .33, SX * .65, .04], [0, SZ * .33, SX * .65, .04], [-SX * .33, 0, .04, SZ * .65], [SX * .33, 0, .04, SZ * .65]]) ROOT.add(G.box(w, .03, d), MAT.metal, [x + dx, 12.985, z + dz], { c: C.oldgold, noShadow: true });
   }
   // dome
   const dg = new THREE.SphereGeometry(DOME.r, 56, 16, 0, TAU, 0, PI / 2);
@@ -1431,13 +1444,13 @@ function balustrade(K, L, gaps = []) {
 function buildMezzanine() {
   const t = .38, y0 = MEZ_Y - t;
   // slabs
-  ROOT.add(G.box(3, t, 28), MAT.wood, [-16.5, y0 + t / 2, 0], { c: C.darkwood });
-  ROOT.add(G.box(11, t, 3), MAT.wood, [-9.5, y0 + t / 2, 12.5], { c: C.darkwood });
-  const f1 = G.plane(3, 28); f1.rotateX(-PI / 2); addGeo(f1, MAT.floor, M([-16.5, MEZ_Y + .002, 0]), 0xffffff, { axis: 0 });
-  const f2 = G.plane(11, 3); f2.rotateX(-PI / 2); addGeo(f2, MAT.floor, M([-9.5, MEZ_Y + .002, 12.5]), 0xffffff, { axis: 0 });
+  ROOT.add(G.box(3, t, 2 * RZ), MAT.wood, [-RX + 1.5, y0 + t / 2, 0], { c: C.darkwood });
+  ROOT.add(G.box(MEZ_END - MEZ_X, t, 3), MAT.wood, [(MEZ_END + MEZ_X) / 2, y0 + t / 2, RZ - 1.5], { c: C.darkwood });
+  const f1 = G.plane(3, 2 * RZ); f1.rotateX(-PI / 2); addGeo(f1, MAT.floor, M([-RX + 1.5, MEZ_Y + .002, 0]), 0xffffff, { axis: 0 });
+  const f2 = G.plane(MEZ_END - MEZ_X, 3); f2.rotateX(-PI / 2); addGeo(f2, MAT.floor, M([(MEZ_END + MEZ_X) / 2, MEZ_Y + .002, RZ - 1.5]), 0xffffff, { axis: 0 });
   // soffit beams under the mezzanine
-  for (let z = -13.4; z < 14; z += 1.4) ROOT.add(G.box(3, .16, .14), MAT.wood, [-16.5, y0 - .08, z], { c: C.ebony });
-  for (let x = -14.4; x < -4; x += 1.4) ROOT.add(G.box(.14, .16, 3), MAT.wood, [x, y0 - .08, 12.5], { c: C.ebony });
+  for (let z = -RZ + .6; z < RZ; z += 1.4) ROOT.add(G.box(3, .16, .14), MAT.wood, [-RX + 1.5, y0 - .08, z], { c: C.ebony });
+  for (let x = MEZ_X + .6; x < MEZ_END; x += 1.4) ROOT.add(G.box(.14, .16, 3), MAT.wood, [x, y0 - .08, RZ - 1.5], { c: C.ebony });
   // fascia along the open edges
   const fascia = (K, L) => {
     K.add(G.box(L, .56, .1), MAT.wood, [L / 2, MEZ_Y - .28, 0], { c: C.walnut });
@@ -1446,36 +1459,36 @@ function buildMezzanine() {
     for (let x = .1; x < L - .05; x += .2) K.add(G.box(.09, .1, .06), MAT.wood, [x, MEZ_Y - .16, .07], { c: C.darkwood });
     for (let x = .6; x < L - .3; x += 1.2) K.add(G.sph(.06, 10, 8), MAT.metal, [x, MEZ_Y - .33, .06], { c: C.gold, s: [1, 1, .5] });
   };
-  fascia(ROOT.t([-15, 0, 11], PI / 2), 25);         // along x=-15 (z 11 -> -14), facing +x
-  fascia(ROOT.t([-4, 0, 11], PI), 11);              // along z=11 (x -4 -> -15), facing -z
-  fascia(ROOT.t([-4, 0, 14], PI / 2), 3);           // end x=-4 (z 14 -> 11), facing +x
+  fascia(ROOT.t([MEZ_X, 0, MEZ_Z], PI / 2), MEZ_Z + RZ);
+  fascia(ROOT.t([MEZ_END, 0, MEZ_Z], PI), MEZ_END - MEZ_X);
+  fascia(ROOT.t([MEZ_END, 0, RZ], PI / 2), 3);
   // ground columns
   for (const [x, z] of GROUND_COLS) { clusterColumn(ROOT.t([x, 0, z]), y0, .17, .42); colCirc(x, z, .36, 0, y0); }
   // balustrade (set back .22 from the edge)
   const gapZ0 = STAIR.z - 1.25, gapZ1 = STAIR.z + .85;
-  balustrade(ROOT.t([-15.22, MEZ_Y, -14], -PI / 2), 25 - .22, [[gapZ0 + 14, gapZ1 + 14]]);
-  balustrade(ROOT.t([-15.22, MEZ_Y, 10.78], 0), 11 + .22 - .22);
-  balustrade(ROOT.t([-4.22, MEZ_Y, 10.78], -PI / 2), 3.22);
+  balustrade(ROOT.t([MEZ_X - .22, MEZ_Y, -RZ], -PI / 2), MEZ_Z + RZ - .22, [[gapZ0 + RZ, gapZ1 + RZ]]);
+  balustrade(ROOT.t([MEZ_X - .22, MEZ_Y, MEZ_Z - .22], 0), MEZ_END - MEZ_X);
+  balustrade(ROOT.t([MEZ_END - .22, MEZ_Y, MEZ_Z - .22], -PI / 2), 3.22);
   // rail colliders (only matter upstairs)
-  colBoxW(-15.35, -14, -15.05, gapZ0, MEZ_Y - .3, MEZ_Y + 1.2, 'rail');
-  colBoxW(-15.35, gapZ1, -15.05, 11, MEZ_Y - .3, MEZ_Y + 1.2, 'rail');
-  colBoxW(-15.35, 10.65, -4.05, 10.95, MEZ_Y - .3, MEZ_Y + 1.2, 'rail');
-  colBoxW(-4.35, 10.65, -4.05, 14, MEZ_Y - .3, MEZ_Y + 1.2, 'rail');
+  colBoxW(MEZ_X - .35, -RZ, MEZ_X - .05, gapZ0, MEZ_Y - .3, MEZ_Y + 1.2, 'rail');
+  colBoxW(MEZ_X - .35, gapZ1, MEZ_X - .05, MEZ_Z, MEZ_Y - .3, MEZ_Y + 1.2, 'rail');
+  colBoxW(MEZ_X - .35, MEZ_Z - .35, MEZ_END - .05, MEZ_Z - .05, MEZ_Y - .3, MEZ_Y + 1.2, 'rail');
+  colBoxW(MEZ_END - .35, MEZ_Z - .35, MEZ_END - .05, RZ, MEZ_Y - .3, MEZ_Y + 1.2, 'rail');
   // upper shafts + arcade
   const shaftH = 9.7 - MEZ_Y;
   const shaftAt = (x, z) => { clusterColumn(ROOT.t([x, MEZ_Y, z]), shaftH, .1, .32); colCirc(x, z, .22, MEZ_Y, 13); };
-  for (const z of ARC_W) if (z < 10.9) shaftAt(-15, z);
-  for (const x of ARC_S) shaftAt(x, 11);
-  shaftAt(-4, 14 - .12);
+  for (const z of ARC_W) if (z < MEZ_Z - .1) shaftAt(MEZ_X, z);
+  for (const x of ARC_S) shaftAt(x, MEZ_Z);
+  shaftAt(MEZ_END, RZ - .12);
   const sw = .3;
-  const aw = arcadeShape(ARC_W.map(z => z + 14), 9.7, 13, sw);
-  ROOT.t([-15, 0, -14], -PI / 2).add(G.ext(aw, .34, 0, 16), MAT.stone, [0, 0, -.17], { c: 0xc4baa4 });
-  const as = arcadeShape(ARC_S.map(x => x + 15), 9.7, 13, sw);
-  ROOT.t([-15, 0, 11], 0).add(G.ext(as, .34, 0, 16), MAT.stone, [0, 0, -.17], { c: 0xc4baa4 });
+  const aw = arcadeShape(ARC_W.map(z => z + RZ), 9.7, 13, sw);
+  ROOT.t([MEZ_X, 0, -RZ], -PI / 2).add(G.ext(aw, .34, 0, 16), MAT.stone, [0, 0, -.17], { c: 0xc4baa4 });
+  const as = arcadeShape(ARC_S.map(x => x - MEZ_X), 9.7, 13, sw);
+  ROOT.t([MEZ_X, 0, MEZ_Z], 0).add(G.ext(as, .34, 0, 16), MAT.stone, [0, 0, -.17], { c: 0xc4baa4 });
   const ae = arcadeShape([0, 3 - .12], 9.7, 13, sw);
-  ROOT.t([-4, 0, 11], -PI / 2).add(G.ext(ae, .34, 0, 16), MAT.stone, [0, 0, -.17], { c: 0xc4baa4 });
+  ROOT.t([MEZ_END, 0, MEZ_Z], -PI / 2).add(G.ext(ae, .34, 0, 16), MAT.stone, [0, 0, -.17], { c: 0xc4baa4 });
   // gilded label band on the arcade
-  for (const [K, L] of [[ROOT.t([-15, 0, -14], -PI / 2), 25], [ROOT.t([-15, 0, 11], 0), 11], [ROOT.t([-4, 0, 11], -PI / 2), 3]]) {
+  for (const [K, L] of [[ROOT.t([MEZ_X, 0, -RZ], -PI / 2), MEZ_Z + RZ], [ROOT.t([MEZ_X, 0, MEZ_Z], 0), MEZ_END - MEZ_X], [ROOT.t([MEZ_END, 0, MEZ_Z], -PI / 2), 3]]) {
     K.add(G.box(L, .05, .4), MAT.metal, [L / 2, 12.75, 0], { c: C.oldgold });
   }
 }
@@ -1515,7 +1528,7 @@ function buildStair() {
 
 /* ---------------- door ---------------- */
 function buildDoor() {
-  const dl = 18 - DOOR.x; const K = K_S.t([dl, 0, 0]); const hw = DOOR.w / 2;
+  const dl = RX - DOOR.x; const K = K_S.t([dl, 0, 0]); const hw = DOOR.w / 2;
   K.add(G.box(DOOR.w + .2, 6, .1), MAT.plaster, [0, 3, -.35], { c: 0x140e0a });
   for (const s of [-1, 1]) {
     const L = K.t([s * hw / 2, 0, -.12]);
@@ -1539,6 +1552,13 @@ function buildDoor() {
 function buildArchitecture() {
   buildFloorWalls(); buildWindows(); buildCeiling(); buildMezzanine(); buildStair(); buildDoor();
 }
+
+/* placements written in the original hall's coordinates: positions are pulled in, sizes stay */
+class MapKit extends Kit {
+  t(p, ry = 0, s = 1, rx = 0, rz = 0) { return super.t([FX(p[0]), p[1], FZ(p[2])], ry, s, rx, rz); }
+  add(geo, mat, p, o = {}) { return super.add(geo, mat, [FX(p[0]), p[1], FZ(p[2])], o); }
+}
+const LR = new MapKit();
 
 /* =========================================================
    books: thousands of instanced volumes with tooled spines
@@ -2638,7 +2658,7 @@ function orrery(K) {
 function floatingBooks(K, n = 9) {
   const books = [];
   for (let i = 0; i < n; i++) {
-    const grp = K.group([rr(-.6, .6), rr(1.8, 3.4), (i - n / 2) * 2.3 + rr(-.5, .5)]);
+    const grp = K.group([rr(-.6, .6), rr(1.8, 3.4), (i - n / 2) * 1.75 + rr(-.4, .4)]);
     const open = i % 3 === 0, c = pick(BOOK_COLS), w = rr(.16, .24), h = rr(.22, .32), t = rr(.03, .06);
     if (open) {
       for (const s of [-1, 1]) { const half = new THREE.Group(); half.rotation.z = s * .35; grp.add(half); child(half, G.box(w, .006, h), MAT.leather, [s * w / 2, 0, 0], { c }); child(half, G.box(w - .01, t / 2, h - .012), MAT.paper, [s * w / 2, t / 4 + .003, 0], { c: 0xe8dcc0 }); }
@@ -2667,7 +2687,7 @@ function consoleTable(K, w = 1.6, d = .45) { rectTable(K, w, d, .86, { c: C.waln
    layout: furnishing the five areas
    ========================================================= */
 function I(K, p, r, name, en, desc, o = {}) { return K.insp(Object.assign({ p, r, name, en, desc }, o)); }
-function wallK(x, z, ry, y = 0) { return ROOT.t([x, y, z], ry); }   // local +z = facing into the room
+function wallK(x, z, ry, y = 0) { return LR.t([x, y, z], ry); }   // local +z = facing into the room
 const FACE_S = 0, FACE_N = PI, FACE_E = PI / 2, FACE_W = -PI / 2;
 
 function buildLayout() {
@@ -2676,24 +2696,23 @@ function buildLayout() {
 /* ---------------- AREA A: GRAND LIBRARY ---------------- */
 function layoutLibrary() {
   _seed = 1001;
-  const west = ROOT.t([-18, 0, 13.4], PI / 2);
-  bookcase(west, 27.3, 3.98, .42, { base: .95 });
-  const westUp = ROOT.t([-18, MEZ_Y, 13.4], PI / 2);
-  bookcase(westUp, 27.3, 4.3, .4, { base: .45 });
-  bookcase(ROOT.t([-4.3, 0, 14], PI), 3.7, 3.98, .42, { base: .95 });
-  bookcase(ROOT.t([-11.05, 0, 14], PI), 6.4, 3.98, .42, { base: .95 });
-  bookcase(ROOT.t([-4.3, MEZ_Y, 14], PI), 13.15, 4.3, .4, { base: .45 });
-  I(ROOT.t([-17.6, 0, -2], PI / 2), [0, 2.2, 0], 1.0, '大図書室の書架', 'The Grand Bookcases', '床から中二階まで、背表紙がぎっしりと並ぶ。金箔押しの書名は、灯りがゆれるたびに小さくまたたく。', { reach: 3.2 });
-  I(ROOT.t([-17.6, MEZ_Y, 4], PI / 2), [0, 2.2, 0], 1.0, '中二階の書架', 'The Upper Gallery', '上の書架には、下の段よりも古い本が集められている。背の革はひび割れ、題名はもう誰にも読めない言葉で綴られている。', { reach: 3.2 });
+  const WL = 2 * RZ - .7, SE = MEZ_END - .3, BU = -7.3;
+  bookcase(ROOT.t([-RX, 0, RZ - .6], PI / 2), WL, 3.98, .42, { base: .95 });
+  bookcase(ROOT.t([-RX, MEZ_Y, RZ - .6], PI / 2), WL, 4.3, .4, { base: .45 });
+  bookcase(ROOT.t([SE, 0, RZ], PI), SE - (BU + .75), 3.98, .42, { base: .95 });
+  bookcase(ROOT.t([BU - .75, 0, RZ], PI), (BU - .75) + RX - .55, 3.98, .42, { base: .95 });
+  bookcase(ROOT.t([SE, MEZ_Y, RZ], PI), SE + RX - .55, 4.3, .4, { base: .45 });
+  I(LR.t([-17.6, 0, -2], PI / 2), [0, 2.2, 0], 1.0, '大図書室の書架', 'The Grand Bookcases', '床から中二階まで、背表紙がぎっしりと並ぶ。金箔押しの書名は、灯りがゆれるたびに小さくまたたく。', { reach: 3.2 });
+  I(LR.t([-17.6, MEZ_Y, 4], PI / 2), [0, 2.2, 0], 1.0, '中二階の書架', 'The Upper Gallery', '上の書架には、下の段よりも古い本が集められている。背の革はひび割れ、題名はもう誰にも読めない言葉で綴られている。', { reach: 3.2 });
   // brass ladder rails + ladders
-  ROOT.add(G.cyl(.016, .016, 27.2, 8), MAT.metal, [-17.48, 3.72, -.25], { r: [PI / 2, 0, 0], c: C.brass });
-  ROOT.add(G.cyl(.016, .016, 27.2, 8), MAT.metal, [-17.5, MEZ_Y + 3.95, -.25], { r: [PI / 2, 0, 0], c: C.brass });
-  const lad = ROOT.t([-17.48, 0, 1.4], PI / 2); ladder(lad, 3.72, .82);
+  ROOT.add(G.cyl(.016, .016, WL, 8), MAT.metal, [-RX + .52, 3.72, -.25], { r: [PI / 2, 0, 0], c: C.brass });
+  ROOT.add(G.cyl(.016, .016, WL, 8), MAT.metal, [-RX + .5, MEZ_Y + 3.95, -.25], { r: [PI / 2, 0, 0], c: C.brass });
+  const lad = LR.t([-17.48, 0, 1.4], PI / 2); ladder(lad, 3.72, .82);
   I(lad, [0, 1.6, .5], .5, '書架の梯子', 'Library Ladder', '真鍮のレールに掛けて滑らせる梯子。いちばん上の段に手を伸ばした誰かの重みで、踏み板が少しすり減っている。');
-  ladder(ROOT.t([-17.5, MEZ_Y, -9.2], PI / 2), 3.95, .78);
+  ladder(LR.t([-17.5, MEZ_Y, -9.2], PI / 2), 3.95, .78);
   // partner's desk
-  rugAt(ROOT.t([-10.8, 0, 2.6], PI / 2), 5.2, 3.6, 2);
-  const desk = ROOT.t([-10.9, 0, 2.6], PI / 2); partnerDesk(desk);
+  rugAt(LR.t([-10.8, 0, 2.6], PI / 2), 5.2, 3.6, 2);
+  const desk = LR.t([-10.9, 0, 2.6], PI / 2); partnerDesk(desk);
   I(desk, [0, .9, 0], .9, '書斎机', "The Partner's Desk", '二人が向かい合って使える大きな机。緑の革の天板には、インクの染みと、指でなぞった跡が残っている。');
   const top = desk.t([0, .78, 0]);
   bankerLamp(top.t([-.62, 0, -.26])); I(top, [-.62, .3, -.26], .18, '緑のバンカーズランプ', "Banker's Lamp", '緑のガラス笠が手元だけを照らす。夜ふけの書き物のための、静かな灯り。');
@@ -2705,98 +2724,98 @@ function layoutLibrary() {
   for (let i = 0; i < 3; i++) bookAt(top, [.8, .025 + i * .05, .22], [0, rr(-.2, .2) + PI / 2, PI / 2], [.048, .26, .19], bookCol(), ri(0, 15));
   candlestick(top, [.86, 0, .02], .24, C.brass, true);
   chair(desk.t([0, 0, .85], PI), C.bordeaux); chair(desk.t([0, 0, -.85], 0), C.bordeaux);
-  globe(ROOT.t([-8.7, 0, .6], .4)); I(ROOT.t([-8.7, 0, .6]), [0, .62, 0], .4, '書斎の地球儀', 'Library Globe', '古い航海図をもとに描かれた地球儀。海の上には、まだ名前のない島がいくつも浮かんでいる。', { free: true });
+  globe(LR.t([-8.7, 0, .6], .4)); I(LR.t([-8.7, 0, .6]), [0, .62, 0], .4, '書斎の地球儀', 'Library Globe', '古い航海図をもとに描かれた地球儀。海の上には、まだ名前のない島がいくつも浮かんでいる。', { free: true });
   // lectern
-  const lec = ROOT.t([-8.5, 0, -2.4], PI / 2 - .3); lectern(lec, 'book1');
+  const lec = LR.t([-8.5, 0, -2.4], PI / 2 - .3); lectern(lec, 'book1');
   I(lec, [0, 1.15, 0], .35, '書見台の大判本', 'Folio on a Lectern', '両腕で抱えるほどの大判の書物。開かれた見開きには、同心円の図と、細かな注釈がびっしりと書き込まれている。');
   // reading corner
-  const wc = ROOT.t([-13.5, 0, 7.6], 1.95); wingChair(wc, C.green, true);
+  const wc = LR.t([-13.5, 0, 7.6], 1.95); wingChair(wc, C.green, true);
   I(wc, [0, .8, 0], .5, '読書用の翼椅子', 'Reading Wing Chair', '背もたれの両側が耳のように張り出した椅子。すきま風から、読書の時間を守ってくれる。');
-  const st = ROOT.t([-12.5, 0, 8.6]); roundTable(st, .3, .62);
+  const st = LR.t([-12.5, 0, 8.6]); roundTable(st, .3, .62);
   candlestick(st.t([0, .62, 0]), [-.08, 0, -.06], .2, C.silver, true); cup(st.t([.1, .62, .08], 1.2)); bookAt(st.t([0, .62, 0]), [-.05, .02, .1], [0, .6, PI / 2], [.04, .22, .16], bookCol(), 3);
-  floorLamp(ROOT.t([-14.4, 0, 8.7]), 0xd8c08a);
-  for (let i = 0; i < 6; i++) bookAt(ROOT.t([-14.2, 0, 6.5]), [0, .03 + i * .05, 0], [0, rr(-.3, .3), PI / 2], [.05, .3, .22], bookCol(), ri(0, 15));
-  for (let i = 0; i < 4; i++) bookAt(ROOT.t([-11.6, 0, -1.2]), [0, .03 + i * .055, 0], [0, rr(-.3, .3), PI / 2], [.055, .32, .24], bookCol(), ri(0, 15));
+  floorLamp(LR.t([-14.4, 0, 8.7]), 0xd8c08a);
+  for (let i = 0; i < 6; i++) bookAt(LR.t([-14.2, 0, 6.5]), [0, .03 + i * .05, 0], [0, rr(-.3, .3), PI / 2], [.05, .3, .22], bookCol(), ri(0, 15));
+  for (let i = 0; i < 4; i++) bookAt(LR.t([-11.6, 0, -1.2]), [0, .03 + i * .055, 0], [0, rr(-.3, .3), PI / 2], [.055, .32, .24], bookCol(), ri(0, 15));
   // secretary nook (south wall under the mezzanine)
-  const bu = wallK(-9.5, 14, PI); bureau(bu);
+  const bu = ROOT.t([BU, 0, RZ], PI); bureau(bu);
   I(bu, [0, 1.3, .2], .6, '秘書机', 'Secretary Desk', '小さな引き出しと仕切りがぎっしり並ぶ書き物机。整理された手紙の奥に、誰にも見せない一通がしまわれている。');
   I(bu, [-.18, 1.0, .7], .2, 'タイプライター', 'Typewriter', '黒い漆塗りの古いタイプライター。紙が一枚、打ちかけのまま挟まっている。', { sound: 'tick' });
-  chair(ROOT.t([-9.5, 0, 12.5], 0), C.moss);
-  const ct = wallK(-9.5, 13.99, PI, 2.72); curiosityTray(ct, 1.3, .86);
+  chair(ROOT.t([BU, 0, RZ - 1.5], 0), C.moss);
+  const ct = ROOT.t([BU, 2.72, RZ - .01], PI); curiosityTray(ct, 1.3, .86);
   I(ct, [0, 0, .05], .55, '標本箱', 'Cabinet of Curiosities', '活字ケースを転用した標本棚。貝殻、鉱石、小瓶、骨のかけら——ひとマスにひとつずつ、小さな世界がおさまっている。');
-  for (const [x, n] of [[-10.75, 0], [-8.25, 1]]) { const pk = wallK(x, 13.99, PI, 2.6); frame(pk, .46, .62, ATL.PR.r['plate' + n], { mat: MAT.prints, fw: .05, ornate: false, c: C.oldgold }); }
-  I(wallK(-10.75, 13.99, PI, 2.6), [0, 0, .05], .38, '博物図版', 'Natural History Plates', 'シダ、蛾、甲虫を描いた手彩色の図版。ラテン語の学名が、褪せたインクで添えられている。');
+  for (const [x, n] of [[BU - 1.25, 0], [BU + 1.25, 1]]) { const pk = ROOT.t([x, 2.6, RZ - .01], PI); frame(pk, .46, .62, ATL.PR.r['plate' + n], { mat: MAT.prints, fw: .05, ornate: false, c: C.oldgold }); }
+  I(ROOT.t([BU - 1.25, 2.6, RZ - .01], PI), [0, 0, .05], .38, '博物図版', 'Natural History Plates', 'シダ、蛾、甲虫を描いた手彩色の図版。ラテン語の学名が、褪せたインクで添えられている。');
   // upper gallery furnishings
-  const ud = ROOT.t([-6.1, MEZ_Y, 12.88], PI); rectTable(ud, 1.2, .6, .76, { c: C.walnut });
+  const ud = LR.t([-6.1, MEZ_Y, 12.88], PI); rectTable(ud, 1.2, .6, .76, { c: C.walnut });
   const udt = ud.t([0, .76, 0]); candelabra(udt.t([-.35, 0, 0]), .42, 5, C.brass, true); openBook(udt.t([.15, 0, .02], .1), .36, .26, 'book0'); hourglass(udt.t([.45, 0, -.15]));
-  chair(ROOT.t([-4.95, MEZ_Y, 12.85], -PI / 2), C.green);
+  chair(ROOT.t([FX(-6.1), MEZ_Y, FZ(12.88) - .68], 0), C.green);
   I(ud, [0, .9, 0], .5, '中二階の読書机', 'Gallery Reading Table', '階下のざわめきが届かない、いちばん静かな席。砂時計の砂は、もう何度も落ちきっている。');
-  const ub = ROOT.t([-9.2, MEZ_Y, 13.0], PI); bench(ub, 1.4, C.moss);
-  pedestal(ROOT.t([-12.6, MEZ_Y, 13.2])); bust(ROOT.t([-12.6, MEZ_Y + 1.05, 13.2], PI), 1.05, 0xeee8dc);
-  I(ROOT.t([-12.6, MEZ_Y + 1.05, 13.2], PI), [0, .35, 0], .3, '学者の胸像', 'Bust of a Scholar', '名も知れぬ学者の胸像。鼻の先だけが、通りがかりに撫でられつづけて白く光っている。');
-  for (const z of [-11.5, -3.0, 5.0]) candlestick(ROOT.t([-17.42, MEZ_Y + .47, z]), [0, 0, 0], .26, C.brass, true);
-  const fb = ROOT.t([-16.1, MEZ_Y, 0]); floatingBooks(fb, 9);
+  const ub = LR.t([-9.2, MEZ_Y, 13.0], PI); bench(ub, 1.4, C.moss);
+  pedestal(LR.t([-12.6, MEZ_Y, 13.2])); bust(LR.t([-12.6, MEZ_Y + 1.05, 13.2], PI), 1.05, 0xeee8dc);
+  I(LR.t([-12.6, MEZ_Y + 1.05, 13.2], PI), [0, .35, 0], .3, '学者の胸像', 'Bust of a Scholar', '名も知れぬ学者の胸像。鼻の先だけが、通りがかりに撫でられつづけて白く光っている。');
+  for (const z of [-11.5, -3.0, 5.0]) candlestick(LR.t([-17.42, MEZ_Y + .47, z]), [0, 0, 0], .26, C.brass, true);
+  const fb = ROOT.t([-RX + 1.9, MEZ_Y, -1.2]); floatingBooks(fb, 9);
   I(fb, [0, 2.6, 0], 1.2, '浮かぶ書物', 'The Floating Books', '中二階の宙に、何冊かの本が静かに浮かんでいる。風もないのに、読みかけのページをめくりながら。', { reach: 4.5, free: true });
   // library chandelier
-  const ch = ROOT.t([-9.6, 13, 2.6]); chandelier(ch, .95, 2, 5.2, C.gold); spill(ROOT, [-9.6, .02, 2.6], 7, 7, WARM(.18), { floor: true });
+  const ch = LR.t([-9.6, 13, 2.6]); chandelier(ch, .95, 2, 5.2, C.gold); spill(LR, [-9.6, .02, 2.6], 7, 7, WARM(.18), { floor: true });
   I(ch, [0, -5.4, 0], .9, '図書室のシャンデリア', 'Library Chandelier', '二段の腕に蝋燭を載せた真鍮の吊り燭台。滴る水晶が、背表紙の金文字に光の粒を落とす。', { reach: 5.5, free: true });
 }
 /* ---------------- AREA E: GOTHIC WINDOW ---------------- */
 function layoutWindow() {
   _seed = 2002;
   const big = WIN_N[0];
-  ROOT.add(G.rbox(5.0, .12, .78, .04, 2), MAT.fabric, [0, .56, -14.45], { c: C.bordeaux });
-  for (let i = 0; i < 5; i++) ROOT.add(G.rbox(.5, .44, .14, .07, 2), MAT.fabric, [-2.0 + i * 1.0 + rr(-.1, .1), .82, -14.72], { r: [-.25, rr(-.2, .2), rr(-.1, .1)], c: pick([C.moss, C.bordeaux, C.ochre, C.navy, C.sage]) });
-  ROOT.add(G.box(.9, .02, .55), MAT.fabric, [1.6, .63, -14.4], { r: [0, .3, 0], c: 0x8a6a4a });
-  openBook(ROOT.t([-1.3, .62, -14.3], .4), .3, .22, 'book0', 0x2a3a2a);
-  I(ROOT.t([0, 0, -14.4]), [0, .7, 0], .9, '窓辺の腰掛け', 'Window Seat', '厚い石壁の窪みにしつらえた腰掛け。クッションに沈みこめば、窓の外の嵐をすぐそばで眺められる。', { face: 0 });
-  I(ROOT.t([0, 0, -14.9]), [0, 3.6, 0], 2.2, 'ゴシックの大窓', 'The Great Gothic Window', '三つの尖頭アーチと薔薇窓をもつ大窓。菱形の鉛ガラスの向こうに、霧の谷と断崖の古城がひろがる。', { face: 0, reach: 4.5, vd: 5.5 });
-  I(ROOT.t([0, 0, -14.9]), [0, 8.65, 0], 1.2, '薔薇窓', 'Rose Window', '十二の花弁をもつステンドグラス。外がどれほど暗くても、宝石のような色だけは失われない。', { face: 0, reach: 8, vd: 4.2, pitch: -.35 });
-  I(ROOT.t([0, 0, -15]), [3.5, 3.0, 0], .6, '霧の向こうの古城', 'The Castle Beyond', '霧にうかぶ断崖の城。夜ごとに灯る窓の数が、少しずつちがうという。', { face: 0, reach: 3.2, vd: 2.2, pitch: -.05 });
+  LR.add(G.rbox(5.0, .12, .78, .04, 2), MAT.fabric, [0, .56, -14.45], { c: C.bordeaux });
+  for (let i = 0; i < 5; i++) LR.add(G.rbox(.5, .44, .14, .07, 2), MAT.fabric, [-2.0 + i * 1.0 + rr(-.1, .1), .82, -14.72], { r: [-.25, rr(-.2, .2), rr(-.1, .1)], c: pick([C.moss, C.bordeaux, C.ochre, C.navy, C.sage]) });
+  LR.add(G.box(.9, .02, .55), MAT.fabric, [1.6, .63, -14.4], { r: [0, .3, 0], c: 0x8a6a4a });
+  openBook(LR.t([-1.3, .62, -14.3], .4), .3, .22, 'book0', 0x2a3a2a);
+  I(LR.t([0, 0, -14.4]), [0, .7, 0], .9, '窓辺の腰掛け', 'Window Seat', '厚い石壁の窪みにしつらえた腰掛け。クッションに沈みこめば、窓の外の嵐をすぐそばで眺められる。', { face: 0 });
+  I(LR.t([0, 0, -14.9]), [0, 3.6, 0], 2.2, 'ゴシックの大窓', 'The Great Gothic Window', '三つの尖頭アーチと薔薇窓をもつ大窓。菱形の鉛ガラスの向こうに、霧の谷と断崖の古城がひろがる。', { face: 0, reach: 4.5, vd: 5.5 });
+  I(LR.t([0, 0, -14.9]), [0, 8.65, 0], 1.2, '薔薇窓', 'Rose Window', '十二の花弁をもつステンドグラス。外がどれほど暗くても、宝石のような色だけは失われない。', { face: 0, reach: 8, vd: 4.2, pitch: -.35 });
+  I(LR.t([0, 0, -15]), [3.5, 3.0, 0], .6, '霧の向こうの古城', 'The Castle Beyond', '霧にうかぶ断崖の城。夜ごとに灯る窓の数が、少しずつちがうという。', { face: 0, reach: 3.2, vd: 2.2, pitch: -.05 });
   // curtains + rods
   for (const w of WIN_N) {
-    const hw = w.w / 2, top = archApex(w.x - hw, w.x + hw, w.spring) + .35, pw = w.big ? 1.9 : 1.2;
-    curtain(ROOT.t([w.x - hw - pw / 2 + .45, 0, -13.86]), pw, top, C.bordeaux, -1, .3);
-    curtain(ROOT.t([w.x + hw + pw / 2 - .45, 0, -13.86]), pw, top, C.bordeaux, 1, .3);
-    ROOT.add(G.cyl(.03, .03, w.w + pw * 2, 10), MAT.metal, [w.x, top + .02, -13.8], { r: [0, 0, PI / 2], c: C.brass });
-    for (const s of [-1, 1]) ROOT.add(G.slathe([[0, 0], [.06, .05], [.05, .12], [.07, .17], [0, .26]], 10), MAT.metal, [w.x + s * (hw + pw), top + .02, -13.8], { r: [0, 0, -s * PI / 2], c: C.brass });
+    const hw = w.w / 2, top = archApex(w.x - hw, w.x + hw, w.spring) + .35, pw = w.big ? 1.6 : 1.0;
+    curtain(ROOT.t([w.x - hw - pw / 2 + .45, 0, -RZ + .14]), pw, top, C.bordeaux, -1, .3);
+    curtain(ROOT.t([w.x + hw + pw / 2 - .45, 0, -RZ + .14]), pw, top, C.bordeaux, 1, .3);
+    ROOT.add(G.cyl(.03, .03, w.w + pw * 2, 10), MAT.metal, [w.x, top + .02, -RZ + .2], { r: [0, 0, PI / 2], c: C.brass });
+    for (const s of [-1, 1]) ROOT.add(G.slathe([[0, 0], [.06, .05], [.05, .12], [.07, .17], [0, .26]], 10), MAT.metal, [w.x + s * (hw + pw), top + .02, -RZ + .2], { r: [0, 0, -s * PI / 2], c: C.brass });
   }
   // chair, table, telescope, candles
-  const wc = ROOT.t([-2.7, 0, -11.4], 2.75); wingChair(wc, C.bordeaux, false);
+  const wc = LR.t([-2.7, 0, -11.4], 2.75); wingChair(wc, C.bordeaux, false);
   I(wc, [0, .8, 0], .5, '窓辺の肘掛け椅子', 'Fireside Wing Chair', '窓の方へ向けて置かれた椅子。誰かがここで、何年も同じ景色を待っていたらしい。');
-  const t = ROOT.t([-3.75, 0, -12.3]); roundTable(t, .32, .64, { cloth: C.navy });
+  const t = LR.t([-3.75, 0, -12.3]); roundTable(t, .32, .64, { cloth: C.navy });
   const tt = t.t([0, .645, 0]); candelabra(tt.t([-.05, 0, -.08]), .38, 3, C.silver, true); cup(tt.t([.15, 0, .1], .5)); lace(tt.t([0, .001, 0]), .26);
   bookAt(tt, [.1, .025, -.12], [0, .4, PI / 2], [.04, .2, .15], 0x4a1512, 2);
-  const tel = ROOT.t([2.9, 0, -12.1], -.25); telescope(tel);
+  const tel = LR.t([2.9, 0, -12.1], -.25); telescope(tel);
   I(tel, [0, 1.3, 0], .55, '真鍮の望遠鏡', 'Brass Telescope', '窓の外の城へ向けられた望遠鏡。覗いた者だけが、塔の窓にともる灯りの数を知っている。');
-  for (const x of [-3.35, 3.35]) torchere(ROOT.t([x, 0, -13.45]), 1.55);
-  I(ROOT.t([3.35, 0, -13.45]), [0, 1.9, 0], .35, '燭台', 'Standing Candelabrum', 'ブロンズの柱の上に五本の蝋燭。炎のゆらぎに合わせて、窓の鉛桟の影がかすかに震える。');
-  rugAt(ROOT.t([0, 0, -10.2]), 4.6, 3.2, 1);
+  for (const x of [-3.2, 3.2]) torchere(ROOT.t([x, 0, -RZ + .55]), 1.55);
+  I(ROOT.t([3.2, 0, -RZ + .55]), [0, 1.9, 0], .35, '燭台', 'Standing Candelabrum', 'ブロンズの柱の上に五本の蝋燭。炎のゆらぎに合わせて、窓の鉛桟の影がかすかに震える。');
+  rugAt(LR.t([0, 0, -10.2]), 4.6, 3.2, 1);
 }
 /* ---------------- CENTRE: THE GREAT HALL ---------------- */
 function layoutHall() {
   _seed = 3003;
-  rugAt(ROOT.t([0, 0, -1], 0), 6.2, 4.4, 0);
-  const o = ROOT.t([0, 0, -1]); orrery(o);
+  rugAt(LR.t([0, 0, -1], 0), 6.2, 4.4, 0);
+  const o = LR.t([0, 0, -1]); orrery(o);
   I(o, [0, 1.75, 0], .7, '浮遊する天球儀', 'The Floating Armillary', '台座の上に、天球儀が音もなく浮かんでいる。輪はそれぞれ違う速さで巡り、中心の小さな太陽はいつまでも冷めない。', { free: true, reach: 3.2 });
-  const ch = ROOT.t([DOME.x, 13 + DOME.r - .05, DOME.z]); chandelier(ch, 1.6, 3, 8.9, C.gold);
+  const ch = ROOT.t([DOME.x, 13 + DOME.r - .05, DOME.z]); chandelier(ch, 1.6, 3, 8.7, C.gold);
   spill(ROOT, [DOME.x, .007, DOME.z], 11, 11, WARM(.22), { floor: true });
   I(ch, [0, -9.2, 0], 1.6, '大シャンデリア', 'The Grand Chandelier', '三段の腕に何十本もの蝋燭。数えきれない水晶のしずくが炎を細かく砕いて、天井へ光の粒を散らす。', { reach: 8.5, free: true, pitch: -.25 });
-  I(ROOT.t([DOME.x, 13, DOME.z]), [0, 2.0, 0], 4.2, '星図の天井画', 'Ceiling Fresco', '円蓋に描かれた夜空と金の星座。じっと見上げていると、星々がほんのわずかずつ巡っているのがわかる。', { reach: 12, free: true, pitch: -1.2, vd: 7 });
-  bench(ROOT.t([-2.75, 0, 1.75], .55), 1.4, C.bordeaux); bench(ROOT.t([2.75, 0, 1.75], -.55), 1.4, C.bordeaux);
-  fern(ROOT.t([-5.2, 0, 4.6]), 1.0); fern(ROOT.t([5.3, 0, -.2]), 1.0);
-  I(ROOT.t([-5.2, 0, 4.6]), [0, 1.4, 0], .5, 'シダの鉢台', 'Fern Stand', '背の高い木の台に、羽のようなシダの鉢。この館で、時間とともに育っているのはこれだけかもしれない。', { free: true });
+  I(ROOT.t([DOME.x, 13, DOME.z]), [0, 2.0, 0], 4.0, '星図の天井画', 'Ceiling Fresco', '円蓋に描かれた夜空と金の星座。じっと見上げていると、星々がほんのわずかずつ巡っているのがわかる。', { reach: 12, free: true, pitch: -1.2, vd: 7 });
+  bench(LR.t([-2.75, 0, 1.75], .55), 1.4, C.bordeaux); bench(LR.t([2.75, 0, 1.75], -.55), 1.4, C.bordeaux);
+  fern(LR.t([-5.2, 0, 4.6]), 1.0); fern(LR.t([5.3, 0, -.2]), 1.0);
+  I(LR.t([-5.2, 0, 4.6]), [0, 1.4, 0], .5, 'シダの鉢台', 'Fern Stand', '背の高い木の台に、羽のようなシダの鉢。この館で、時間とともに育っているのはこれだけかもしれない。', { free: true });
 }
 /* ---------------- AREA B: ANTIQUE COLLECTION ---------------- */
 function layoutCollection() {
   _seed = 4004;
-  const v1 = ROOT.t([9.9, 0, -13.72]); const s1 = vitrine(v1, 1.25, 2.35, .5, C.darkwood, C.bordeaux);
+  const v1 = ROOT.t([8.25, 0, -RZ + .28]); const s1 = vitrine(v1, 1.25, 2.35, .5, C.darkwood, C.bordeaux);
   vase(v1.t([-.35, s1[0], 0]), 0, .32, 0xffffff); vase(v1.t([0, s1[0], 0]), 1, .4, 0xffffff); vase(v1.t([.36, s1[0], 0]), 2, .3, 0xd8e0e8);
   for (let i = 0; i < 4; i++) { const k = v1.t([-.42 + i * .28, s1[1], 0]); k.add(G.slathe([[0, 0], [.07, 0], [.075, .008], [.03, .016], [0, .018]], 18), MAT.porcelain, [0, 0, 0], { r: [-1.1, 0, 0], c: 0xffffff }); cup(k.t([0, 0, .06]), .85); }
   bust(v1.t([-.3, s1[2], 0]), .5); bust(v1.t([.3, s1[2], 0]), .45, 0xe0d8cc, false); doll(v1.t([0, s1[2], .02], 0, 1.1));
   I(v1, [0, 1.5, .1], .65, '磁器の陳列棚', 'Porcelain Cabinet', '青い花模様の壺、金縁のティーカップ、小さな胸像。ガラスの棚の上で、どれも光を待っている。');
   I(v1, [0, s1[2] + .12, .1], .15, '陶器の人形', 'Porcelain Doll', 'レースの襟をつけた小さな人形。ガラス越しに、いつも同じ方向を見つめている。');
-  const v2 = ROOT.t([11.65, 0, -13.72]); const s2 = vitrine(v2, 1.25, 2.35, .5, C.darkwood, C.navy);
+  const v2 = ROOT.t([9.62, 0, -RZ + .28]); const s2 = vitrine(v2, 1.25, 2.35, .5, C.darkwood, C.navy);
   for (let i = 0; i < 5; i++) { const k = v2.t([-.44 + i * .22, s2[0], 0]); k.add(G.cyl(.035, .04, .02, 12), MAT.woodPol, [0, .01, 0], { c: C.walnut }); k.add(G.tor(.03, .004, 5, 12, PI * 1.4), MAT.metal, [0, .07, -.01], { r: [0, 0, -.7 * PI], c: C.brass }); pocketWatch(k.t([0, .06, 0], 0, 1, -1.25), true, 1.15, pick([C.gold, C.silver, C.oldgold])); }
   jewelBox(v2.t([-.25, s2[1], 0])); for (let i = 0; i < 3; i++) medal(v2.t([.15 + i * .12, s2[1], .05]), pick([C.gold, C.silver, C.bronze]), pick([C.bordeaux, C.navy, C.green]));
   for (let i = 0; i < 3; i++) photoFrame(v2.t([-.35 + i * .3, s2[2], 0]), i + 1, 1, i % 2 ? C.gold : C.silver);
@@ -2804,24 +2823,24 @@ function layoutCollection() {
   I(v2, [0, 1.5, .1], .65, '懐中時計の陳列棚', 'Cabinet of Keepsakes', '懐中時計、宝石箱、勲章、古い写真。持ち主たちの時間が、ここで少しずつ止まっている。');
   I(v2, [-.25, s2[1] + .1, .1], .15, '宝石箱', 'Jewel Box', '開いた蓋の内側は深紅のビロード。真珠の首飾りが、しまわれる途中で止まっている。');
   I(v2, [.35, s2[1] + .1, .1], .13, 'オルゴール', 'Music Box', 'ガラス蓋の下で、小さな櫛歯と円筒が光っている。鑑賞すると、短い旋律がこぼれ出す。', { sound: 'musicbox' });
-  const tv1 = ROOT.t([6.3, 0, -6.1]); const y1 = tableVitrine(tv1, 1.3, .7, C.walnut, C.navy);
+  const tv1 = LR.t([6.3, 0, -6.1]); const y1 = tableVitrine(tv1, 1.3, .7, C.walnut, C.navy);
   const a1 = tv1.t([0, y1, 0]); coins(a1.t([-.45, 0, -.1]), 9); medal(a1.t([-.3, 0, .12])); medal(a1.t([-.18, 0, .12]), C.silver, C.navy); keys(a1.t([.02, 0, -.08], .5)); spectacles(a1.t([.3, 0, .1], .3)); pocketWatch(a1.t([.42, 0, -.12], 2), true, 1.2); magnifier(a1.t([-.05, 0, .14], 2.5));
   I(tv1, [0, .95, 0], .55, '小箱の陳列台', 'Display Case of Small Things', '古銭、勲章、鍵束、眼鏡。どれも誰かのポケットの中で、長い年月を過ごしてきたものばかり。');
-  const tv2 = ROOT.t([10.1, 0, -6.1]); const y2 = tableVitrine(tv2, 1.3, .7, C.walnut, C.bordeaux);
+  const tv2 = LR.t([10.1, 0, -6.1]); const y2 = tableVitrine(tv2, 1.3, .7, C.walnut, C.bordeaux);
   const a2 = tv2.t([0, y2, 0]); lace(a2.t([-.3, 0, 0]), .2); for (let i = 0; i < 4; i++) { const g = G.plane(.1, .13); g.rotateX(-PI / 2); remapUV(g, ATL.PR.r['photo' + i]); a2.add(g, MAT.prints, [.05 + (i % 2) * .14, .002, -.12 + Math.floor(i / 2) * .17], { r: [0, rr(-.3, .3), 0], keepUV: true, noShadow: true }); }
   letters(a2.t([-.35, 0, .05]), 2, .12); doll(a2.t([.45, 0, 0], -.4), 0x4a5a7a);
   I(tv2, [0, .95, 0], .55, '古い写真', 'Old Photographs', 'セピア色の家族写真。誰の顔も少しずつぼやけているのに、ドレスのレースだけはくっきりと写っている。');
-  const vi3 = ROOT.t([8.1, 0, -9.9], 0); const s3 = vitrine(vi3, 1.0, 2.1, .46, C.ebony, C.green);
+  const vi3 = LR.t([8.1, 0, -9.9], 0); const s3 = vitrine(vi3, 1.0, 2.1, .46, C.ebony, C.green);
   vase(vi3.t([-.22, s3[0], 0]), 3, .3, 0xe8e0d0); vase(vi3.t([.22, s3[0], 0]), 1, .34, 0xffffff); vase(vi3.t([0, s3[1], 0]), 0, .38, 0xd0d8e8); vase(vi3.t([-.25, s3[2], 0]), 2, .26, 0xffffff); vase(vi3.t([.25, s3[2], 0]), 2, .26, 0xffffff);
   I(vi3, [0, 1.3, .1], .55, '青花の壺', 'Blue-and-White Vases', '藍の花模様をまとった磁器。釉薬の下の筆の跡は、二百年前の誰かの手の震えをそのまま残している。');
-  const p1 = ROOT.t([4.3, 0, -9.3]); pedestal(p1); bust(p1.t([0, 1.05, 0], .5), 1.1);
+  const p1 = LR.t([4.3, 0, -9.3]); pedestal(p1); bust(p1.t([0, 1.05, 0], .5), 1.1);
   I(p1, [0, 1.4, 0], .35, '大理石の胸像', 'Marble Bust', '冠も名も持たない人物の胸像。目の奥にだけ、彫り手の迷いが残っている。');
-  const p2 = ROOT.t([13.1, 0, -2.8]); pedestal(p2, 1.0); vase(p2.t([0, 1.0, 0]), 1, .62, 0xffffff); flowers(p2.t([0, 1.5, 0]), .5, 12);
+  const p2 = LR.t([13.1, 0, -2.8]); pedestal(p2, 1.0); vase(p2.t([0, 1.0, 0]), 1, .62, 0xffffff); flowers(p2.t([0, 1.5, 0]), .5, 12);
   I(p2, [0, 1.4, 0], .4, '蓋付きの大壺', 'Lidded Urn', '金の蓋飾りをいただく大きな壺。中に何が入っているのかは、誰も確かめたことがない。');
-  const p3 = ROOT.t([4.3, 0, -3.4]); pedestal(p3, .9); vase(p3.t([0, .9, 0]), 0, .55, 0xe8e8f0); flowers(p3.t([0, 1.35, 0]), .55, 14, [0xd8c8b0, 0xe8dcc8, 0xa86a6a]);
-  const ea = ROOT.t([13.0, 0, -9.6], -.7); easel(ea, 'forest', 1.2, .9);
+  const p3 = LR.t([4.3, 0, -3.4]); pedestal(p3, .9); vase(p3.t([0, .9, 0]), 0, .55, 0xe8e8f0); flowers(p3.t([0, 1.35, 0]), .55, 14, [0xd8c8b0, 0xe8dcc8, 0xa86a6a]);
+  const ea = LR.t([13.0, 0, -9.6], -.7); easel(ea, 'forest', 1.2, .9);
   I(ea, [0, 1.25, 0], .7, '画架の風景画', 'Painting on an Easel', '森の奥へ差しこむ光の筋を描いた油彩。仕上げのニスがまだ半分しか塗られていない。');
-  rugAt(ROOT.t([8.2, 0, -5.0]), 6.2, 5.6, 1);
+  rugAt(LR.t([8.2, 0, -5.0]), 6.2, 5.6, 1);
 }
 /* ---------------- AREA D: CLOCK GALLERY ---------------- */
 function layoutClocks() {
@@ -2841,19 +2860,19 @@ function layoutClocks() {
   I(con, [0, 1.05, 0], .6, '置き時計たち', 'Bracket Clocks', '持ち手のついた小さな置き時計が三つ。それぞれの刻む音が、少しずつずれて重なりあう。', { sound: 'tick' });
   const wb = wallK(17.98, -5.0, -PI / 2, 2.55); watchBoard(wb, 2.6, 1.3);
   I(wb, [0, 0, .08], .9, '懐中時計の壁', 'Wall of Pocket Watches', '鎖ごと掛けられた何十もの懐中時計。蓋を開けたもの、閉じたもの、どれも違う時刻を指している。');
-  const wkb = ROOT.t([15.4, 0, -13.62]); workbench(wkb);
+  const wkb = LR.t([15.4, 0, -13.62]); workbench(wkb);
   I(wkb, [0, 1.0, .1], .6, '時計職人の作業台', "Watchmaker's Bench", '分解された懐中時計と、ばらばらの歯車。ルーペを外した職人は、ほんの少し席を外しただけのように見える。');
   const gw = wallK(17.98, -11.2, -PI / 2, 9.8);
   gear(gw, .8, 26, .1, C.brass, .05, [0, 0, 0]); gear(gw, .5, 16, -.16, C.bronze, .05, [1.22, .3, .03]); gear(gw, .36, 12, .22, C.copper, .05, [-1.05, -.4, .03]); gear(gw, .6, 20, -.13, C.brass, .05, [.3, -1.25, .02]);
   I(gw, [0, 0, .1], 1.2, '真鍮の歯車', 'Brass Gears', '壁に据えられた大小の歯車。どの時計にもつながっていないのに、なぜか止まらずに回りつづけている。', { reach: 7, vd: 4.5 });
-  const dome = ROOT.t([15.0, 0, -5.0]); roundTable(dome, .38, .78, { cloth: C.wine });
+  const dome = LR.t([15.0, 0, -5.0]); roundTable(dome, .38, .78, { cloth: C.wine });
   const dt = dome.t([0, .785, 0]);
   dt.add(G.cyl(.2, .22, .04, 24), MAT.woodPol, [0, .02, 0], { c: C.ebony });
   dt.add(G.sph(.19, 24, 16, 0, PI / 2), MAT.glass, [0, .32, 0], { noShadow: true }); dt.add(G.cyl(.19, .19, .28, 24, true), MAT.glass, [0, .18, 0], { noShadow: true });
   const sk = dt.t([0, .04, 0]); sk.add(G.cyl(.02, .02, .2, 8), MAT.metal, [0, .1, 0], { c: C.brass }); sk.add(G.tor(.1, .008, 6, 32), MAT.metal, [0, .26, 0], { c: C.brass });
   gear(sk, .09, 18, .4, C.gold, .006, [0, .26, .01]); gear(sk, .05, 10, -.7, C.brass, .006, [.07, .2, .02]); dialDisc(sk, .06, 'dial1', [0, .26, .03]);
   I(dome, [0, 1.0, 0], .3, 'ガラスの鐘の中の時計', 'Skeleton Clock under Glass', '文字盤も箱もない、骨組みだけの時計。ガラスの鐘の中で、歯車が噛みあうさまがすべて見える。', { free: true, sound: 'tick' });
-  rugAt(ROOT.t([15.3, 0, -5.0], PI / 2), 5.0, 3.2, 0);
+  rugAt(LR.t([15.3, 0, -5.0], PI / 2), 5.0, 3.2, 0);
 }
 /* ---------------- AREA C: VICTORIAN LIVING ---------------- */
 function layoutLiving() {
@@ -2862,25 +2881,25 @@ function layoutLiving() {
   I(fp, [0, 1.0, .9], .9, '大理石の暖炉', 'Marble Fireplace', '深緑の大理石に金の渦飾り。薪は崩れても崩れても、いつまでも燃えつきない。', { vd: 2.6 });
   I(fp, [0, 2.55, .6], .6, '暖炉の上の鏡', 'Overmantel Mirror', '金の額縁の鏡。部屋の灯りを映しているはずなのに、ときどき一本多く蝋燭が見える。');
   I(fp, [0, 5.5, .6], 1.4, '廃墟の風景画', 'Arcadian Ruins', '夕暮れの光にしずむ古代の柱廊。描かれた木立の奥に、小さな人影がひとつだけ立っている。', { reach: 6, vd: 4.2 });
-  rugAt(ROOT.t([9, 0, 9.9]), 5.4, 3.8, 0);
-  const so = ROOT.t([9, 0, 7.3], 0); chesterfield(so, 2.4, 0x5a2418);
+  rugAt(LR.t([9, 0, 9.9]), 5.4, 3.8, 0);
+  const so = LR.t([9, 0, 7.3], 0); chesterfield(so, 2.4, 0x5a2418);
   I(so, [0, .6, 0], .9, 'チェスターフィールド・ソファ', 'Chesterfield Sofa', 'ボタン留めの革がふっくらと波打つソファ。座面のくぼみに、いくつもの夕べの重みが残っている。');
-  const a1 = ROOT.t([6.3, 0, 10.4], 1.15); wingChair(a1, C.bordeaux, true); I(a1, [0, .8, 0], .5, 'ベルベットの肘掛け椅子', 'Velvet Armchair', '深いボルドーのベルベット。手のひらでなでると、毛並みの向きで色がかすかに変わる。');
-  const a2 = ROOT.t([11.7, 0, 10.4], -1.15); wingChair(a2, C.moss, false);
-  const tt = ROOT.t([9, 0, 9.6], 0); rectTable(tt, 1.2, .62, .48, { c: C.mahogany, cab: true });
+  const a1 = LR.t([6.3, 0, 10.4], 1.15); wingChair(a1, C.bordeaux, true); I(a1, [0, .8, 0], .5, 'ベルベットの肘掛け椅子', 'Velvet Armchair', '深いボルドーのベルベット。手のひらでなでると、毛並みの向きで色がかすかに変わる。');
+  const a2 = LR.t([11.7, 0, 10.4], -1.15); wingChair(a2, C.moss, false);
+  const tt = LR.t([9, 0, 9.6], 0); rectTable(tt, 1.2, .62, .48, { c: C.mahogany, cab: true });
   const ts = tt.t([0, .48, 0]); lace(ts.t([.0, 0, 0]), .3); teaSet(ts.t([-.18, .001, 0])); cakeStand(ts.t([.38, .001, 0]));
   I(tt, [-.18, .6, 0], .35, '午後のティーセット', 'Afternoon Tea Service', '金縁の白磁に紅茶が注がれたまま。湯気はとうに消えたのに、カップはまだほんのり温かい。');
-  for (const [x, z] of [[5.6, 8.0], [12.4, 8.0]]) floorLamp(ROOT.t([x, 0, z]), 0xd8b080);
-  I(ROOT.t([5.6, 0, 8.0]), [0, 1.5, 0], .35, 'フリンジのフロアランプ', 'Fringed Floor Lamp', '房飾りのついた布の笠から、蜂蜜色の光がこぼれる。', { free: true });
-  for (const [x, z] of [[5.3, 11.6], [12.7, 11.6]]) { const s = ROOT.t([x, 0, z]); roundTable(s, .28, .62); vase(s.t([0, .62, 0]), 2, .28, 0xffffff); flowers(s.t([0, .82, 0]), .35, 8); }
-  const ch = ROOT.t([9, 13, 9.2]); chandelier(ch, 1.15, 2, 6.2, C.gold); spill(ROOT, [9, .02, 9.2], 8, 8, WARM(.2), { floor: true });
+  for (const [x, z] of [[5.6, 8.0], [12.4, 8.0]]) floorLamp(LR.t([x, 0, z]), 0xd8b080);
+  I(LR.t([5.6, 0, 8.0]), [0, 1.5, 0], .35, 'フリンジのフロアランプ', 'Fringed Floor Lamp', '房飾りのついた布の笠から、蜂蜜色の光がこぼれる。', { free: true });
+  for (const [x, z] of [[5.3, 11.6], [12.7, 11.6]]) { const s = LR.t([x, 0, z]); roundTable(s, .28, .62); vase(s.t([0, .62, 0]), 2, .28, 0xffffff); flowers(s.t([0, .82, 0]), .35, 8); }
+  const ch = LR.t([9, 13, 9.2]); chandelier(ch, 1.15, 2, 6.2, C.gold); spill(LR, [9, .02, 9.2], 8, 8, WARM(.2), { floor: true });
   // piano
   const pi = wallK(17.98, 11.4, -PI / 2); piano(pi);
   I(pi, [0, 1.0, .4], .8, 'アップライトピアノ', 'Upright Piano', '譜面台に開かれた夜想曲。鑑賞すると、誰もいない鍵盤から、いくつかの音がこぼれ落ちる。', { sound: 'piano' });
   frame(wallK(17.98, 11.4, -PI / 2, 3.25), 1.15, 1.44, ATL.ART.r.flowers, { light: true });
   I(wallK(17.98, 11.4, -PI / 2, 3.25), [0, 0, .1], .8, '花の静物画', 'Still Life with Flowers', '暗がりに浮かぶ花束。描かれてから百年以上、一枚の花びらも散っていない。');
   // gramophone
-  const gt = ROOT.t([16.9, 0, 4.0]); roundTable(gt, .3, .7); gramophone(gt.t([0, .7, 0], -2.2));
+  const gt = LR.t([16.9, 0, 4.0]); roundTable(gt, .3, .7); gramophone(gt.t([0, .7, 0], -2.2));
   I(gt, [0, 1.1, 0], .45, '蓄音機', 'Gramophone', '真鍮のラッパをもつ蓄音機。針を落とせば、遠い日の舞踏会の音楽がかすれて流れる。', { sound: 'gramo', free: true });
   // east window curtains
   { const hw = WIN_E.w / 2, top = archApex(WIN_E.z - hw, WIN_E.z + hw, WIN_E.spring) + .3, pw = 1.1; const K = wallK(17.86, 0, -PI / 2);
@@ -2890,14 +2909,14 @@ function layoutLiving() {
   vase(cc.t([-.25, s[0], 0]), 1, .34); vase(cc.t([.25, s[0], 0]), 3, .26, 0xe8dcd0); for (let i = 0; i < 3; i++) cup(cc.t([-.3 + i * .3, s[1], 0], i), .9); teapot(cc.t([0, s[2], 0]), .9); jewelBox(cc.t([.3, s[2], 0], 0));
   const cn = wallK(3.6, 13.75, PI); const cnt = consoleTable(cn, 1.6, .45); radio(cnt.t([-.35, 0, 0], .15)); vase(cnt.t([.45, 0, 0]), 0, .36); flowers(cnt.t([.45, .34, 0]), .4, 10);
   I(cn, [-.35, 1.05, 0], .3, 'ラジオ', 'Cathedral Radio', '教会の窓のような形をした木のラジオ。ダイヤルの灯りだけが、まだ電波を探している。');
-  fern(ROOT.t([2.9, 0, 6.2]), 1.0); fern(ROOT.t([16.9, 0, 9.6 - 1.2 - .5]), .9);
+  fern(LR.t([2.9, 0, 6.2]), 1.0); fern(LR.t([16.9, 0, 9.6 - 1.2 - .5]), .9);
 }
 /* ---------------- paintings, sconces, wall decor ---------------- */
 function layoutWallDecor() {
   _seed = 7007;
   const art = (x, y, z, ry, w, h, reg, name, en, desc, o = {}) => { const k = wallK(x, z, ry, y); frame(k, w, h, ATL.ART.r[reg], Object.assign({ light: true }, o)); if (name) I(k, [0, 0, .1], Math.max(w, h) * .55, name, en, desc, { reach: 5.5, vd: Math.max(w, h) * 1.6 + .8 }); };
   art(-11.6, 4.9, -13.97, FACE_S, 2.6, 1.95, 'castle', '断崖の城の絵', 'Castle on the Crag', '窓の外の城を、晴れた日に描いたものらしい。けれど絵の中の空も、やはり嵐の前の色をしている。');
-  art(10.8, 4.75, -13.97, FACE_S, 2.6, 1.95, 'sea', '嵐の海の絵', 'Ship in a Storm', '帆をたたみ損ねた船と、岬の灯台。灯台の光は、絵の具が盛りあがるほど厚く塗られている。');
+  art(FXi(8.94), 4.75, -13.97, FACE_S, 2.4, 1.8, 'sea', '嵐の海の絵', 'Ship in a Storm', '帆をたたみ損ねた船と、岬の灯台。灯台の光は、絵の具が盛りあがるほど厚く塗られている。');
   art(5.2, 3.45, 13.97, FACE_N, 1.2, 1.6, 'lady', '婦人の肖像', 'Portrait of a Lady', '真珠の首飾りとレースの襟。彼女の視線は、いつも部屋の入口の方を向いている。');
   art(12.8, 3.45, 13.97, FACE_N, 1.2, 1.6, 'gent', '紳士の肖像', 'Portrait of a Gentleman', '白いクラヴァットの紳士。片方の手は、懐中時計の鎖を握っているように見える。');
   { const k = wallK(.5, 13.97, FACE_N, 6.4); const g = G.plane(1.0, 1.25); remapUV(g, ATL.ART.r.girl); k.add(g, MAT.art, [0, 0, .02], { keepUV: true, noShadow: true }); k.add(G.tor(.56, .07, 8, 40), MAT.metal, [0, 0, .06], { s: [1, 1.25, 1], c: C.gold }); k.add(G.sph(.12, 10, 8), MAT.metal, [0, .78, .08], { c: C.gold }); k.add(G.ext(circleShape(0, 0, .5), .01, 0, 32), MAT.plaster, [0, 0, .005], { s: [1, 1.25, 1], c: 0x1a120c }); I(k, [0, 0, .1], .6, '少女の肖像', 'Portrait of a Girl', '扉の上の楕円の額。館を出ていく人を、いつも少しだけ寂しそうに見送っている。', { reach: 7, vd: 2.6 }); }
@@ -2907,9 +2926,9 @@ function layoutWallDecor() {
   // sconces
   for (const x of [2.6, 6.25, 11.75, 15.6]) sconce(wallK(x, 13.98, FACE_N, 2.55), C.brass, true);
   for (const z of [-13.6, -7.4, -2.6, 4.6, 9.4]) sconce(wallK(17.98, z, FACE_W, 3.4), C.brass, true);
-  for (const z of [-10.429, -3.286, 3.857]) sconce(wallK(-14.76, z, FACE_E, 2.5), C.brass, true);
+  for (const [x, z] of GROUND_COLS.slice(0, 3)) sconce(ROOT.t([x + .24, 2.5, z], FACE_E), C.brass, true);
   // engaged colonnettes between the north windows
-  for (const x of [-4.1, 4.1, -9.1, 9.1, -14.4, 13.4]) { const k = ROOT.t([x, 0, -13.85]); k.add(G.cyl(.09, .09, 12.2, 12), MAT.stone, [0, 6.1, 0], { c: 0xc4baa4 }); k.add(G.slathe([[.18, 0], [.18, .12], [.12, .22], [.1, .3]], 12), MAT.stone, [0, 0, 0], { c: 0xc4baa4 }); k.add(G.slathe([[.1, 0], [.14, .1], [.2, .22], [.2, .3]], 12), MAT.stone, [0, 11.85, 0], { c: 0xc4baa4 }); k.add(G.tor(.1, .02, 6, 14), MAT.metal, [0, 6.1, 0], { r: [PI / 2, 0, 0], c: C.oldgold }); }
+  for (const x of [-4.2, 4.2, -7.45, 7.45, -10.55, 10.6]) { const k = ROOT.t([x, 0, -RZ + .15]); k.add(G.cyl(.09, .09, 12.2, 12), MAT.stone, [0, 6.1, 0], { c: 0xc4baa4 }); k.add(G.slathe([[.18, 0], [.18, .12], [.12, .22], [.1, .3]], 12), MAT.stone, [0, 0, 0], { c: 0xc4baa4 }); k.add(G.slathe([[.1, 0], [.14, .1], [.2, .22], [.2, .3]], 12), MAT.stone, [0, 11.85, 0], { c: 0xc4baa4 }); k.add(G.tor(.1, .02, 6, 14), MAT.metal, [0, 6.1, 0], { r: [PI / 2, 0, 0], c: C.oldgold }); }
   // upper library walls: maps & poster above the shelves
   { const k = wallK(-17.97, 11.0, FACE_E, 10.4); frame(k, 1.4, .98, ATL.PR.r.map, { mat: MAT.prints, fw: .06, ornate: false, c: C.oldgold }); }
   { const k = wallK(-17.97, -4.0, FACE_E, 10.4); frame(k, .8, 1.12, ATL.PR.r.poster, { mat: MAT.prints, fw: .06, ornate: false, c: C.oldgold }); }
@@ -2919,15 +2938,15 @@ function layoutWallDecor() {
 function layoutDensity() {
   _seed = 8008;
   // foyer table on the axis of the great door
-  rugAt(ROOT.t([.5, 0, 8.6]), 3.4, 3.0, 2);
-  const ft = ROOT.t([.5, 0, 8.6]); roundTable(ft, .58, .78, { cloth: C.wine });
+  rugAt(LR.t([.5, 0, 8.6]), 3.4, 3.0, 2);
+  const ft = LR.t([.5, 0, 8.6]); roundTable(ft, .58, .78, { cloth: C.wine });
   const ftt = ft.t([0, .78, 0]); vase(ftt, 1, .5, 0xffffff); flowers(ftt.t([0, .45, 0]), .55, 16, [0x8a2a2a, 0xd8c8b0, 0xa86a6a, 0x6a2a4a]);
   candlestick(ftt, [-.36, 0, .1], .26, C.brass, true); candlestick(ftt, [.36, 0, .1], .26, C.brass, true);
   for (let i = 0; i < 3; i++) bookAt(ftt, [.1, .025 + i * .045, -.36], [0, .3 + rr(-.2, .2), PI / 2], [.042, .26, .19], bookCol(), ri(0, 15));
   I(ft, [0, 1.1, 0], .55, '玄関の花台', 'Entrance Table', '大扉をくぐって最初に出迎える丸卓。花はいつ活けられたのか、まだ一枚も萎れていない。', { free: true });
   // long reading table between the desk and the hall
-  rugAt(ROOT.t([-6.4, 0, 6.2], PI / 2), 3.8, 2.8, 0);
-  const rt = ROOT.t([-6.4, 0, 6.2], PI / 2); rectTable(rt, 2.5, .95, .78, { c: C.walnut });
+  rugAt(LR.t([-6.4, 0, 6.2], PI / 2), 3.8, 2.8, 0);
+  const rt = LR.t([-6.4, 0, 6.2], PI / 2); rectTable(rt, 2.5, .95, .78, { c: C.walnut });
   for (const x of [-.65, .65]) { chair(rt.t([x, 0, .78], PI), C.green); chair(rt.t([x, 0, -.78], 0), C.green); }
   const rtt = rt.t([0, .78, 0]);
   bankerLamp(rtt.t([-.85, 0, -.2])); bankerLamp(rtt.t([.85, 0, .2], PI));
@@ -2936,41 +2955,41 @@ function layoutDensity() {
   for (let i = 0; i < 4; i++) bookAt(rtt, [-.05, .025 + i * .045, -.05], [0, rr(-.3, .3), PI / 2], [.042, .25, .18], bookCol(), ri(0, 15));
   I(rt, [0, .95, 0], .9, '閲覧机', 'Long Reading Table', '緑のランプが二つ灯る長い閲覧机。向かい合った席には、読みかけの本が開いたまま残されている。');
   // map table near the spiral stair
-  const mt = ROOT.t([-6.8, 0, -4.4], .12); rectTable(mt, 1.7, 1.05, .82, { c: C.mahogany, cab: true });
+  const mt = ROOT.t([-4.25, 0, FZ(-4.4)], .12); rectTable(mt, 1.7, 1.05, .82, { c: C.mahogany, cab: true });
   const mtt = mt.t([0, .82, 0]); mapScroll(mtt.t([-.1, 0, 0], .05), .9, .62); magnifier(mtt.t([.5, 0, .3], .8)); pocketWatch(mtt.t([-.6, 0, .32], 1), true, 1.4, C.brass); candlestick(mtt, [.66, 0, -.36], .24, C.brass, true); hourglass(mtt.t([-.66, 0, -.34]));
   chair(mt.t([0, 0, -.8], 0), C.bordeaux);
   I(mt, [0, .95, 0], .7, '地図の机', 'Map Table', '広げられた古い海図。羅針の針のかわりに、小さな懐中時計が北を指して置かれている。');
   // fireside pair in the north-west, beneath the castle painting
-  rugAt(ROOT.t([-7.6, 0, -10.4]), 3.4, 2.4, 1);
-  const c1 = ROOT.t([-8.65, 0, -10.4], 1.35); wingChair(c1, C.green, true);
-  const c2 = ROOT.t([-6.55, 0, -10.4], -1.35); wingChair(c2, C.bordeaux, false);
-  const nt = ROOT.t([-7.6, 0, -10.55]); roundTable(nt, .3, .56);
+  rugAt(LR.t([-7.6, 0, -10.4]), 3.4, 2.4, 1);
+  const c1 = LR.t([-8.65, 0, -10.4], 1.35); wingChair(c1, C.green, true);
+  const c2 = LR.t([-6.55, 0, -10.4], -1.35); wingChair(c2, C.bordeaux, false);
+  const nt = LR.t([-7.6, 0, -10.55]); roundTable(nt, .3, .56);
   const ntt = nt.t([0, .56, 0]); cup(ntt.t([-.1, 0, .06], .4)); cup(ntt.t([.12, 0, -.04], 2.2)); candlestick(ntt, [0, 0, -.14], .2, C.silver, true);
-  floorLamp(ROOT.t([-7.6, 0, -11.75]), 0xd8c08a);
+  floorLamp(LR.t([-7.6, 0, -11.75]), 0xd8c08a);
   I(nt, [0, .7, 0], .6, '向かい合う二脚', 'A Pair of Chairs', '窓の嵐を横目に、向かい合って置かれた二脚の椅子。冷めた紅茶が、話の途中だったことを伝えている。', { free: true });
   // hall: pedestals framing the orrery
-  const pa = ROOT.t([-2.7, 0, -3.9]); pedestal(pa, 1.0); vase(pa.t([0, 1.0, 0]), 0, .5, 0xffffff); flowers(pa.t([0, 1.4, 0]), .45, 10, [0xd8c8b0, 0xe8dcc8, 0xa86a6a]);
-  const pb = ROOT.t([2.7, 0, -3.9]); pedestal(pb, 1.0); bust(pb.t([0, 1.0, 0], -.3), 1.1, 0xe8e2d6, false);
+  const pa = LR.t([-2.7, 0, -3.9]); pedestal(pa, 1.0); vase(pa.t([0, 1.0, 0]), 0, .5, 0xffffff); flowers(pa.t([0, 1.4, 0]), .45, 10, [0xd8c8b0, 0xe8dcc8, 0xa86a6a]);
+  const pb = LR.t([2.7, 0, -3.9]); pedestal(pb, 1.0); bust(pb.t([0, 1.0, 0], -.3), 1.1, 0xe8e2d6, false);
   I(pb, [0, 1.4, 0], .35, '婦人の胸像', 'Bust of a Lady', '髪を結い上げた婦人の胸像。天球儀の光を、まぶたの奥でじっと受けとめている。');
   // collection: a freestanding cabinet and a third display case
-  const fv = ROOT.t([6.4, 0, -2.6], 0); const sf = vitrine(fv, 1.0, 2.1, .46, C.mahogany, C.navy);
+  const fv = LR.t([6.4, 0, -2.6], 0); const sf = vitrine(fv, 1.0, 2.1, .46, C.mahogany, C.navy);
   vase(fv.t([-.22, sf[0], 0]), 2, .28, 0xffffff); vase(fv.t([.22, sf[0], 0]), 3, .26, 0xe8dcd0); teapot(fv.t([0, sf[1], 0]), .9); cup(fv.t([-.3, sf[1], 0], .4), .9); cup(fv.t([.3, sf[1], 0], -.4), .9); doll(fv.t([-.2, sf[2], .02], .3), 0x6a4a5a); musicBox(fv.t([.22, sf[2], 0]));
   I(fv, [0, 1.3, .1], .55, '小さな飾り棚', 'Curio Cabinet', '茶器と人形と小箱。誰かの午後のひとときを、そのままガラスに閉じこめたような棚。');
-  const tv3 = ROOT.t([10.1, 0, -2.9]); const y3 = tableVitrine(tv3, 1.3, .7, C.walnut, C.green);
+  const tv3 = LR.t([10.1, 0, -2.9]); const y3 = tableVitrine(tv3, 1.3, .7, C.walnut, C.green);
   const a3 = tv3.t([0, y3, 0]); for (let i = 0; i < 4; i++) pocketWatch(a3.t([-.42 + i * .26, 0, rr(-.1, .1)], rr(0, 6)), i % 2 === 0, 1.2, pick([C.gold, C.silver, C.oldgold])); for (let i = 0; i < 3; i++) medal(a3.t([-.3 + i * .3, 0, .18]), pick([C.gold, C.silver, C.bronze]));
   I(tv3, [0, .95, 0], .55, '時計と勲章の陳列台', 'Watches & Medals', '蓋を開けた懐中時計が四つ。ガラス越しに耳をすますと、それぞれ違う拍子で時を刻んでいる。');
   // clock gallery: a bench before the astronomical clock, watch cases
-  bench(ROOT.t([12.8, 0, -5.0], PI / 2), 1.5, C.wine);
-  I(ROOT.t([12.8, 0, -5.0]), [0, .6, 0], .6, '天文時計の前のベンチ', 'Viewing Bench', '天文時計を見上げるためのベンチ。座ると、無数の秒針の音がひとつの呼吸のように聞こえてくる。', { free: true });
-  for (const [x, z] of [[15.3, -9.6], [14.6, -.9]]) { const t = ROOT.t([x, 0, z]); const yy = tableVitrine(t, 1.3, .7, C.ebony, C.wine); const aa = t.t([0, yy, 0]); for (let i = 0; i < 5; i++) pocketWatch(aa.t([-.46 + i * .23, 0, rr(-.12, .12)], rr(0, 6)), i % 2 === 1, 1.1, pick([C.gold, C.silver, C.brass])); for (let i = 0; i < 6; i++) aa.add(G.ext(gearShape(rr(.015, .03), ri(10, 16), .003, 0), .003, 0, 2), MAT.metal, [rr(-.5, .5), .002, rr(-.2, .2)], { r: [-PI / 2, 0, 0], c: pick([C.brass, C.gold]), noShadow: true }); }
+  bench(LR.t([12.8, 0, -5.0], PI / 2), 1.5, C.wine);
+  I(LR.t([12.8, 0, -5.0]), [0, .6, 0], .6, '天文時計の前のベンチ', 'Viewing Bench', '天文時計を見上げるためのベンチ。座ると、無数の秒針の音がひとつの呼吸のように聞こえてくる。', { free: true });
+  for (const [x, z] of [[15.3, -9.6], [14.6, -.9]]) { const t = LR.t([x, 0, z]); const yy = tableVitrine(t, 1.3, .7, C.ebony, C.wine); const aa = t.t([0, yy, 0]); for (let i = 0; i < 5; i++) pocketWatch(aa.t([-.46 + i * .23, 0, rr(-.12, .12)], rr(0, 6)), i % 2 === 1, 1.1, pick([C.gold, C.silver, C.brass])); for (let i = 0; i < 6; i++) aa.add(G.ext(gearShape(rr(.015, .03), ri(10, 16), .003, 0), .003, 0, 2), MAT.metal, [rr(-.5, .5), .002, rr(-.2, .2)], { r: [-PI / 2, 0, 0], c: pick([C.brass, C.gold]), noShadow: true }); }
   // listening corner by the gramophone
-  const gc = ROOT.t([15.5, 0, 5.1], 2.3); wingChair(gc, C.moss, true);
-  floorLamp(ROOT.t([14.5, 0, 3.6]), 0xd8b080);
+  const gc = LR.t([15.5, 0, 5.1], 2.3); wingChair(gc, C.moss, true);
+  floorLamp(LR.t([14.5, 0, 3.6]), 0xd8b080);
   // living: sofa table behind the chesterfield, card table group
-  const sft = ROOT.t([9, 0, 6.42]); rectTable(sft, 2.0, .42, .74, { c: C.mahogany });
+  const sft = ROOT.t([FX(9), 0, FZ(7.3) - .69]); rectTable(sft, 2.0, .42, .74, { c: C.mahogany });
   const sftt = sft.t([0, .74, 0]); candelabra(sftt.t([-.7, 0, 0]), .38, 3, C.brass, true); vase(sftt.t([.65, 0, 0]), 2, .3, 0xffffff); flowers(sftt.t([.65, .28, 0]), .3, 7); for (let i = 0; i < 3; i++) bookAt(sftt, [0, .025 + i * .045, 0], [0, rr(-.3, .3), PI / 2], [.042, .24, .17], bookCol(), ri(0, 15)); photoFrame(sftt.t([.25, 0, .02]), 5, 1, C.gold);
-  rugAt(ROOT.t([12.6, 0, 3.4]), 2.8, 2.8, 2);
-  const cg = ROOT.t([12.6, 0, 3.4]); roundTable(cg, .48, .72, { cloth: C.green });
+  rugAt(LR.t([12.6, 0, 3.4]), 2.8, 2.8, 2);
+  const cg = LR.t([12.6, 0, 3.4]); roundTable(cg, .48, .72, { cloth: C.green });
   for (const a of [0, PI]) chair(cg.t([Math.sin(a) * .9, 0, Math.cos(a) * .9], a + PI), C.bordeaux);
   const cgt = cg.t([0, .72, 0]); candlestick(cgt, [0, 0, 0], .24, C.silver, true); for (let i = 0; i < 6; i++) cgt.add(G.box(.06, .002, .09), MAT.paper, [rr(-.25, .25), .002 + i * .002, rr(-.2, .2)], { r: [0, rr(0, 3), 0], c: i % 2 ? 0xefe6d0 : 0x7a1a1a, noShadow: true }); coins(cgt.t([.22, 0, .1]), 6);
   I(cg, [0, .9, 0], .55, 'カードテーブル', 'Card Table', '緑のラシャを張った小卓。伏せられたカードの最後の一枚は、誰にもめくられないまま。');
@@ -2995,7 +3014,7 @@ let SUN = null, HEMI = null, ENV_RT = null;
 function buildLights() {
   HEMI = new THREE.HemisphereLight(0x8e7c6a, 0x241a12, 0.48); scene.add(HEMI);
   for (const L of LIGHT_DEF) {
-    const l = new THREE.PointLight(L.c, L.i, L.d, 2); l.position.set(...L.p); l.userData = L; l.castShadow = false;
+    const l = new THREE.PointLight(L.c, L.i, L.d, 2); l.position.set(FX(L.p[0]), L.p[1], FZ(L.p[2])); l.userData = L; l.castShadow = false;
     scene.add(l); PLIGHTS.push(l);
   }
   SUN = new THREE.DirectionalLight(0xc6d2e6, 3.2);
@@ -3010,14 +3029,14 @@ function buildLights() {
 }
 function buildEnv() {
   const es = new THREE.Scene();
-  const room = new THREE.Mesh(new THREE.BoxGeometry(36, 13, 28), new THREE.MeshBasicMaterial({ color: 0x1c140e, side: THREE.BackSide }));
+  const room = new THREE.Mesh(new THREE.BoxGeometry(2 * RX, 13, 2 * RZ), new THREE.MeshBasicMaterial({ color: 0x1c140e, side: THREE.BackSide }));
   room.position.y = 6.5; es.add(room);
-  const flo = new THREE.Mesh(new THREE.PlaneGeometry(36, 28), new THREE.MeshBasicMaterial({ color: 0x4a301c })); flo.rotation.x = -PI / 2; flo.position.y = .01; es.add(flo);
+  const flo = new THREE.Mesh(new THREE.PlaneGeometry(2 * RX, 2 * RZ), new THREE.MeshBasicMaterial({ color: 0x4a301c })); flo.rotation.x = -PI / 2; flo.position.y = .01; es.add(flo);
   const add = (geo, col, s, p) => { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: new THREE.Color(col).multiplyScalar(s) })); m.position.set(...p); es.add(m); return m; };
-  add(new THREE.PlaneGeometry(5, 9), 0x8a9ab4, 1.2, [0, 5.5, -13.9]);
-  add(new THREE.PlaneGeometry(2.4, 7), 0x8a9ab4, 1.6, [-7, 5, -13.9]); add(new THREE.PlaneGeometry(2.4, 7), 0x8a9ab4, 1.6, [7, 5, -13.9]);
-  for (const L of LIGHT_DEF) add(new THREE.SphereGeometry(L.prio < 2 ? .7 : .4, 12, 8), L.c, L.prio < 2 ? 5 : 3, L.p);
-  add(new THREE.PlaneGeometry(36, 28), 0x2a3a36, .5, [0, 12.9, 0]).rotation.x = PI / 2;
+  add(new THREE.PlaneGeometry(5, 9), 0x8a9ab4, 1.2, [0, 5.5, -RZ + .1]);
+  add(new THREE.PlaneGeometry(2.2, 7), 0x8a9ab4, 1.6, [WIN_N[1].x, 5, -RZ + .1]); add(new THREE.PlaneGeometry(2.2, 7), 0x8a9ab4, 1.6, [WIN_N[2].x, 5, -RZ + .1]);
+  for (const L of LIGHT_DEF) add(new THREE.SphereGeometry(L.prio < 2 ? .7 : .4, 12, 8), L.c, L.prio < 2 ? 5 : 3, [FX(L.p[0]), L.p[1], FZ(L.p[2])]);
+  add(new THREE.PlaneGeometry(2 * RX, 2 * RZ), 0x2a3a36, .5, [0, 12.9, 0]).rotation.x = PI / 2;
   const pm = new THREE.PMREMGenerator(renderer);
   ENV_RT = pm.fromScene(es, 0.035, 0.1, 100);
   scene.environment = ENV_RT.texture;
@@ -3061,8 +3080,8 @@ function buildDust() {
   const n = IS_TOUCH ? 900 : 1800; const pos = new Float32Array(n * 3), rnd4 = new Float32Array(n * 4);
   for (let i = 0; i < n; i++) {
     let x, y, z;
-    if (i % 3 === 0) { const t = rr(0, 18); const sx = rr(-2.4, 2.4), sy = rr(1, 10); x = sx + LIGHT_DIR.x * t; y = sy + LIGHT_DIR.y * t; z = -14.6 + LIGHT_DIR.z * t; if (y < .1) { y = rr(.2, 6); } }
-    else { x = rr(-17, 17); y = rr(.2, 11); z = rr(-13.5, 13.5); }
+    if (i % 3 === 0) { const t = rr(0, 16); const sx = rr(-2.4, 2.4), sy = rr(1, 10); x = sx + LIGHT_DIR.x * t; y = sy + LIGHT_DIR.y * t; z = -RZ - .6 + LIGHT_DIR.z * t; if (y < .1) { y = rr(.2, 6); } }
+    else { x = rr(-RX + 1, RX - 1); y = rr(.2, 11); z = rr(-RZ + .5, RZ - .5); }
     pos.set([x, y, z], i * 3); rnd4.set([rnd(), rnd(), rnd(), rnd()], i * 4);
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('aR', new THREE.BufferAttribute(rnd4, 4));
@@ -3073,7 +3092,7 @@ function buildDust() {
         float t = uTime * (0.05 + aR.x*0.08);
         p += vec3(sin(t*1.3 + aR.y*30.0)*0.35, sin(t*0.7 + aR.z*20.0)*0.25 - mod(uTime*0.004*(0.5+aR.w), 1.0)*0.0, cos(t*1.1 + aR.w*25.0)*0.35);
         // inside the big window's beam?
-        vec3 o = vec3(0.0, 0.0, -14.6); float tt = dot(p - o, uDir); vec3 q = o + uDir * tt; vec3 dd = p - q;
+        vec3 o = vec3(0.0, 0.0, -11.6); float tt = dot(p - o, uDir); vec3 q = o + uDir * tt; vec3 dd = p - q;
         float inBeam = smoothstep(4.0, 1.0, abs(dd.x)) * smoothstep(5.5, 2.0, abs(dd.y + 0.0)) * step(0.0, tt);
         vec4 mv = modelViewMatrix * vec4(p, 1.0);
         float tw = 0.6 + 0.4*sin(uTime*(1.0+aR.x*2.0) + aR.y*60.0);
@@ -3091,7 +3110,7 @@ function buildDust() {
 function buildShafts() {
   const mats = [];
   const make = (x0, x1, y0, y1, len, inten) => {
-    const z = -14.9; const d = LIGHT_DIR;
+    const z = -RZ - .9; const d = LIGHT_DIR;
     const A = [V3(x0, y0, z), V3(x1, y0, z), V3(x1, y1, z), V3(x0, y1, z)];
     const pos = [], aT = [], aS = [], idx = [];
     for (let f = 0; f < 4; f++) {
@@ -3119,15 +3138,15 @@ function buildShafts() {
   };
   make(-2.35, 2.35, 1.2, 9.2, 21, .055);
   make(-1.4, 1.4, 1.4, 5.6, 16, .04);
-  make(-8.05, -5.95, 1.5, 7.0, 15, .03);
-  make(5.95, 8.05, 1.5, 7.0, 15, .03);
+  make(WIN_N[1].x - .95, WIN_N[1].x + .95, 1.5, 7.0, 15, .03);
+  make(WIN_N[2].x - .95, WIN_N[2].x + .95, 1.5, 7.0, 15, .03);
   onTick(t => { for (const m of mats) m.uniforms.uTime.value = t; });
 }
 
 /* ---- window light patch on the floor (used when real shadows are off) ---- */
 let PATCH = null;
 function buildPatch() {
-  const d = LIGHT_DIR; const proj = (x, y) => { const t = y / -d.y; return [x + d.x * t, -14.9 + d.z * t]; };
+  const d = LIGHT_DIR; const proj = (x, y) => { const t = y / -d.y; return [x + d.x * t, -RZ - .9 + d.z * t]; };
   const polys = [];
   for (const w of WIN_N) {
     const hw = w.w / 2;
@@ -3135,7 +3154,7 @@ function buildPatch() {
     else { const b = .16, m = .12, lw = (w.w - 2 * b - m) / 2; for (let i = 0; i < 2; i++) { const x0 = -hw + b + i * (lw + m) + w.x, x1 = x0 + lw; polys.push([[x0, w.sill + .12], [x1, w.sill + .12], [x1, 5.98], [x0, 5.98]].map(([x, y]) => proj(x, y))); } }
   }
   let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const p of polys) for (const [x, z] of p) { mnx = Math.min(mnx, x); mxx = Math.max(mxx, x); mnz = Math.min(mnz, z); mxz = Math.max(mxz, z); }
-  mnx -= .5; mxx += .5; mnz -= .5; mxz += .5; mnz = Math.max(mnz, -13.95);
+  mnx -= .5; mxx += .5; mnz -= .5; mxz += .5; mnz = Math.max(mnz, -RZ + .05);
   const W = 512, H = Math.round(W * (mxz - mnz) / (mxx - mnx)); const c = cnv(W, H), x = c.getContext('2d');
   x.fillStyle = '#000'; x.fillRect(0, 0, W, H); x.fillStyle = '#fff';
   for (const p of polys) { x.beginPath(); p.forEach(([px, pz], i) => { const X = (px - mnx) / (mxx - mnx) * W, Y = (pz - mnz) / (mxz - mnz) * H; i ? x.lineTo(X, Y) : x.moveTo(X, Y); }); x.fill(); }
@@ -3256,7 +3275,7 @@ function perfTick(dt) {
 /* =========================================================
    player: movement, collision, stairs, inspection
    ========================================================= */
-const P = { x: 0.5, y: 0, z: 11.2, yaw: 0, pitch: 0.06, vx: 0, vz: 0, onStair: false, bob: 0, bobAmt: 0, lastStep: 0 };
+const P = { x: 0.4, y: 0, z: 9.4, yaw: 0, pitch: 0.06, vx: 0, vz: 0, onStair: false, bob: 0, bobAmt: 0, lastStep: 0 };
 const EYE = 1.62, PR = 0.28;
 const KEYS = {};
 const INPUT = { mx: 0, my: 0, run: false, look: [0, 0] };
@@ -3264,7 +3283,7 @@ let MODE = 'loading'; // loading | title | play | inspect | menu
 let TARGET = null, INSPECTING = null;
 const IV = { yaw: 0, pitch: 0, dist: 1, oy: 0, op: 0, t: 0, from: { pos: new THREE.Vector3(), q: new THREE.Quaternion() }, back: 0 };
 
-function onMezz(x, z) { return (x <= -15.0 && z >= -14 && z <= 14) || (z >= 10.95 && x >= -18 && x <= -4.0); }
+function onMezz(x, z) { return (x <= MEZ_X && z >= -RZ && z <= RZ) || (z >= MEZ_Z - .05 && x >= -RX && x <= MEZ_END); }
 function stairPolar(x, z) { const dx = x - STAIR.x, dz = z - STAIR.z; let phi = Math.atan2(dz, dx); if (phi < 0) phi += TAU; return { r: Math.hypot(dx, dz), phi }; }
 function stairHeight(phi, y) {
   let best = 0, bd = 1e9;
@@ -3429,7 +3448,7 @@ const AREAS = [
   { id: 'C', en: 'Victorian Living', jp: 'ヴィクトリアンの居間', test: (x, z) => x > 2.4 && z > 2.5 },
   { id: 'H', en: 'The Great Hall', jp: '吹き抜けの大広間', test: () => true },
 ];
-function areaAt(x, z, y) { for (const a of AREAS) if (a.test(x, z, y)) return a; return AREAS[AREAS.length - 1]; }
+function areaAt(x, z, y) { const ox = FXi(x), oz = FZi(z); for (const a of AREAS) if (a.test(ox, oz, y)) return a; return AREAS[AREAS.length - 1]; }
 function show(el, on) { el.classList.toggle('hide', !on); }
 function setLoad(p, msg) { $('#loadBar').style.width = Math.round(p * 100) + '%'; if (msg) $('#loadMsg').textContent = msg; }
 function loadError(e) { console.error(e); const el = $('#loadErr'); el.classList.remove('hide'); el.textContent = '館の扉がひらけませんでした。ページを読みこみ直してください。（' + (e && e.message ? e.message : e) + '）'; }
@@ -3644,8 +3663,8 @@ const AUDIO = (() => {
   function update(dt) {
     if (!started || !ctx || ctx.state !== 'running') return;
     const now = ctx.currentTime;
-    const dWin = Math.max(0, -10 - P.z) , nearWin = clamp(1 - (P.z + 13) / 14, 0, 1);
-    const dFire = Math.hypot(P.x - 9, P.z - 13), dClock = Math.hypot(P.x - 16, P.z + 5);
+    const ox = FXi(P.x), oz = FZi(P.z), nearWin = clamp(1 - (oz + 13) / 14, 0, 1);
+    const dFire = Math.hypot(ox - 9, oz - 13), dClock = Math.hypot(ox - 16, oz + 5);
     amb.wind.g.gain.setTargetAtTime(.03 + nearWin * .09 + SKY.flash * .05, now, .5);
     amb.wind.f.frequency.setTargetAtTime(380 + 140 * Math.sin(now * .13) + 80 * Math.sin(now * .37), now, .4);
     amb.rain.g.gain.setTargetAtTime(.008 + nearWin * .02, now, .5);
@@ -3687,8 +3706,8 @@ window.AUDIO = AUDIO;
 const clock = new THREE.Clock(); let TIME = 0, FADE = 0, FADE_T = 1;
 function titleCam(t) {
   const a = t * .045;
-  camera.position.set(Math.sin(a) * 3.2 + 1.2, 2.1 + Math.sin(t * .11) * .35, 7.2 + Math.cos(a) * 2.2);
-  _m4.lookAt(camera.position, V3(Math.sin(a * .7) * 2.5, 4.4, -12), camera.up); camera.quaternion.setFromRotationMatrix(_m4);
+  camera.position.set(Math.sin(a) * 2.4 + .8, 2.1 + Math.sin(t * .11) * .35, 5.6 + Math.cos(a) * 1.6);
+  _m4.lookAt(camera.position, V3(Math.sin(a * .7) * 2.0, 4.4, -RZ + 2), camera.up); camera.quaternion.setFromRotationMatrix(_m4);
 }
 function toTitle() {
   MODE = 'title'; show($('#title'), true); show($('#hud'), false); show($('#touch'), false);
@@ -3702,7 +3721,7 @@ function startGame() {
   $('#fade').style.opacity = 1;
   setTimeout(() => {
     show($('#title'), false); show($('#hud'), true); if (IS_TOUCH) show($('#touch'), true);
-    P.x = 0.5; P.z = 11.4; P.y = 0; P.yaw = 0; P.pitch = .08; P.vx = P.vz = 0; P.onStair = false; UI.area = null;
+    P.x = DOOR.x; P.z = RZ - 2.1; P.y = 0; P.yaw = 0; P.pitch = .08; P.vx = P.vz = 0; P.onStair = false; UI.area = null;
     MODE = 'play'; placeCamera();
     $('#fade').style.opacity = 0;
     if (!IS_TOUCH) flashHint(UI.pointerLocked ? 'WASDで歩く ・ マウスで見まわす ・ Eで鑑賞' : 'クリックで視点を固定 ・ WASDで歩く ・ Eで鑑賞', 6);
