@@ -2671,7 +2671,7 @@ function wallK(x, z, ry, y = 0) { return ROOT.t([x, y, z], ry); }   // local +z 
 const FACE_S = 0, FACE_N = PI, FACE_E = PI / 2, FACE_W = -PI / 2;
 
 function buildLayout() {
-  layoutLibrary(); layoutWindow(); layoutHall(); layoutCollection(); layoutClocks(); layoutLiving(); layoutWallDecor();
+  layoutLibrary(); layoutWindow(); layoutHall(); layoutCollection(); layoutClocks(); layoutLiving(); layoutWallDecor(); layoutDensity();
 }
 /* ---------------- AREA A: GRAND LIBRARY ---------------- */
 function layoutLibrary() {
@@ -2783,7 +2783,7 @@ function layoutHall() {
   spill(ROOT, [DOME.x, .007, DOME.z], 11, 11, WARM(.22), { floor: true });
   I(ch, [0, -9.2, 0], 1.6, '大シャンデリア', 'The Grand Chandelier', '三段の腕に何十本もの蝋燭。数えきれない水晶のしずくが炎を細かく砕いて、天井へ光の粒を散らす。', { reach: 8.5, free: true, pitch: -.25 });
   I(ROOT.t([DOME.x, 13, DOME.z]), [0, 2.0, 0], 4.2, '星図の天井画', 'Ceiling Fresco', '円蓋に描かれた夜空と金の星座。じっと見上げていると、星々がほんのわずかずつ巡っているのがわかる。', { reach: 12, free: true, pitch: -1.2, vd: 7 });
-  bench(ROOT.t([-3.6, 0, 2.3], .5), 1.4, C.bordeaux); bench(ROOT.t([3.6, 0, 2.3], -.5), 1.4, C.bordeaux);
+  bench(ROOT.t([-2.75, 0, 1.75], .55), 1.4, C.bordeaux); bench(ROOT.t([2.75, 0, 1.75], -.55), 1.4, C.bordeaux);
   fern(ROOT.t([-5.2, 0, 4.6]), 1.0); fern(ROOT.t([5.3, 0, -.2]), 1.0);
   I(ROOT.t([-5.2, 0, 4.6]), [0, 1.4, 0], .5, 'シダの鉢台', 'Fern Stand', '背の高い木の台に、羽のようなシダの鉢。この館で、時間とともに育っているのはこれだけかもしれない。', { free: true });
 }
@@ -2804,10 +2804,10 @@ function layoutCollection() {
   I(v2, [0, 1.5, .1], .65, '懐中時計の陳列棚', 'Cabinet of Keepsakes', '懐中時計、宝石箱、勲章、古い写真。持ち主たちの時間が、ここで少しずつ止まっている。');
   I(v2, [-.25, s2[1] + .1, .1], .15, '宝石箱', 'Jewel Box', '開いた蓋の内側は深紅のビロード。真珠の首飾りが、しまわれる途中で止まっている。');
   I(v2, [.35, s2[1] + .1, .1], .13, 'オルゴール', 'Music Box', 'ガラス蓋の下で、小さな櫛歯と円筒が光っている。鑑賞すると、短い旋律がこぼれ出す。', { sound: 'musicbox' });
-  const tv1 = ROOT.t([6.3, 0, -6.6]); const y1 = tableVitrine(tv1, 1.3, .7, C.walnut, C.navy);
+  const tv1 = ROOT.t([6.3, 0, -6.1]); const y1 = tableVitrine(tv1, 1.3, .7, C.walnut, C.navy);
   const a1 = tv1.t([0, y1, 0]); coins(a1.t([-.45, 0, -.1]), 9); medal(a1.t([-.3, 0, .12])); medal(a1.t([-.18, 0, .12]), C.silver, C.navy); keys(a1.t([.02, 0, -.08], .5)); spectacles(a1.t([.3, 0, .1], .3)); pocketWatch(a1.t([.42, 0, -.12], 2), true, 1.2); magnifier(a1.t([-.05, 0, .14], 2.5));
   I(tv1, [0, .95, 0], .55, '小箱の陳列台', 'Display Case of Small Things', '古銭、勲章、鍵束、眼鏡。どれも誰かのポケットの中で、長い年月を過ごしてきたものばかり。');
-  const tv2 = ROOT.t([10.1, 0, -6.6]); const y2 = tableVitrine(tv2, 1.3, .7, C.walnut, C.bordeaux);
+  const tv2 = ROOT.t([10.1, 0, -6.1]); const y2 = tableVitrine(tv2, 1.3, .7, C.walnut, C.bordeaux);
   const a2 = tv2.t([0, y2, 0]); lace(a2.t([-.3, 0, 0]), .2); for (let i = 0; i < 4; i++) { const g = G.plane(.1, .13); g.rotateX(-PI / 2); remapUV(g, ATL.PR.r['photo' + i]); a2.add(g, MAT.prints, [.05 + (i % 2) * .14, .002, -.12 + Math.floor(i / 2) * .17], { r: [0, rr(-.3, .3), 0], keepUV: true, noShadow: true }); }
   letters(a2.t([-.35, 0, .05]), 2, .12); doll(a2.t([.45, 0, 0], -.4), 0x4a5a7a);
   I(tv2, [0, .95, 0], .55, '古い写真', 'Old Photographs', 'セピア色の家族写真。誰の顔も少しずつぼやけているのに、ドレスのレースだけはくっきりと写っている。');
@@ -2821,7 +2821,7 @@ function layoutCollection() {
   const p3 = ROOT.t([4.3, 0, -3.4]); pedestal(p3, .9); vase(p3.t([0, .9, 0]), 0, .55, 0xe8e8f0); flowers(p3.t([0, 1.35, 0]), .55, 14, [0xd8c8b0, 0xe8dcc8, 0xa86a6a]);
   const ea = ROOT.t([13.0, 0, -9.6], -.7); easel(ea, 'forest', 1.2, .9);
   I(ea, [0, 1.25, 0], .7, '画架の風景画', 'Painting on an Easel', '森の奥へ差しこむ光の筋を描いた油彩。仕上げのニスがまだ半分しか塗られていない。');
-  rugAt(ROOT.t([8.2, 0, -6.6]), 6.0, 3.4, 1);
+  rugAt(ROOT.t([8.2, 0, -5.0]), 6.2, 5.6, 1);
 }
 /* ---------------- AREA D: CLOCK GALLERY ---------------- */
 function layoutClocks() {
@@ -2846,7 +2846,7 @@ function layoutClocks() {
   const gw = wallK(17.98, -11.2, -PI / 2, 9.8);
   gear(gw, .8, 26, .1, C.brass, .05, [0, 0, 0]); gear(gw, .5, 16, -.16, C.bronze, .05, [1.22, .3, .03]); gear(gw, .36, 12, .22, C.copper, .05, [-1.05, -.4, .03]); gear(gw, .6, 20, -.13, C.brass, .05, [.3, -1.25, .02]);
   I(gw, [0, 0, .1], 1.2, '真鍮の歯車', 'Brass Gears', '壁に据えられた大小の歯車。どの時計にもつながっていないのに、なぜか止まらずに回りつづけている。', { reach: 7, vd: 4.5 });
-  const dome = ROOT.t([14.2, 0, -5.0]); roundTable(dome, .38, .78, { cloth: C.wine });
+  const dome = ROOT.t([15.0, 0, -5.0]); roundTable(dome, .38, .78, { cloth: C.wine });
   const dt = dome.t([0, .785, 0]);
   dt.add(G.cyl(.2, .22, .04, 24), MAT.woodPol, [0, .02, 0], { c: C.ebony });
   dt.add(G.sph(.19, 24, 16, 0, PI / 2), MAT.glass, [0, .32, 0], { noShadow: true }); dt.add(G.cyl(.19, .19, .28, 24, true), MAT.glass, [0, .18, 0], { noShadow: true });
@@ -2913,6 +2913,67 @@ function layoutWallDecor() {
   // upper library walls: maps & poster above the shelves
   { const k = wallK(-17.97, 11.0, FACE_E, 10.4); frame(k, 1.4, .98, ATL.PR.r.map, { mat: MAT.prints, fw: .06, ornate: false, c: C.oldgold }); }
   { const k = wallK(-17.97, -4.0, FACE_E, 10.4); frame(k, .8, 1.12, ATL.PR.r.poster, { mat: MAT.prints, fw: .06, ornate: false, c: C.oldgold }); }
+}
+
+/* ---------------- density pass: fill the open floor with groupings ---------------- */
+function layoutDensity() {
+  _seed = 8008;
+  // foyer table on the axis of the great door
+  rugAt(ROOT.t([.5, 0, 8.6]), 3.4, 3.0, 2);
+  const ft = ROOT.t([.5, 0, 8.6]); roundTable(ft, .58, .78, { cloth: C.wine });
+  const ftt = ft.t([0, .78, 0]); vase(ftt, 1, .5, 0xffffff); flowers(ftt.t([0, .45, 0]), .55, 16, [0x8a2a2a, 0xd8c8b0, 0xa86a6a, 0x6a2a4a]);
+  candlestick(ftt, [-.36, 0, .1], .26, C.brass, true); candlestick(ftt, [.36, 0, .1], .26, C.brass, true);
+  for (let i = 0; i < 3; i++) bookAt(ftt, [.1, .025 + i * .045, -.36], [0, .3 + rr(-.2, .2), PI / 2], [.042, .26, .19], bookCol(), ri(0, 15));
+  I(ft, [0, 1.1, 0], .55, '玄関の花台', 'Entrance Table', '大扉をくぐって最初に出迎える丸卓。花はいつ活けられたのか、まだ一枚も萎れていない。', { free: true });
+  // long reading table between the desk and the hall
+  rugAt(ROOT.t([-6.4, 0, 6.2], PI / 2), 3.8, 2.8, 0);
+  const rt = ROOT.t([-6.4, 0, 6.2], PI / 2); rectTable(rt, 2.5, .95, .78, { c: C.walnut });
+  for (const x of [-.65, .65]) { chair(rt.t([x, 0, .78], PI), C.green); chair(rt.t([x, 0, -.78], 0), C.green); }
+  const rtt = rt.t([0, .78, 0]);
+  bankerLamp(rtt.t([-.85, 0, -.2])); bankerLamp(rtt.t([.85, 0, .2], PI));
+  openBook(rtt.t([-.4, 0, .12], .08), .4, .28, 'book0'); openBook(rtt.t([.45, 0, -.12], PI - .1), .38, .27, 'book1');
+  letters(rtt.t([0, 0, .25], -.4), 2, .15); inkwell(rtt.t([.05, 0, -.28]));
+  for (let i = 0; i < 4; i++) bookAt(rtt, [-.05, .025 + i * .045, -.05], [0, rr(-.3, .3), PI / 2], [.042, .25, .18], bookCol(), ri(0, 15));
+  I(rt, [0, .95, 0], .9, '閲覧机', 'Long Reading Table', '緑のランプが二つ灯る長い閲覧机。向かい合った席には、読みかけの本が開いたまま残されている。');
+  // map table near the spiral stair
+  const mt = ROOT.t([-6.8, 0, -4.4], .12); rectTable(mt, 1.7, 1.05, .82, { c: C.mahogany, cab: true });
+  const mtt = mt.t([0, .82, 0]); mapScroll(mtt.t([-.1, 0, 0], .05), .9, .62); magnifier(mtt.t([.5, 0, .3], .8)); pocketWatch(mtt.t([-.6, 0, .32], 1), true, 1.4, C.brass); candlestick(mtt, [.66, 0, -.36], .24, C.brass, true); hourglass(mtt.t([-.66, 0, -.34]));
+  chair(mt.t([0, 0, -.8], 0), C.bordeaux);
+  I(mt, [0, .95, 0], .7, '地図の机', 'Map Table', '広げられた古い海図。羅針の針のかわりに、小さな懐中時計が北を指して置かれている。');
+  // fireside pair in the north-west, beneath the castle painting
+  rugAt(ROOT.t([-7.6, 0, -10.4]), 3.4, 2.4, 1);
+  const c1 = ROOT.t([-8.65, 0, -10.4], 1.35); wingChair(c1, C.green, true);
+  const c2 = ROOT.t([-6.55, 0, -10.4], -1.35); wingChair(c2, C.bordeaux, false);
+  const nt = ROOT.t([-7.6, 0, -10.55]); roundTable(nt, .3, .56);
+  const ntt = nt.t([0, .56, 0]); cup(ntt.t([-.1, 0, .06], .4)); cup(ntt.t([.12, 0, -.04], 2.2)); candlestick(ntt, [0, 0, -.14], .2, C.silver, true);
+  floorLamp(ROOT.t([-7.6, 0, -11.75]), 0xd8c08a);
+  I(nt, [0, .7, 0], .6, '向かい合う二脚', 'A Pair of Chairs', '窓の嵐を横目に、向かい合って置かれた二脚の椅子。冷めた紅茶が、話の途中だったことを伝えている。', { free: true });
+  // hall: pedestals framing the orrery
+  const pa = ROOT.t([-2.7, 0, -3.9]); pedestal(pa, 1.0); vase(pa.t([0, 1.0, 0]), 0, .5, 0xffffff); flowers(pa.t([0, 1.4, 0]), .45, 10, [0xd8c8b0, 0xe8dcc8, 0xa86a6a]);
+  const pb = ROOT.t([2.7, 0, -3.9]); pedestal(pb, 1.0); bust(pb.t([0, 1.0, 0], -.3), 1.1, 0xe8e2d6, false);
+  I(pb, [0, 1.4, 0], .35, '婦人の胸像', 'Bust of a Lady', '髪を結い上げた婦人の胸像。天球儀の光を、まぶたの奥でじっと受けとめている。');
+  // collection: a freestanding cabinet and a third display case
+  const fv = ROOT.t([6.4, 0, -2.6], 0); const sf = vitrine(fv, 1.0, 2.1, .46, C.mahogany, C.navy);
+  vase(fv.t([-.22, sf[0], 0]), 2, .28, 0xffffff); vase(fv.t([.22, sf[0], 0]), 3, .26, 0xe8dcd0); teapot(fv.t([0, sf[1], 0]), .9); cup(fv.t([-.3, sf[1], 0], .4), .9); cup(fv.t([.3, sf[1], 0], -.4), .9); doll(fv.t([-.2, sf[2], .02], .3), 0x6a4a5a); musicBox(fv.t([.22, sf[2], 0]));
+  I(fv, [0, 1.3, .1], .55, '小さな飾り棚', 'Curio Cabinet', '茶器と人形と小箱。誰かの午後のひとときを、そのままガラスに閉じこめたような棚。');
+  const tv3 = ROOT.t([10.1, 0, -2.9]); const y3 = tableVitrine(tv3, 1.3, .7, C.walnut, C.green);
+  const a3 = tv3.t([0, y3, 0]); for (let i = 0; i < 4; i++) pocketWatch(a3.t([-.42 + i * .26, 0, rr(-.1, .1)], rr(0, 6)), i % 2 === 0, 1.2, pick([C.gold, C.silver, C.oldgold])); for (let i = 0; i < 3; i++) medal(a3.t([-.3 + i * .3, 0, .18]), pick([C.gold, C.silver, C.bronze]));
+  I(tv3, [0, .95, 0], .55, '時計と勲章の陳列台', 'Watches & Medals', '蓋を開けた懐中時計が四つ。ガラス越しに耳をすますと、それぞれ違う拍子で時を刻んでいる。');
+  // clock gallery: a bench before the astronomical clock, watch cases
+  bench(ROOT.t([12.8, 0, -5.0], PI / 2), 1.5, C.wine);
+  I(ROOT.t([12.8, 0, -5.0]), [0, .6, 0], .6, '天文時計の前のベンチ', 'Viewing Bench', '天文時計を見上げるためのベンチ。座ると、無数の秒針の音がひとつの呼吸のように聞こえてくる。', { free: true });
+  for (const [x, z] of [[15.3, -9.6], [14.6, -.9]]) { const t = ROOT.t([x, 0, z]); const yy = tableVitrine(t, 1.3, .7, C.ebony, C.wine); const aa = t.t([0, yy, 0]); for (let i = 0; i < 5; i++) pocketWatch(aa.t([-.46 + i * .23, 0, rr(-.12, .12)], rr(0, 6)), i % 2 === 1, 1.1, pick([C.gold, C.silver, C.brass])); for (let i = 0; i < 6; i++) aa.add(G.ext(gearShape(rr(.015, .03), ri(10, 16), .003, 0), .003, 0, 2), MAT.metal, [rr(-.5, .5), .002, rr(-.2, .2)], { r: [-PI / 2, 0, 0], c: pick([C.brass, C.gold]), noShadow: true }); }
+  // listening corner by the gramophone
+  const gc = ROOT.t([15.5, 0, 5.1], 2.3); wingChair(gc, C.moss, true);
+  floorLamp(ROOT.t([14.5, 0, 3.6]), 0xd8b080);
+  // living: sofa table behind the chesterfield, card table group
+  const sft = ROOT.t([9, 0, 6.42]); rectTable(sft, 2.0, .42, .74, { c: C.mahogany });
+  const sftt = sft.t([0, .74, 0]); candelabra(sftt.t([-.7, 0, 0]), .38, 3, C.brass, true); vase(sftt.t([.65, 0, 0]), 2, .3, 0xffffff); flowers(sftt.t([.65, .28, 0]), .3, 7); for (let i = 0; i < 3; i++) bookAt(sftt, [0, .025 + i * .045, 0], [0, rr(-.3, .3), PI / 2], [.042, .24, .17], bookCol(), ri(0, 15)); photoFrame(sftt.t([.25, 0, .02]), 5, 1, C.gold);
+  rugAt(ROOT.t([12.6, 0, 3.4]), 2.8, 2.8, 2);
+  const cg = ROOT.t([12.6, 0, 3.4]); roundTable(cg, .48, .72, { cloth: C.green });
+  for (const a of [0, PI]) chair(cg.t([Math.sin(a) * .9, 0, Math.cos(a) * .9], a + PI), C.bordeaux);
+  const cgt = cg.t([0, .72, 0]); candlestick(cgt, [0, 0, 0], .24, C.silver, true); for (let i = 0; i < 6; i++) cgt.add(G.box(.06, .002, .09), MAT.paper, [rr(-.25, .25), .002 + i * .002, rr(-.2, .2)], { r: [0, rr(0, 3), 0], c: i % 2 ? 0xefe6d0 : 0x7a1a1a, noShadow: true }); coins(cgt.t([.22, 0, .1]), 6);
+  I(cg, [0, .9, 0], .55, 'カードテーブル', 'Card Table', '緑のラシャを張った小卓。伏せられたカードの最後の一枚は、誰にもめくられないまま。');
 }
 
 /* =========================================================
