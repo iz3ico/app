@@ -3589,16 +3589,70 @@ const GAME = {
   showEnding(id) {
     const E = ENDINGS[id]; const S = $('#ending');
     FX.dim(1, 1500);
-    setTimeout(() => {
+    setTimeout(async () => {
       STORY.busy = false; WM.closeAll(); AU.ambOn(false); AU.drone(0);
+      if (id === 'found') { await this.credits(); FX.dim(1, 10); }
       const a = G.anom || {}; const done = Object.values(a).filter(x => x.done);
       S.innerHTML = `<div class="en">ENDING</div><div class="et">${E.t}</div><div class="en" style="letter-spacing:.3em;margin-top:-14px;margin-bottom:28px">${E.sub}</div><div class="eb"></div>
         <div class="es">修復：完全 ${done.filter(x => x.perfect).length}　／　不完全 ${done.filter(x => !x.perfect).length}　　記憶の断片 ${G.mem} / 4　　ディスク侵食率 ${Math.round(G.corrupt)}%<br>到達したエンディング ${this.endingsSeen().length} / 4</div><button>タイトルへ</button>`;
       $('.eb', S).textContent = E.body;
       $('button', S).onclick = () => { AU.click(); this.title(); };
       S.classList.remove('hidden'); FX.dim(0, 1200);
-      if (id === 'found' || id === 'silence') AU.chime(0); else AU.thud();
+      if (id === 'silence') AU.chime(0); else if (id !== 'found') AU.thud();
     }, 1600);
+  },
+  /* ---------- staff roll (true ending only) ---------- */
+  credits() {
+    return new Promise(res => {
+      const S = $('#ending');
+      const R = [
+        ['', 'DESKTOP 404', 'big'], ['', 'NOT FOUND → FOUND', 'sub'], ['gap'],
+        ['キャスト'], ['相川 澪', 'くじらが好きな、17歳'], ['相川 遥', '澪の姉'], ['くらげ', '澪の友だち'], ['木島', '湊データ復旧サービス'], ['404', 'THE USER'], ['あなた', '技術員'], ['gap'],
+        ['原案・ディレクション', 'iz3ico'], ['THE USER デザイン', 'iz3ico'], ['シナリオ・プログラム', 'Claude'], ['グラフィック・サウンド', 'Claude'], ['gap'],
+        ['協力'], ['PaneOS 2000', 'Pane Systems'], ['MEND 修復ツール', '湊データ復旧サービス'], ['ホームページ「くじらの見る夢」', 'みお'], ['壁紙「kujira」', 'みお'], ['なぎさ.mid', 'みお'], ['gap'],
+        ['', 'ここ、ずっと暗かった。', 'line'], ['', 'でも、だれかが少しずつ、明かりをつけてくれた。', 'line'], ['gap'],
+        ['', 'ユーザー「相川 澪」が見つかりました。', 'line'], ['gap'], ['gap'],
+        ['', 'みつけてくれて、ありがとう。', 'last'],
+      ];
+      S.innerHTML = `<canvas class="crbg" width="640" height="400" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity 3s"></canvas>
+        <div class="crwrap" style="position:absolute;inset:0;overflow:hidden;-webkit-mask-image:linear-gradient(transparent,#000 18%,#000 82%,transparent);mask-image:linear-gradient(transparent,#000 18%,#000 82%,transparent)"><div class="roll" style="position:absolute;left:0;right:0;top:100%;text-align:center"></div></div>
+        <button class="skip" style="position:absolute;right:26px;bottom:22px;width:auto;height:30px;padding:0 14px;font-size:12px;opacity:.55">スキップ ▶▶</button>`;
+      const roll = $('.roll', S);
+      for (const r of R) {
+        const d = document.createElement('div');
+        if (r[0] === 'gap') d.style.height = '120px';
+        else if (r[2] === 'big') { d.textContent = r[1]; d.style.cssText = 'font-size:52px;letter-spacing:.14em;color:#e8edf2;margin-bottom:8px'; }
+        else if (r[2] === 'sub') { d.textContent = r[1]; d.style.cssText = 'font-size:14px;letter-spacing:.5em;color:#7f99b4'; }
+        else if (r[2] === 'line' || r[2] === 'last') { d.textContent = r[1]; d.style.cssText = `font-size:${r[2] === 'last' ? 20 : 16}px;line-height:2.4;color:${r[2] === 'last' ? '#eef3f7' : '#b3bec9'};letter-spacing:.12em`; }
+        else if (!r[1]) { d.textContent = r[0]; d.style.cssText = 'font-size:13px;letter-spacing:.4em;color:#6f8090;margin:0 0 18px'; }
+        else { d.innerHTML = `<span style="display:inline-block;width:260px;text-align:right;color:#7f8fa0;font-size:13px;margin-right:28px"></span><span style="display:inline-block;width:260px;text-align:left;color:#dfe5ea;font-size:16px"></span>`; const sp = d.querySelectorAll('span'); sp[0].textContent = r[0]; sp[1].textContent = r[1]; d.style.cssText = 'line-height:2.3'; }
+        roll.appendChild(d);
+      }
+      // the whale swims back into the wallpaper behind the names
+      const cv = $('.crbg', S), cx = cv.getContext('2d');
+      S.classList.remove('hidden'); FX.dim(0, 1500);
+      setTimeout(() => cv.style.opacity = .22, 300);
+      let t0 = performance.now(), raf = 0, done = false, fast = 1, last = t0, y = 0;
+      const H = roll.offsetHeight, total = H + SH, speed = 38; // px / s
+      const draw = now => {
+        if (done) return; raf = requestAnimationFrame(draw);
+        const dt = (now - last) / 1000; last = now; y += dt * speed * fast;
+        roll.style.transform = `translateY(${-y}px)`;
+        const t = (now - t0) / 1000;
+        IMG.sea(cx, 640, 400, .2); IMG.whale(cx, 320 + Math.sin(t * .12) * 40, 210 + Math.sin(t * .2) * 10, 300, -.05 + Math.sin(t * .15) * .03, 1, true);
+        if (y >= total - SH * .5) finish();
+      };
+      // music box: なぎさ.mid, repeated
+      const music = () => { if (done) return; const len = AU.melody(STORY.melody('nagisa'), 72, 'triangle', 0); this.crT = setTimeout(music, (len || 20) * 1000 + 1200); };
+      music();
+      const finish = () => {
+        if (done) return; done = true; cancelAnimationFrame(raf); clearTimeout(this.crT);
+        FX.dim(1, 1800); setTimeout(res, 1900);
+      };
+      $('.skip', S).onclick = () => { AU.click(); finish(); };
+      S.onpointerdown = e => { if (!e.target.closest('.skip')) fast = fast > 1 ? 1 : 4; };
+      raf = requestAnimationFrame(draw);
+    }).then(() => { $('#ending').onpointerdown = null; });
   },
 };
 
