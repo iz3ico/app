@@ -373,7 +373,7 @@ const STAGES = [
   { id:1, code:'NEON DISTRICT', jp:'ネオン街区', say:'ネオン・ディストリクト', available:true, seed:7071,
     palette:{ neon:[0x00f0ff,0xff2bd6,0x9d4dff,0x2f7bff], fog:0x1b1033, skyTop:0x04030d, skyMid:0x140a2c, horizon:0x3b1552, glow:0xff3cc8 },
     fogDensity:0.00105, rain:1, roofHeight:96, timeLimit:240,
-    crowdMix:{suit:2.2,punk:1.6,runner:2,android:1.3,heavy:1,techgirl:1.8,kasa:.8,courier:1.3},
+    crowdMix:{suit:2.2,punk:1.6,runner:2,android:1.3,heavy:1,techgirl:1.8,kasa:.8,courier:1.3,worker:0},
     mission:{
       text:t=>`ネオン街区に潜伏する${t.role}「${t.code}」を屋上から捕捉し、狙撃で排除せよ。${t.intel}`,
       note:'スコープで人物を捉えると自動で照合が始まり、照合率が表示される。民間人を撃つと任務失敗。残弾は 5 発、外すと周囲の人物が逃げ出す。屋上のふちで下を向くと身を乗り出して真下を覗ける。コンパスと信号強度で方位を絞り込め。',
@@ -382,7 +382,7 @@ const STAGES = [
     // 氷のようなシアンと白、青、ラベンダー。霧は薄く、雨は小雨。屋上は 140m と高く、見下ろす距離が長い
     palette:{ neon:[0x7fe8ff,0xdff6ff,0x4f8bff,0xb48cff], fog:0x0b1a2c, skyTop:0x02060f, skyMid:0x081a30, horizon:0x1a4560, glow:0x3fd0ff },
     fogDensity:0.00085, rain:.45, roofHeight:140, timeLimit:300,
-    crowdMix:{suit:3,punk:.5,runner:1.6,android:2,heavy:.8,techgirl:1.6,kasa:.3,courier:1.6},
+    crowdMix:{suit:3,punk:.5,runner:1.6,android:2,heavy:.8,techgirl:1.6,kasa:.3,courier:1.6,worker:0},
     gen:{
       hemi:[0x5d86b8,0x0a1622,.6], moon:[0xbfe2ff,.55],
       facades:[{wall:'#1a2433',slab:'#0b1220',glass:'#0f2234',frame:'#3a4f66',cols:16,mx:.08,lit:.3,warm:.22},
@@ -401,7 +401,31 @@ const STAGES = [
       text:t=>`硝子都市の空中回廊を見下ろす屋上から、${t.role}「${t.code}」を捕捉し、狙撃で排除せよ。${t.intel}`,
       note:'屋上は 140m。前の街より高く、対象までの距離が長い。倍率を上げ、照合率を確かめてから撃て。ガラスの回廊や高架の陰に入ると照合が止まる。民間人を撃つと任務失敗。残弾は 5 発。',
     } },
-  { id:3, code:'INDUSTRIAL ZONE', jp:'工業地帯', say:'インダストリアル・ゾーン', available:false },
+  { id:3, code:'INDUSTRIAL ZONE', jp:'工業地帯', say:'インダストリアル・ゾーン', available:true, seed:31337,
+    // ナトリウム灯の橙、有毒な緑、警告灯の赤、琥珀。煙った茶色の霧と小雨。街は低く、屋上は 72m の管制塔
+    palette:{ neon:[0xff8a1e,0x3dffb0,0xff3a2a,0xffc43f], fog:0x24170f, skyTop:0x050302, skyMid:0x1a0d06, horizon:0x5a2a0e, glow:0xff7a20 },
+    fogDensity:0.00125, rain:.3, roofHeight:72, timeLimit:270,
+    crowdMix:{worker:3.6,heavy:2,courier:1.5,android:1.4,punk:1.1,runner:.8,kasa:.5,suit:.35,techgirl:.6},
+    gen:{
+      hemi:[0x8a6448,0x140c06,.5], moon:[0xa8b4d0,.32],
+      facades:[{wall:'#2a2420',slab:'#14100c',glass:'#1a1610',frame:'#4a3a2a',cols:6,mx:.18,lit:.24,warm:.78},
+               {wall:'#302f2c',slab:'#151514',glass:'#141618',frame:'#50504a',ribbon:true,lit:.3,warm:.62},
+               {wall:'#3a3430',slab:'#1a1614',glass:'#18140f',frame:'#5a4a3a',cols:12,mx:.1,lit:.2,warm:.72}],
+      facEm:.62, glassColor:0xffd8b0, glassEm:.7, glassP:.08, glassMinH:120, cylP:.05,
+      heights:{near:[14,34],mid:[16,46],midTowerP:.08,midTower:[70,120],far:[18,64],farTowerP:.1,farTower:[80,150]},
+      special:{'-3,-2':{h:168,tiers:3,screen:true},'2,-3':{ind:'stack',big:true},'3,2':{ind:'refinery',big:true},'-2,3':{ind:'cooling'},'-4,-4':{ind:'cooling'},'4,-4':{ind:'cooling'},
+        '0,-1':{ind:'yard'},'-1,0':{ind:'shed'},'1,0':{ind:'tanks'},'0,1':{ind:'shed'},'1,-1':{ind:'refinery'},'-1,-1':{ind:'yard'},'1,1':{ind:'stack'},'-1,1':{ind:'tanks'}},
+      plaza:{i:-1,j:-2}, signScale:.25, shopP:.2, shopColors:['#ffb46b','#ffd98a','#e8e0d0','#7fe8ff'], neonTrimP:.3,
+      highways:[{axis:'x',c:-175,y:22,len:1400},{axis:'z',c:-245,y:30,len:1400}],
+      bridges:0, groundColor:0x8a8070, lampColor:0xffa040,
+      holo:'gear', searchlights:2, farGlassP:.05, playerGlass:false,
+      farScale:.5, megas:2, steamColor:0xc8b8a8, amb:'industry',
+      industry:{p:.78,r:640}, rail:{axis:'x',c:105,y:9}, pipes:9, cranes:3, roofFlood:[0xffb878,60],
+    },
+    mission:{
+      text:t=>`夜の工業地帯。管制塔の屋上から、${t.role}「${t.code}」を捕捉し、狙撃で排除せよ。${t.intel}`,
+      note:'屋上は 72m。街は低く見通しが良いが、煙突の煙と蒸気で視界が揺らぐ。貨物列車の高架や配管、コンテナの陰に入ると照合が止まる。作業員の格好をした人物が多い。民間人を撃つと任務失敗。残弾は 5 発。',
+    } },
   { id:4, code:'NIGHT MARKET', jp:'夜市', say:'ナイト・マーケット', available:false },
   { id:5, code:'CORPORATE TOWER', jp:'企業塔', say:'コーポレート・タワー', available:false },
 ];
@@ -754,6 +778,7 @@ const GEN_DEFAULT={
   highways:[{axis:'x',c:-105,y:40,len:1400},{axis:'z',c:105,y:58,len:1400},{axis:'x',c:175,y:26,len:1000}],
   bridges:6, bridgeDist:350, bridgeSkip:.4, bridgeY:[.35,.7], groundColor:0x9a9ab0, lampColor:0xbff6ff,
   holo:'knot', searchlights:3, farGlassP:.2, playerGlass:false,
+  farScale:1, megas:5, steamColor:0xb8a8ff, amb:null, industry:null, rail:null, pipes:0, cranes:0,
 };
 function disposeWorld(){
   if(!world)return;scene.remove(world);
@@ -790,9 +815,10 @@ function buildStage(cfg){
   const atlas=makeSignAtlas();
   const signM=new THREE.MeshBasicMaterial({map:atlas.tex,color:new THREE.Color(1.12,1.12,1.12)});
   const shopM=new THREE.MeshBasicMaterial({vertexColors:true});
+  const paintM=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.62,metalness:.35,envMapIntensity:.7}); // 塗装：タンク・コンテナ・クレーン・配管
   dyn.signM=signM;
 
-  const B={fac:[[],[],[]],glass:[],conc:[],dark:[],neon:pal.neon.map(()=>[]),sign:[],shop:[]};
+  const B={fac:[[],[],[]],glass:[],conc:[],dark:[],neon:pal.neon.map(()=>[]),sign:[],shop:[],paint:[]};
   const aviation=[],pools=[],lamps=[];
   const blocks={};
 
@@ -881,6 +907,129 @@ function buildStage(cfg){
     return {x:cx,z:cz,w,d,h};
   }
 
+
+  /* ---- 工業地帯の区画（G.industry / special の ind）
+     shed=鋸屋根の工場  tanks=タンク群  stack=煙突  yard=コンテナ置き場  refinery=蒸留塔と火炎塔  cooling=冷却塔 */
+  const IND={stacks:[],steam:[],flares:[],cranes:[]};
+  dyn.ind=G.industry||G.rail?{}:null;
+  const paint=(g,col,k=1)=>{B.paint.push(withColor(g,new THREE.Color(col).multiplyScalar(k)));return g;};
+  const rbox=(w,h,d,x,y,z,rx=0,rz=0)=>{const g=new THREE.BoxGeometry(w,h,d);if(rx)g.rotateX(rx);if(rz)g.rotateZ(rz);g.translate(x,y,z);return g;};
+  const hcyl=(r,L,x,y,z,alongX,seg=10)=>{const g=new THREE.CylinderGeometry(r,r,L,seg,1,false);g.rotateZ(Math.PI/2);if(!alongX)g.rotateY(Math.PI/2);g.translate(x,y,z);return g;};
+  const ring=(r,t,x,y,z,seg=32)=>new THREE.TorusGeometry(r,t,4,seg).rotateX(Math.PI/2).translate(x,y,z);
+  const TANKC=['#d8d4c8','#b8b0a0','#8f8274','#c9c2b4','#a8a8a0'],STEEL=['#b8b4a8','#9a9890','#a8a092'];
+  const CONTC=['#a3342a','#2a5a8a','#c8a030','#3a7a4a','#d06a20','#6a6a72','#d8d8d0','#7a2a5a','#2a7a7a'];
+  const CRANE='#d8a020';
+  const dock=(cx,cz,w,d)=>{ // 搬入口：橙に灯るシャッターと庇の灯り
+    const faces=[[1,0],[-1,0],[0,1],[0,-1]].sort(()=>rand()-.5).slice(0,RI(1,2));
+    for(const [nx,nz] of faces){const len=nx?d:w,half=nx?w/2:d/2,fx=cx+nx*half,fz=cz+nz*half,tx=nz?1:0,tz=nx?1:0,o=R(-len/4,len/4);
+      const lit=rand()<.75,col=lit?new THREE.Color(pick(['#ffb060','#ffd08a','#e8e0d0'])).multiplyScalar(R(.55,.9)):new THREE.Color(0x2a2620);
+      B.shop.push(withColor(plane(5,4.2,fx+nx*.07+tx*o,2.1,fz+nz*.07+tz*o,Math.atan2(nx,nz)),col));
+      B.dark.push(box(nx?1.8:6.4,.25,nz?1.8:6.4,fx+nx*.9+tx*o,4.6,fz+nz*.9+tz*o));
+      B.neon[3].push(box(nx?.2:1.2,.15,nz?.2:1.2,fx+nx*.5+tx*o,4.4,fz+nz*.5+tz*o));
+      if(lit)pools.push({x:fx+nx*4+tx*o,z:fz+nz*4+tz*o,s:9,c:0xffa040});}
+  };
+  function shed(cx,cz,w,d){
+    const h=R(10,19);building(cx,cz,w,d,h,{style:RI(0,2),tiers:1,glass:false,noRoof:true,noSigns:true});
+    const y=h+1.2,th=R(2.2,3.2),p=R(5.5,7),alongX=w>=d,L=(alongX?w:d)-.6,S=alongX?d:w,n=Math.floor((S-1)/p),off=-(n*p)/2;
+    const ang=Math.atan2(th,p),pw=Math.hypot(p,th);
+    for(let k=0;k<n;k++){const s0=off+k*p,lit=rand()<.7,gc=lit?new THREE.Color(0xffb060).multiplyScalar(R(.35,.6)):new THREE.Color(0x221a12);
+      if(alongX){B.conc.push(rbox(L,.3,pw,cx,y+th/2,cz+s0+p/2,-ang));B.shop.push(withColor(box(L*.96,th*.8,.12,cx,y+th*.45,cz+s0+p),gc));}
+      else{B.conc.push(rbox(pw,.3,L,cx+s0+p/2,y+th/2,cz,0,ang));B.shop.push(withColor(box(.12,th*.8,L*.96,cx+s0+p,y+th*.45,cz),gc));}}
+    pushAABB(cx-w/2,cx+w/2,y,y+th,cz-d/2,cz+d/2);
+    if(rand()<.5){const vx=cx+R(-w/3,w/3),vz=cz+R(-d/3,d/3);B.dark.push(cyl(.8,.8,R(4,8),10,vx,y+th+2,vz));}
+    dock(cx,cz,w,d);
+  }
+  function tanks(cx,cz){
+    B.conc.push(box(38,.4,38,cx,.2,cz));
+    for(const s of[-1,1]){B.conc.push(box(38,1.1,.5,cx,.55,cz+s*19));B.conc.push(box(.5,1.1,38,cx+s*19,.55,cz));}
+    if(rand()<.35){ // 球形タンク＋小タンク
+      const r=R(8,9.5),y=r+R(3,4.5);paint(new THREE.SphereGeometry(r,28,18).translate(cx-3,y,cz-3),pick(TANKC));
+      for(let k=0;k<8;k++){const a=k/8*Math.PI*2;B.dark.push(box(.6,y,.6,cx-3+Math.cos(a)*r*.8,y/2,cz-3+Math.sin(a)*r*.8));}
+      B.neon[3].push(ring(r*1.005,.09,cx-3,y,cz-3,48));pushAABB(cx-3-r,cx-3+r,0,y+r,cz-3-r,cz-3+r);
+      const sr=R(3.5,4.5),sh=R(8,12);paint(cyl(sr,sr,sh,20,cx+12,sh/2,cz+12),pick(TANKC));pushAABB(cx+12-sr,cx+12+sr,0,sh,cz+12-sr,cz+12+sr);
+    }else for(const sx of[-1,1])for(const sz of[-1,1]){
+      const r=R(5.5,8),h=R(8,17),x=cx+sx*9.5,z=cz+sz*9.5,col=pick(TANKC);
+      paint(cyl(r,r,h,28,x,h/2,z),col);paint(cyl(r*.12,r,1.6,28,x,h+.8,z),col,.85);
+      B.dark.push(box(.5,h,.15,x+r+.1,h/2,z));
+      if(rand()<.55)B.neon[3].push(ring(r+.06,.08,x,h,z,40));
+      pushAABB(x-r,x+r,0,h+1.6,z-r,z+r);
+    }
+    B.dark.push(hcyl(.5,30,cx,1.4,cz,true),hcyl(.5,30,cx,1.4,cz,false));
+  }
+  function stack(cx,cz,big){
+    building(cx,cz-10,34,16,R(12,20),{style:RI(0,2),tiers:1,glass:false,noRoof:true,noSigns:true});dock(cx,cz-10,34,16);
+    const n=big?2:RI(1,2);
+    for(let k=0;k<n;k++){
+      const x=cx+(n===2?(k?9:-9):R(-6,6)),z=cz+9,h=big?R(135,160):R(70,112),rb=big?5:R(3,4),rt=rb*.68;
+      paint(cyl(rt,rb,h,20,x,h/2,z),'#8a8580');
+      for(let b=0;b<3;b++){const y=h-2.5-b*6.5,rr=rb+(rt-rb)*(y/h)+.06;paint(cyl(rr,rr,3.2,20,x,y,z),b%2?'#d8d4cc':'#9a1e1e');}
+      B.dark.push(cyl(rt+.35,rt+.35,1,20,x,h,z));B.dark.push(cyl(rb*.8+1,rb*.8+1,.25,20,x,h*.62,z));
+      aviation.push(new THREE.Vector3(x+rt+.3,h+.7,z),new THREE.Vector3(x-rt-.3,h+.7,z),new THREE.Vector3(x+rb*.8+1,h*.62+.4,z));
+      IND.stacks.push({x,y:h+.4,z,r:rt,big});pushAABB(x-rb,x+rb,0,h,z-rb,z+rb);
+    }
+  }
+  function yard(cx,cz){
+    const rows=[-15,-12,-9,-6,6,9,12,15];
+    for(const ox of[-13.4,0,13.4])for(const oz of rows){
+      const n=rand()<.15?0:RI(1,3);
+      for(let l=0;l<n;l++)paint(box(12,2.5,2.4,cx+ox,1.25+l*2.6,cz+oz),pick(CONTC),R(.7,1.05));
+      if(n)pushAABB(cx+ox-6,cx+ox+6,0,n*2.6,cz+oz-1.2,cz+oz+1.2);
+    }
+    if(rand()<.7){ // 門型クレーン
+      const gx=cx+R(-8,8),H=17;
+      for(const sx of[-5,5]){for(const sz of[-18.5,18.5])paint(box(.9,H,.9,gx+sx,H/2,cz+sz),CRANE);paint(box(.9,1.2,38,gx+sx,H,cz),CRANE);}
+      paint(box(11,1,.9,gx,H,cz-18.5),CRANE);paint(box(11,1,.9,gx,H,cz+18.5),CRANE);
+      const tz=cz+R(-10,10);paint(box(4,1.8,3.4,gx,H-1.4,tz),CRANE,.8);B.dark.push(box(.12,7,.12,gx,H-5.6,tz),box(3.4,.4,12,gx,H-9.2,tz));
+      aviation.push(new THREE.Vector3(gx+5,H+.8,cz+18.5),new THREE.Vector3(gx-5,H+.8,cz-18.5));
+    }
+    if(IND.cranes.length<G.cranes&&rand()<.75)towerCrane(cx+R(-3,3),cz+R(-1.5,1.5));
+  }
+  function towerCrane(x,z){
+    const h=R(44,62);paint(box(2.2,h,2.2,x,h/2,z),CRANE);B.dark.push(box(2.6,.5,2.6,x,.25,z));
+    for(let y=6;y<h-2;y+=6)B.dark.push(box(2.4,.18,2.4,x,y,z));
+    pushAABB(x-1.1,x+1.1,0,h,z-1.1,z+1.1);
+    const L=R(34,44),parts=[box(L,1.3,1.3,L/2-12,0,0),box(1.4,7,1.4,0,3.5,0),box(5,3,2.6,-10,-1.4,0),box(3,2.6,2.6,1.5,-1.6,1.6),
+      rbox(Math.hypot(L-12,7),.14,.14,(L-12)/2,3.5,0,0,-Math.atan2(7,L-12)),rbox(Math.hypot(12,7),.14,.14,-6,3.5,0,0,Math.atan2(7,12))];
+    const tp=R(12,L-14);parts.push(box(1.6,.9,1.6,tp,-1.1,0),box(.1,R(10,26),.1,tp,-8,0));
+    const g=mergeGeometries(parts.map(p=>withColor(p,new THREE.Color(CRANE))));parts.forEach(p=>p.dispose());
+    const grp=new THREE.Group();grp.position.set(x,h+.7,z);grp.add(new THREE.Mesh(g,paintM));
+    const tip=new THREE.Mesh(new THREE.SphereGeometry(.5,6,4),IND.tipM||(IND.tipM=new THREE.MeshBasicMaterial({color:0xff2030})));
+    tip.position.set(L-12,.9,0);grp.add(tip);const t2=tip.clone();t2.position.set(0,7.3,0);grp.add(t2);
+    world.add(grp);IND.cranes.push({g:grp,ph:R(0,6.28),sp:R(.03,.07),amp:R(.6,1.4)});
+  }
+  function refinery(cx,cz,big){
+    B.conc.push(box(38,.4,38,cx,.2,cz));
+    const n=big?6:RI(3,5),pts=[];
+    for(let t=0;t<40&&pts.length<n;t++){const x=cx+R(-13,13),z=cz+R(-13,13);if(pts.every(p=>Math.hypot(p.x-x,p.z-z)>7.5))pts.push({x,z});}
+    pts.forEach((p,k)=>{
+      const r=R(1.4,2.8),h=big?R(40,72):R(22,48),col=pick(STEEL);p.h=h;
+      paint(cyl(r,r,h,16,p.x,h/2,p.z),col);paint(new THREE.SphereGeometry(r,16,8,0,Math.PI*2,0,Math.PI/2).translate(p.x,h,p.z),col);
+      for(let y=8;y<h-2;y+=R(8,11)){B.dark.push(cyl(r+1.1,r+1.1,.22,16,p.x,y,p.z));
+        for(let a=0;a<3;a++){const an=a/3*Math.PI*2+k;(rand()<.18?B.neon[1]:B.neon[3]).push(box(.28,.28,.28,p.x+Math.cos(an)*(r+1.1),y+.45,p.z+Math.sin(an)*(r+1.1)));}}
+      pushAABB(p.x-r,p.x+r,0,h,p.z-r,p.z+r);
+      if(k){const q=pts[k-1],y=R(5,13);B.dark.push(hcyl(.4,Math.abs(p.x-q.x)+.8,(p.x+q.x)/2,y,q.z,true),hcyl(.4,Math.abs(p.z-q.z)+.8,p.x,y,(p.z+q.z)/2,false),cyl(.4,.4,.8,8,p.x,y,q.z));}
+    });
+    if(big||(rand()<.5&&IND.flares.length<6)){const x=cx+16,z=cz+16,h=big?R(78,92):R(55,72);
+      B.dark.push(cyl(.5,.8,h,8,x,h/2,z),cyl(1.1,1.1,1.2,10,x,h+.4,z));IND.flares.push(new THREE.Vector3(x,h+1.6,z));}
+  }
+  function cooling(cx,cz){
+    const H=R(52,60),Rw=R(11.5,12.5),yw=H*.78,R0=18.6,c=yw/Math.sqrt((R0/Rw)**2-1),pts=[],inn=[];
+    for(let k=0;k<=16;k++){const y=k/16*H,r=Rw*Math.sqrt(1+((y-yw)/c)**2);pts.push(new THREE.Vector2(r,y));inn.unshift(new THREE.Vector2(r-.5,y));}
+    const col='#a8a49a';paint(new THREE.LatheGeometry(pts,36).translate(cx,0,cz),col);paint(new THREE.LatheGeometry(inn,36).translate(cx,0,cz),col,.55);
+    B.dark.push(ring(pts[16].x+.05,.18,cx,H,cz,48));
+    pushAABB(cx-R0,cx+R0,0,H,cz-R0,cz+R0);IND.steam.push({x:cx,y:H,z:cz,r:pts[16].x});
+  }
+  function industrialBlock(type,cx,cz,dist,big){
+    if(!type){const r=rand(),near=dist<300;
+      type=near?(r<.3?'shed':r<.5?'yard':r<.67?'tanks':r<.82?'refinery':r<.93?'stack':'cooling'):(r<.45?'shed':r<.65?'stack':r<.8?'tanks':r<.9?'refinery':'cooling');
+      if(type==='stack'&&IND.stacks.length>=10)type='shed';
+      if(type==='refinery'&&IND.flares.length>=5)type='tanks';
+      if(type==='cooling'&&(IND.steam.length>=5||dist<200))type='tanks';}
+    if(type==='shed'){if(rand()<.55)shed(cx,cz,36,36);else if(rand()<.5){shed(cx,cz-10,36,16);shed(cx,cz+10,36,16);}else{shed(cx-10,cz,16,36);shed(cx+10,cz,16,36);}}
+    else if(type==='tanks')tanks(cx,cz);else if(type==='stack')stack(cx,cz,big);else if(type==='yard')yard(cx,cz);
+    else if(type==='refinery')refinery(cx,cz,big);else if(type==='cooling')cooling(cx,cz);
+  }
+
   // ---- player building (block 0,0)
   ROOF=cfg.roofHeight;
   building(0,0,40,40,ROOF-1.2,{style:0,tiers:1,glass:G.playerGlass,noSigns:false,noRoof:true});
@@ -896,6 +1045,8 @@ function buildStage(cfg){
     const cx=i*CELL,cz=j*CELL,dist=Math.hypot(cx,cz);
     if(dist>CELL*N+10)continue;
     const sp=special[i+','+j];
+    if(sp&&sp.ind){blocks[i+','+j]=[];industrialBlock(sp.ind,cx,cz,dist,sp.big);continue;}
+    if(!sp&&G.industry&&dist<G.industry.r&&rand()<G.industry.p){blocks[i+','+j]=[];industrialBlock(null,cx,cz,dist);continue;}
     if(sp){const b=building(cx,cz,40,40,sp.h,{glass:sp.glass,tiers:sp.tiers,cyl:sp.cyl});if(sp.h>150)bigTowers.push(b);if(sp.screen)dyn.screenTower=b;blocks[i+','+j]=[b];continue;}
     const H=G.heights,hBase=()=>{if(dist<110)return R(...H.near);if(dist<300)return rand()<H.midTowerP?R(...H.midTower):R(...H.mid);return rand()<H.farTowerP?R(...H.farTower):R(...H.far);};
     const r=rand(),lots=[];
@@ -915,7 +1066,7 @@ function buildStage(cfg){
   // ---- far skyline ring
   for(let k=0;k<300;k++){
     const a=R(0,Math.PI*2),r=R(720,1750),x=Math.cos(a)*r,z=Math.sin(a)*r;
-    const w=RI(4,14)*4,d=RI(4,14)*4,h=R(60,140)+(r-700)*R(.05,.3);
+    const w=RI(4,14)*4,d=RI(4,14)*4,h=(R(60,140)+(r-700)*R(.05,.3))*G.farScale;
     const sIdx=RI(0,2);
     (rand()<G.farGlassP?B.glass:B.fac[sIdx]).push(box(w,h,d,x,h/2,z,0,RI(0,7)/8));
     if(rand()<.35)crown(B.neon[RI(0,3)],w+1,d+1,x,h+.4,z,.8,.8);
@@ -923,7 +1074,7 @@ function buildStage(cfg){
   }
   // mega towers
   const megas=[];
-  for(let k=0;k<5;k++){
+  for(let k=0;k<G.megas;k++){
     const a=-Math.PI/2+R(-1.3,1.3)+(k%2?Math.PI:0),r=R(1150,1550),x=Math.cos(a)*r,z=Math.sin(a)*r,h=R(620,900);
     let y0=0,w=R(70,110);
     for(let t=0;t<4;t++){const th=t===3?h-y0:(h-y0)*R(.3,.45);(rand()<G.farGlassP?B.glass:B.fac[RI(0,2)]).push(box(w,th,w,x,y0+th/2,z,y0,0));
@@ -945,6 +1096,27 @@ function buildStage(cfg){
       if(Math.hypot(px,pz)<30)continue;
       B.conc.push(box(2.6,H.y-.8,2.6,px,(H.y-.8)/2,pz));B.dark.push(box(isX?3:14,1.2,isX?14:3,px,H.y-1.4,pz));}
     if(isX)pushAABB(-L/2,L/2,H.y-.8,H.y+1.9,H.c-8,H.c+8);else pushAABB(H.c-8,H.c+8,H.y-.8,H.y+1.9,-L/2,L/2);
+  }
+
+  // ---- 工業地帯：配管ラック（通りの上を渡る）と貨物線の高架
+  if(G.pipes){let placed=0;const used=new Set();
+    for(let t=0;t<80&&placed<G.pipes;t++){
+      const alongX=rand()<.5,k=RI(-4,3),line=(k+.5)*CELL,j0=RI(-3,2),key=alongX+','+k+','+j0;
+      if(used.has(key))continue;if(G.rail&&(G.rail.axis==='x')===alongX&&Math.abs(line-G.rail.c)<1)continue;
+      if(hw.some(H=>(H.axis==='x')===alongX&&Math.abs(H.c-line)<1))continue;
+      used.add(key);placed++;
+      const s0=j0*CELL,s1=s0+CELL*2,L=s1-s0,mid=(s0+s1)/2,y=R(8,12),off=R(-4,4),cols=[pick(TANKC),pick(['#6a7a8a','#a04a20','#8a7a68']),pick(TANKC)];
+      const P=(a,b)=>alongX?[a,b]:[b,a];
+      for(let s=s0;s<=s1;s+=14){const [x,z]=P(s,line+off);B.dark.push(box(.45,y,.45,x,y/2,z),alongX?box(.45,.35,5,x,y,z):box(5,.35,.45,x,y,z));}
+      [-1.6,-.4,.9].forEach((o,q)=>{const r=[.55,.35,.7][q],[x,z]=P(mid,line+off+o);paint(hcyl(r,L,x,y+.2+r,z,alongX),cols[q]);});
+    }}
+  if(G.rail){const Rl=G.rail,L=1700,isX=Rl.axis==='x',Y=Rl.y;
+    const bx=(w,hh,o,y)=>isX?box(L,hh,w,0,y,Rl.c+o):box(w,hh,L,Rl.c+o,y,0);
+    B.conc.push(bx(7,1.2,0,Y),bx(.35,.9,3.3,Y+1.05),bx(.35,.9,-3.3,Y+1.05));
+    B.dark.push(bx(.16,.2,-.75,Y+.7),bx(.16,.2,.75,Y+.7));B.neon[0].push(bx(.12,.1,3.5,Y-.62),bx(.12,.1,-3.5,Y-.62));
+    for(let p=-L/2+17.5;p<L/2;p+=35){const px=isX?p:Rl.c,pz=isX?Rl.c:p;B.conc.push(box(isX?2.2:5,Y-.6,isX?5:2.2,px,(Y-.6)/2,pz));}
+    for(let p=-L/2+40;p<L/2;p+=140){const px=isX?p:Rl.c+3.1,pz=isX?Rl.c+3.1:p;B.dark.push(box(.25,5,.25,px,Y+3,pz));aviation.push(new THREE.Vector3(px,Y+5.6,pz));}
+    if(isX)pushAABB(-L/2,L/2,Y-.6,Y+1.5,Rl.c-3.5,Rl.c+3.5);else pushAABB(Rl.c-3.5,Rl.c+3.5,Y-.6,Y+1.5,-L/2,L/2);
   }
   // sky bridges between single-lot blocks
   let bridges=0;
@@ -999,6 +1171,7 @@ function buildStage(cfg){
   B.neon.forEach((l,k)=>mergeTo(l,neonM[k],world,'neon'+k));
   mergeTo(B.sign,signM,world,'signs');
   mergeTo(B.shop,shopM,world,'shop');
+  mergeTo(B.paint,paintM,world,'paint');
 
   // ground
   const gT=makeGround();const GS=4000;gT.repeat.set(GS/CELL,GS/CELL);gT.offset.set(((-GS/2+35)/CELL)%1,((-GS/2+35)/CELL)%1);
@@ -1038,7 +1211,8 @@ function buildStage(cfg){
   buildSearchlights(pal,bigTowers,G.searchlights);
   buildTraffic(pal,hw);
   buildRain();
-  buildSteam();
+  buildSteam(G.steamColor);
+  if(dyn.ind)buildIndustryFx(IND,pal,G);
   setLoad(.85,'POPULATING STREETS…');
   buildCrowd(pal);
   buildFx();
@@ -1089,6 +1263,8 @@ function buildRooftop(B,pal,neonM,lamps){
   const p1=new THREE.PointLight(pal.neon[1],4,16,2);p1.position.set(0,Y+3,3);world.add(p1);
   const p2=new THREE.PointLight(pal.neon[0],3,14,2);p2.position.set(10,Y+4,8);world.add(p2);
   const p3=new THREE.PointLight(pal.neon[2],2.5,14,2);p3.position.set(-10,Y+4,-10);world.add(p3);
+  if(STAGE.gen&&STAGE.gen.roofFlood){const [c,i]=STAGE.gen.roofFlood;const f=new THREE.PointLight(c,i,46,1.6);f.position.set(-9,Y+6.6,4.6);world.add(f); // 作業灯
+    B.dark.push(cyl(.12,.16,6.8,6,-9,Y+3.4,4));B.neon[3].push(box(1.2,.3,.5,-9,Y+6.8,4.25));roofObstacles.push({x0:-9.4,x1:-8.6,z0:3.6,z1:4.4});}
   // 屋上の床：濡れたコンクリートのタイル（暗めの専用材質）
   {const t=makeConcrete();t.repeat.set(5,5);
    const floor=new THREE.Mesh(new THREE.PlaneGeometry(39.6,39.6).rotateX(-Math.PI/2),new THREE.MeshStandardMaterial({color:0x50505c,map:t,roughness:.55,metalness:.15,envMapIntensity:.55}));
@@ -1124,6 +1300,12 @@ function holoMaterial(tex,tint,seed){
       gl_FragColor=vec4(col*fog,a*0.95);}`});
   holoMats.push(m);return m;
 }
+function gearGeo(ro,ri,rh,teeth,depth){ // 歯車のホログラム（外周の歯＋軸穴）
+  const sh=new THREE.Shape(),n=teeth*4;
+  for(let k=0;k<=n;k++){const a=k/n*Math.PI*2,r=(k%4<2)?ro:ri;const x=Math.cos(a)*r,y=Math.sin(a)*r;k?sh.lineTo(x,y):sh.moveTo(x,y);}
+  const hole=new THREE.Path();hole.absarc(0,0,rh,0,Math.PI*2,true);sh.holes.push(hole);
+  return new THREE.ExtrudeGeometry(sh,{depth,bevelEnabled:false,curveSegments:16}).translate(0,0,-depth/2);
+}
 function buildHolos(pal,towers,G={}){
   holoMats.length=0;
   const texs=[0,1,2,3].map(makeHoloTex);
@@ -1156,7 +1338,8 @@ function buildHolos(pal,towers,G={}){
     m.position.copy(dyn.terminal);m.rotation.x=-.32;world.add(m);}
   // plaza 3D hologram
   {const {x,z}=dyn.plaza;const g=new THREE.Group();g.position.set(x,46,z);
-    const knot=new THREE.Mesh(G.holo==='ico'?new THREE.IcosahedronGeometry(13,1):new THREE.TorusKnotGeometry(11,2.6,160,12,2,3),new THREE.MeshBasicMaterial({color:new THREE.Color(pal.neon[0]).multiplyScalar(.8),wireframe:true,transparent:true,opacity:.42,blending:THREE.AdditiveBlending,depthWrite:false}));
+    const knot=G.holo==='gear'?new THREE.LineSegments(new THREE.EdgesGeometry(gearGeo(13,10.6,4.2,12,3)),new THREE.LineBasicMaterial({color:new THREE.Color(pal.neon[0]).multiplyScalar(1.1),transparent:true,opacity:.85,blending:THREE.AdditiveBlending,depthWrite:false}))
+      :new THREE.Mesh(G.holo==='ico'?new THREE.IcosahedronGeometry(13,1):new THREE.TorusKnotGeometry(11,2.6,160,12,2,3),new THREE.MeshBasicMaterial({color:new THREE.Color(pal.neon[0]).multiplyScalar(.8),wireframe:true,transparent:true,opacity:.42,blending:THREE.AdditiveBlending,depthWrite:false}));
     const r1=new THREE.Mesh(new THREE.TorusGeometry(19,.25,6,120),new THREE.MeshBasicMaterial({color:new THREE.Color(pal.neon[1]).multiplyScalar(1.3),transparent:true,opacity:.8,blending:THREE.AdditiveBlending,depthWrite:false}));
     const r2=r1.clone();r2.scale.setScalar(.8);
     g.add(knot,r1,r2);world.add(g);dyn.plazaHolo={g,knot,r1,r2};
@@ -1258,11 +1441,11 @@ function buildRain(){
   rain.geometry.setDrawRange(0,QUALITY[qIdx].rain*2);
 }
 /* ---------- steam ---------- */
-function buildSteam(){
+function buildSteam(col=0xb8a8ff){
   const N=48,pos=new Float32Array(N*3),life=[];
   for(let i=0;i<N;i++){life.push({t:Math.random()*4,v:i%2});}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));
-  const m=new THREE.PointsMaterial({map:makeRadial(),size:3.2,transparent:true,opacity:.14,depthWrite:false,color:0xb8a8ff});
+  const m=new THREE.PointsMaterial({map:makeRadial(),size:3.2,transparent:true,opacity:.14,depthWrite:false,color:col});
   const pts=new THREE.Points(g,m);pts.frustumCulled=false;world.add(pts);dyn.steam={pts,life};
 }
 function updateSteam(dt){
@@ -1271,6 +1454,90 @@ function updateSteam(dt){
     a.setXYZ(i,v.x+Math.sin(i*1.7+l.t)*.3*k+k*1.5,v.y+k*5,v.z+Math.cos(i*2.3)*.3*k);});
   a.needsUpdate=true;
 }
+
+
+/* ---------- industry: smoke plumes, flare stacks, tower cranes, freight train ---------- */
+function buildIndustryFx(IND,pal,G){
+  const I=dyn.ind;I.flares=[];I.cranes=IND.cranes;I.tipM=IND.tipM||null;
+  // 煙と蒸気：頂点シェーダーだけで動かす点群（CPU 更新なし）
+  const em=IND.stacks.map(e=>({...e,kind:0})).concat(IND.steam.map(e=>({...e,kind:1})));
+  if(em.length){
+    const PER=28,N=em.length*PER,pos=new Float32Array(N*3),prm=new Float32Array(N*4);
+    em.forEach((e,k)=>{for(let i=0;i<PER;i++){const j=k*PER+i;pos[j*3]=e.x;pos[j*3+1]=e.y;pos[j*3+2]=e.z;
+      prm[j*4]=i/PER+Math.random()*.03;prm[j*4+1]=Math.random();prm[j*4+2]=e.kind?e.r*.9:e.r*(e.big?2.4:2);prm[j*4+3]=e.kind;}});
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('prm',new THREE.BufferAttribute(prm,4));
+    const fogC=new THREE.Color(pal.fog);
+    const m=new THREE.ShaderMaterial({transparent:true,depthWrite:false,fog:false,
+      uniforms:{uTime:{value:0},uVH:{value:800},uWind:{value:new THREE.Vector2(.82,.36)},uFogD:{value:STAGE.fogDensity},uFogC:{value:fogC},uGlow:{value:new THREE.Color(pal.glow).multiplyScalar(.55)}},
+      vertexShader:`attribute vec4 prm;uniform float uTime,uVH;uniform vec2 uWind;uniform float uFogD;varying float vA,vAge,vKind,vRnd,vFog;
+      void main(){float kind=prm.w;float life=kind>0.5?16.0:20.0;float age=fract(uTime/life+prm.x);
+        vec3 p=position;p.y+=age*(kind>0.5?34.0:58.0)+age*age*(kind>0.5?10.0:0.0);
+        p.xz+=uWind*age*age*(kind>0.5?26.0:95.0);
+        p.x+=(prm.y-0.5)*age*prm.z*1.3;p.z+=(fract(prm.y*7.31)-0.5)*age*prm.z*1.3;
+        float size=prm.z*(0.7+age*2.3);
+        vec4 mv=modelViewMatrix*vec4(p,1.0);gl_Position=projectionMatrix*mv;
+        gl_PointSize=min(size*projectionMatrix[1][1]*uVH*0.5/max(1.0,-mv.z),900.0);
+        vA=smoothstep(0.0,0.07,age)*(1.0-age)*(kind>0.5?0.42:0.5);vAge=age;vKind=kind;vRnd=prm.y;
+        float d=-mv.z;vFog=1.0-exp(-uFogD*uFogD*d*d);}`,
+      fragmentShader:`uniform vec3 uFogC,uGlow;varying float vA,vAge,vKind,vRnd,vFog;
+      void main(){vec2 c=gl_PointCoord-0.5;float r=length(c)*2.0;if(r>1.0)discard;
+        float wob=0.82+0.18*sin(atan(c.y,c.x)*5.0+vRnd*40.0);float a=smoothstep(1.0,0.25,r/wob);
+        vec3 smoke=vKind>0.5?vec3(0.46,0.44,0.42):vec3(0.16,0.135,0.12);
+        vec3 col=mix(uGlow*(vKind>0.5?0.7:1.0),smoke,smoothstep(0.0,0.3,vAge));
+        col=mix(col,uFogC,vFog*0.85);
+        gl_FragColor=vec4(col,a*vA);}`});
+    const pts=new THREE.Points(g,m);pts.frustumCulled=false;pts.renderOrder=2;world.add(pts);I.smoke=m;
+  }
+  // 火炎塔の炎（加算スプライト 2 枚でゆらめかせる）
+  const rad=makeRadial();
+  const fa=new THREE.SpriteMaterial({map:rad,color:new THREE.Color(0xff7a20).multiplyScalar(2.2),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true});
+  const fb=new THREE.SpriteMaterial({map:rad,color:new THREE.Color(0xffe0a0).multiplyScalar(2.4),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true});
+  IND.flares.forEach((p,k)=>{const a=new THREE.Sprite(fa),b=new THREE.Sprite(fb);a.position.copy(p);a.position.y+=3;b.position.copy(p);b.position.y+=1.4;world.add(a,b);I.flares.push({a,b,ph:k*2.7});});
+  // 貨物列車（機関車＋貨車＋コンテナを 1 つのインスタンスメッシュで）
+  if(G.rail){const Rl=G.rail,parts=[],NC=24;
+    parts.push({o:0,l:18,h:4.2,w:3,y:0,c:0xd08a20});
+    for(let k=0;k<NC;k++){const o=19+k*14.6;parts.push({o,l:14,h:.7,w:2.8,y:0,c:0x24201c});
+      if(Math.random()<.85)parts.push({o,l:12.2,h:2.6,w:2.45,y:.7,c:pickM(['#a3342a','#2a5a8a','#c8a030','#3a7a4a','#d06a20','#6a6a72','#d8d8d0','#7a2a5a'])});}
+    const im=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1).translate(0,.5,0),new THREE.MeshStandardMaterial({roughness:.55,metalness:.35,envMapIntensity:1,emissive:0x3a2414}),parts.length);
+    const c=new THREE.Color();parts.forEach((p,i)=>{c.set(p.c);im.setColorAt(i,c);});
+    im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);im.frustumCulled=false;world.add(im);
+    const head=new THREE.Sprite(new THREE.SpriteMaterial({map:rad,color:new THREE.Color(0xfff0c8).multiplyScalar(2),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));head.scale.set(7,7,1);world.add(head);
+    const tail=new THREE.Sprite(new THREE.SpriteMaterial({map:rad,color:new THREE.Color(0xff2020).multiplyScalar(1.6),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));tail.scale.set(3,3,1);world.add(tail);
+    I.train={Rl,parts,im,head,tail,len:19+NC*14.6,dir:1,p:-1e4,wait:R(3,9),sp:22,horn:false};
+    updateTrain(I.train,0);
+  }
+}
+function updateTrain(tr,dt){
+  const {Rl,parts,im}=tr,isX=Rl.axis==='x',END=850;
+  if(tr.wait>0){tr.wait-=dt;if(tr.wait<=0){tr.dir=Math.random()<.5?1:-1;tr.p=-tr.dir*END;tr.horn=false;}}
+  else{tr.p+=tr.sp*tr.dir*dt;if(tr.p*tr.dir>END+tr.len){tr.wait=R(16,34);tr.p=-1e4;}}
+  const y=Rl.y+.8;
+  parts.forEach((q,i)=>{const a=tr.p-tr.dir*(q.o+q.l/2);_p.set(isX?a:Rl.c,y+q.y,isX?Rl.c:a);_s.set(isX?q.l:q.w,q.h,isX?q.w:q.l);_q.identity();_m.compose(_p,_q,_s);im.setMatrixAt(i,_m);});
+  _s.set(1,1,1);im.instanceMatrix.needsUpdate=true;
+  const hx=tr.p+tr.dir*.3,tx=tr.p-tr.dir*tr.len;
+  tr.head.position.set(isX?hx:Rl.c,y+2.4,isX?Rl.c:hx);tr.tail.position.set(isX?tx:Rl.c,y+2.2,isX?Rl.c:tx);
+}
+let trainRumble=null;
+function updateIndustry(dt,t){
+  const I=dyn.ind;
+  if(!I||!I.train){if(trainRumble)trainRumble.gain.value=0;if(!I)return;}
+  if(I.smoke){I.smoke.uniforms.uTime.value=t;I.smoke.uniforms.uVH.value=renderer.domElement.height;}
+  I.flares.forEach(f=>{const s=1+.22*Math.sin(t*13+f.ph)+.14*Math.sin(t*29+f.ph*3)+.1*(Math.random()-.5);f.a.scale.set(11*s,16*s,1);f.b.scale.set(4.4*s,7*s,1);});
+  I.cranes.forEach(c=>{c.g.rotation.y=c.ph+Math.sin(t*c.sp)*c.amp;});
+  if(I.tipM){const on=(t%1.4)<.3;I.tipM.color.setRGB(on?2.4:.25,on?.25:.03,on?.3:.04);}
+  if(I.train){const tr=I.train;updateTrain(tr,dt);
+    if(AC&&ambDuck){
+      if(!trainRumble){const s=AC.createBufferSource();s.buffer=nbuf();s.loop=true;s.playbackRate.value=.6;const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.value=150;
+        trainRumble=AC.createGain();trainRumble.gain.value=0;s.connect(f);f.connect(trainRumble);trainRumble.connect(ambDuck);s.start();}
+      const isX=tr.Rl.axis==='x',a=camera.position[isX?'x':'z'],lo=Math.min(tr.p,tr.p-tr.dir*tr.len),hi=Math.max(tr.p,tr.p-tr.dir*tr.len);
+      const along=a<lo?lo-a:a>hi?a-hi:0,d=tr.wait>0?1e4:Math.hypot(along,camera.position[isX?'z':'x']-tr.Rl.c);
+      trainRumble.gain.setTargetAtTime(.22*Math.max(0,1-d/520)**2,AC.currentTime,.3);
+      if(!tr.horn&&tr.wait<=0&&Math.abs(tr.p)<520){tr.horn=true;sndHorn(clamp((tr.p-a)/400,-1,1)*.7);}
+    }
+  }
+}
+function sndHorn(pan){const t=AC.currentTime+.05;
+  for(const [st,du] of[[0,1.1],[1.35,1.9]])for(const f of[277,330,415])os(t+st,du,{type:'sawtooth',f,vol:.011,a:.07,filter:{type:'lowpass',f:1500},pan,dest:ambDuck,rv:.9,ec:.4});}
 
 /* =====================================================================
    CROWD (NPC) — instanced, animated
@@ -1343,6 +1610,14 @@ const ARCH={
     build:()=>[pp(Bx(.34,.16,.22),2,0x20222c,0,.96,0),pp(Bx(.44,.5,.27),0,0,0,1.27,0),pp(Bx(.38,.46,.22),1,0,0,1.3,-.25),pp(Bx(.4,.05,.3),2,0x15151a,0,1.48,-.05),
       pp(Cy(.01,.01,.5,5),2,0x8a8a92,.12,1.75,-.3),pp(Sp(.03,8,6),3,0,.12,2.0,-.3),pp(Cy(.05,.06,.1),2,SKIN[1],0,1.58,0),
       pp(Sp(.16,14,10),2,0x24262e,0,1.74,0,{s:[1,1,1.12]}),pp(Bx(.24,.075,.06),3,0,0,1.74,.15)]},
+  worker:{name:'作業員',h:1.95,r:.37,hip:.9,legX:.1,legW:.15,legD:.17,shX:.28,shY:1.5,armL:.6,armW:.13,armD:.14,legCol:0x2a2e38,armCol:0x3a3e48,
+    idle:'look',gait:{stride:.5,bob:.04,sp:.95},umbP:.35,
+    coats:[0xff7a20,0xc8e030,0x2a3a4a,0x4a4a3a,0x3a3a40,0xd8d8d0],accs:[0xffcf3f,0xe8e8e8,0xff7a20,0x2f7bff,0xff4040],
+    build:()=>[pp(Bx(.36,.16,.22),2,0x2a2e38,0,.96,0),pp(Bx(.44,.54,.26),2,0x2a2e38,0,1.29,0),pp(Bx(.48,.44,.29),0,0,0,1.31,0),
+      pp(Bx(.5,.04,.305),3,0,0,1.2,0),pp(Bx(.5,.04,.305),3,0,0,1.38,0),pp(Bx(.04,.4,.31),3,0,-.09,1.31,0),pp(Bx(.04,.4,.31),3,0,.09,1.31,0),
+      pp(Bx(.42,.07,.27),2,0x15151a,0,1.05,0),pp(Bx(.1,.12,.08),2,0x3a3026,.18,1.0,.1),
+      pp(Cy(.055,.06,.1),2,SKIN[2],0,1.6,0),pp(Sp(.12),2,SKIN[2],0,1.73,0,{s:[1,1.12,1.05]}),
+      pp(Hemi(.15,.5),1,0,0,1.79,0,{s:[1,.95,1.06]}),pp(Cy(.175,.175,.025,16),1,0,0,1.8,.02),pp(Bx(.06,.04,.04),3,0,0,1.86,.14)]},
 };
 for(const k in ARCH){const A=ARCH[k];A.key=k;A.umbS=(Math.min(A.h,1.95)+.15)/2.07;}
 
@@ -1356,21 +1631,25 @@ const TARGETS=[
   {code:'VESPER',codeSay:'ヴェスパー',role:'企業スパイ',arch:'suit',coat:0x15151c,acc:0x1a1a1e,glow:0xff3040,umb:0x00f0ff,blink:false,keys:['arch','coat','glow','umb'],
     traits:['黒いスーツ姿','赤く光るネクタイ','シアン色の傘'],intel:'取引のため、商業区の歩道を移動中。',stages:[1,2]},
   {code:'KAGURA-9',codeSay:'カグラ、ナイン',role:'逃亡アンドロイド',arch:'android',coat:0xff8a20,acc:0xffffff,glow:0xff9a30,umb:null,blink:true,keys:['arch','glow','blink','umb'],
-    traits:['白い人型アンドロイド（傘なし）','橙色に光るバイザー','光が点滅している'],intel:'人混みに紛れて追跡を逃れている。',stages:[1,2]},
+    traits:['白い人型アンドロイド（傘なし）','橙色に光るバイザー','光が点滅している'],intel:'人混みに紛れて追跡を逃れている。',stages:[1,2,3]},
   {code:'RAZOR',codeSay:'レイザー',role:'密売人',arch:'punk',coat:0x101014,acc:0x3dffb0,glow:0x00f0ff,umb:0xffcf3f,blink:false,keys:['arch','acc','umb'],
-    traits:['肩パッド付きジャケットのパンク','緑のモヒカン','黄色の傘'],intel:'路地裏の取引を終え、表通りへ出た。',stages:[1]},
+    traits:['肩パッド付きジャケットのパンク','緑のモヒカン','黄色の傘'],intel:'路地裏の取引を終え、表通りへ出た。',stages:[1,3]},
   {code:'NOVA',codeSay:'ノヴァ',role:'ハッカー',arch:'techgirl',coat:0x7a3dff,acc:0xff8ad8,glow:0x3dffb0,umb:null,blink:false,keys:['arch','coat','acc','glow','umb'],
     traits:['紫のショートジャケット','ピンクのお団子ヘア','緑に光るライン（傘なし）'],intel:'回線を乗り換えながら、街を移動している。',stages:[1,2]},
   {code:'DR.OBA',codeSay:'ドクター、オーバ',role:'闇医者',arch:'kasa',coat:0x8a1a2a,acc:0xd8c08a,glow:0x00f0ff,umb:null,blink:false,keys:['arch','coat','glow'],
     traits:['笠をかぶった老人','赤いローブ','シアンに光る提灯'],intel:'往診帰りに、ゆっくりと通りを歩いている。',stages:[1]},
   {code:'COURIER-X',codeSay:'クーリエ、エックス',role:'運び屋',arch:'courier',coat:0x1b2433,acc:0xffcf3f,glow:0xff2bd6,umb:null,blink:false,keys:['arch','acc','glow','umb'],
-    traits:['ヘルメットの運び屋（傘なし）','黄色いバックパック','マゼンタのバイザー'],intel:'暗号チップを運搬中。立ち止まることが多い。',stages:[1,2]},
+    traits:['ヘルメットの運び屋（傘なし）','黄色いバックパック','マゼンタのバイザー'],intel:'暗号チップを運搬中。立ち止まることが多い。',stages:[1,2,3]},
   {code:'GOLIATH',codeSay:'ゴライアス',role:'用心棒',arch:'heavy',coat:0x2a2a30,acc:0xff4040,glow:0x00f0ff,umb:0x9d4dff,blink:false,keys:['arch','acc','umb'],
-    traits:['大柄な体格','赤いニット帽','紫の傘'],intel:'取引相手を待ちながら、周囲を警戒している。',stages:[1,2]},
+    traits:['大柄な体格','赤いニット帽','紫の傘'],intel:'取引相手を待ちながら、周囲を警戒している。',stages:[1,2,3]},
   {code:'HALCYON',codeSay:'ハルシオン',role:'企業の重役',arch:'suit',coat:0xd8d4cc,acc:0x8a8a92,glow:0x00f0ff,umb:0xffffff,blink:false,keys:['arch','coat','glow','umb'],
     traits:['白いスーツ姿','シアンに光るネクタイ','白い傘'],intel:'機密を持ち出し、空中回廊の下を足早に移動している。',stages:[2]},
   {code:'MIRAGE',codeSay:'ミラージュ',role:'産業スパイ',arch:'techgirl',coat:0xe8e6f0,acc:0x2f7bff,glow:0xb48cff,umb:0x9d4dff,blink:true,keys:['arch','coat','acc','umb','blink'],
     traits:['白いショートジャケット','青いお団子ヘア','紫の傘（ふちが点滅）'],intel:'ガラス張りのロビーを渡り歩き、尾行を振り切ろうとしている。',stages:[2]},
+  {code:'FORGE',codeSay:'フォージ',role:'武器密造者',arch:'worker',coat:0x2a3a4a,acc:0xe8e8e8,glow:0x3dffb0,umb:null,blink:false,keys:['arch','acc','glow','umb'],
+    traits:['作業員の格好（傘なし）','白いヘルメット','緑に光る反射ベスト'],intel:'夜勤の作業員に紛れ、密造した銃の部品を運び出している。',stages:[3]},
+  {code:'CINDER',codeSay:'シンダー',role:'破壊工作員',arch:'runner',coat:0x6a5a48,acc:0x8a1a2a,glow:0xff9a30,umb:0x3dffb0,blink:false,keys:['arch','coat','acc','umb'],
+    traits:['茶色のロングコート','赤いマフラー','緑の傘'],intel:'プラントの制御系に細工を仕掛け、現場から離れようとしている。',stages:[3]},
 ];
 let curTarget=TARGETS[0];
 let lastTargetCode=null;try{lastTargetCode=localStorage.getItem('nt_lastTarget');}catch(e){}
@@ -1458,7 +1737,7 @@ const featEq=(n,t,k)=>k==='umb'?(n.umb??null)===(t.umb??null):n[k]===t[k];
 const matchCount=(n,t)=>t.keys.reduce((a,k)=>a+(featEq(n,t,k)?1:0),0);
 function mutate(n,t,k){
   const A=ARCH[n.arch];
-  if(k==='arch'){n.arch=pickM(Object.keys(ARCH).filter(x=>x!==t.arch));if(ARCH[n.arch].umbP===0)n.umb=null;}
+  if(k==='arch'){const mix=(STAGE&&STAGE.crowdMix)||{};n.arch=pickM(Object.keys(ARCH).filter(x=>x!==t.arch&&(mix[x]??1)>0));if(ARCH[n.arch].umbP===0)n.umb=null;}
   else if(k==='coat')n.coat=pickM(A.coats.filter(c=>c!==t.coat).concat([0x30303a]));
   else if(k==='acc')n.acc=pickM(A.accs.filter(c=>c!==t.acc).concat([0x2a2a30]));
   else if(k==='glow')n.glow=pickM(GLOWS.filter(c=>c!==t.glow));
@@ -2030,6 +2309,13 @@ function startAmbience(){
 }
 function ambEvent(){
   const t=AC.currentTime+.05,pan=Math.random()*1.6-.8;
+  if(STAGE&&STAGE.gen&&STAGE.gen.amb==='industry'){const r=Math.random(); // 工業地帯：鉄を打つ音・蒸気の噴出・遠くの汽笛
+    if(r<.34){const n=1+Math.floor(Math.random()*3),f0=380+Math.random()*160;
+      for(let k=0;k<n;k++){const tk=t+k*(.32+Math.random()*.12);nz(tk,.07,{type:'bandpass',f:2600,q:2.2,vol:.05,pan,dest:ambDuck,rv:.95,ec:.5});
+        os(tk,1.1,{type:'triangle',f:f0,vol:.012,pan,dest:ambDuck,rv:.95});os(tk,.8,{type:'sine',f:f0*2.76,vol:.006,pan,dest:ambDuck,rv:.9});}return;}
+    if(r<.58){nz(t,2.8,{type:'highpass',f:2800,vol:.032,a:.12,pan,dest:ambDuck,rv:.45});nz(t,2.4,{type:'bandpass',f:900,q:.5,vol:.018,a:.2,pan,dest:ambDuck,rv:.4});return;}
+    if(r<.76){for(const f of[98,123.5])os(t,3.4,{type:'sawtooth',f,vol:.011,a:.5,filter:{type:'lowpass',f:480},pan,dest:ambDuck,rv:1});return;}
+  }
   if(Math.random()<.55){ // flying-car pass-by
     const s=AC.createBufferSource();s.buffer=nbuf();s.loop=true;const f=AC.createBiquadFilter();f.type='bandpass';f.Q.value=1.2;
     f.frequency.setValueAtTime(260,t);f.frequency.linearRampToValueAtTime(950,t+2.1);f.frequency.linearRampToValueAtTime(230,t+4.6);
@@ -2444,7 +2730,7 @@ function frame(){
   }
   // world animation always runs (also behind pause/result for ambience)
   if(state!=='paused'){
-    updateTraffic(dt,T);updateCrowd(dt,T);updateSteam(dt);updateFx(dt);
+    updateTraffic(dt,T);updateCrowd(dt,T);updateSteam(dt);updateIndustry(dt,T);updateFx(dt);
     holoMats.forEach(m=>{if(m.uniforms.uTime)m.uniforms.uTime.value=T;});
     if(dyn.screen)dyn.screen.uniforms.uTime.value=T;
     dyn.sky.material.uniforms.uTime.value=T;
