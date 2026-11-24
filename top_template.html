@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>あそびば — とおの扉</title>
+<title>あそびば — じゅういちの扉</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
@@ -49,6 +49,7 @@ h1{margin:18px 0 0;font-weight:700;font-size:clamp(46px,8vw,78px);letter-spacing
 .gate:nth-child(8){animation-delay:1.05s}
 .gate:nth-child(9){animation-delay:1.2s}
 .gate:nth-child(10){animation-delay:1.35s}
+.gate:nth-child(11){animation-delay:1.5s}
 .arch{position:relative;width:100%;aspect-ratio:4/5;border-radius:999px 999px 18px 18px;padding:10px;
   background:linear-gradient(180deg,rgba(255,243,201,.9),var(--gold) 30%,var(--gold2) 70%,#7a5f2c);
   box-shadow:0 0 0 1px rgba(0,0,0,.6),0 30px 60px -30px rgba(0,0,0,.9),0 0 40px -12px var(--a);transition:box-shadow .5s,transform .5s cubic-bezier(.2,.8,.2,1)}
@@ -102,8 +103,8 @@ footer{position:relative;z-index:1;text-align:center;padding:8px 0 40px}
   <header>
     <div class="orn"><i></i>✦<i></i></div>
     <h1>あそびば</h1>
-    <p class="lead">とおの扉</p>
-    <div class="en">Ten Gates</div>
+    <p class="lead">じゅういちの扉</p>
+    <div class="en">Eleven Gates</div>
   </header>
   <section class="gates" id="gates"></section>
 </main>
@@ -146,6 +147,9 @@ const GAMES=[
   {id:'desktop404',title:'DESKTOP 404',en:'Not Found', rune:'NOMEN · UMBRA', accent:'#9fb4c8',
    desc:'消えた少女の古いPC。壊れたファイルを直すたび、だれかが、こちらに気づいていく。',
    path:'desktop404/',artifact:'https://claude.ai/artifact/SAWh4EYBjCLeuM1jTqaxPN', thumb:'__THUMB_desktop404__'},
+  {id:'lasttick',title:'THE LAST TICK',en:'The Clockmaker’s Room', rune:'TEMPUS · ROTA', accent:'#e8b86a',
+   desc:'路地裏の時計修理店。壊れた懐中時計に歯車をはめこみ、止まった時間をもう一度動かす。',
+   path:'lasttick/',artifact:'https://claude.ai/artifact/FmeXMvwJfmuC9YUrBdVrQM', thumb:'__THUMB_lasttick__'},
 ];
 const LOCAL=location.protocol==='file:'||/github\.io$/.test(location.hostname)||/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 const hrefOf=g=>LOCAL?(location.protocol==='file:'?g.path+'index.html':g.path):g.artifact;

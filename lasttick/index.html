@@ -1,0 +1,1984 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>THE LAST TICK</title>
+<style>
+html,body{margin:0;height:100%;background:#120a0c;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block;cursor:default;-webkit-tap-highlight-color:transparent}
+#rotate{position:fixed;left:0;right:0;bottom:12px;display:none;justify-content:center;pointer-events:none}
+#rotate span{font:13px/1.6 sans-serif;color:#f2dca0;background:#2a1810cc;border:1px solid #a6702c;padding:4px 12px;border-radius:4px}
+</style></head><body>
+<div id="wrap"><canvas id="c" width="432" height="216"></canvas></div>
+<div id="rotate"><span>横向きにすると大きく遊べます</span></div>
+<script>
+'use strict';
+// ===== THE LAST TICK — core =====
+const W = 432, H = 216, TAU = Math.PI * 2;
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+const easeOut = t => t <= 0 ? 0 : t >= 1 ? 1 : 1 - (1 - t) * (1 - t) * (1 - t);
+const easeBack = t => { t = clamp(t, 0, 1); const c = 1.7; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
+function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h); const x = c.getContext('2d'); x.imageSmoothingEnabled = false; return c; }
+function hex(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+const rgb = a => `rgb(${a[0]},${a[1]},${a[2]})`;
+function hash(i, j) { let h = (i * 374761393 + j * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+let RNG = 1234567;
+const rnd = () => { RNG = (RNG * 1103515245 + 12345) & 0x7fffffff; return RNG / 0x7fffffff; };
+
+// ---- fit to window ----
+let SCALE = 1, RS = 1;
+function fit() {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let s = Math.min(vw / W, vh / H);
+  if (s >= 2) { const f = Math.floor(s); if (f / s > 0.86) s = f; }
+  SCALE = s;
+  // backing store at device resolution: pixel art is scaled up crisply, text is drawn sharp
+  const S = clamp(Math.ceil(s * (window.devicePixelRatio || 1)), 1, 8);
+  if (S !== RS) { RS = S; cv.width = W * S; cv.height = H * S; ctx.imageSmoothingEnabled = false; }
+  cv.style.width = Math.round(W * s) + 'px';
+  cv.style.height = Math.round(H * s) + 'px';
+  const rh = document.getElementById('rotate');
+  if (rh) rh.style.display = (vh > vw * 1.15 && vw < 900) ? 'flex' : 'none';
+}
+window.addEventListener('resize', fit);
+
+// ---- save ----
+const SAVE_KEY = 'lasttick_v1';
+let SAVE = { cleared: {}, progress: {}, bgm: 6, se: 8, seen: false };
+try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (s) SAVE = Object.assign(SAVE, s); } catch (e) { }
+function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); } catch (e) { } }
+
+// ---- materials (4-step ramps: dark, mid, light, highlight) ----
+const MATS = [null], M = {};
+function defMat(name, ramp, h) { M[name] = MATS.length; MATS.push({ ramp: ramp.map(hex), h }); }
+defMat('brass', ['#5e3a1a', '#a6702c', '#d6a446', '#f6dc8c'], 2);
+defMat('brass2', ['#5e3a1a', '#a6702c', '#d6a446', '#f6dc8c'], 3);
+defMat('gold', ['#6c4010', '#c48a20', '#eec04a', '#fff2b4'], 2);
+defMat('gold2', ['#6c4010', '#c48a20', '#eec04a', '#fff2b4'], 3);
+defMat('copper', ['#4c2216', '#984a2a', '#cc7646', '#f0b088'], 2);
+defMat('steel', ['#343846', '#727c8e', '#b2bac8', '#eef2f8'], 3);
+defMat('steel2', ['#343846', '#727c8e', '#b2bac8', '#eef2f8'], 4);
+defMat('blue', ['#161e4a', '#2e4498', '#5476d2', '#a8c4f6'], 5);
+defMat('ruby', ['#480a1a', '#9e1a38', '#de4860', '#ffb6c0'], 6);
+defMat('sapph', ['#0e1842', '#22429a', '#4878dc', '#b6d4ff'], 6);
+defMat('enamel', ['#9a8a6e', '#dccaa6', '#f2e6ca', '#fffaee'], 2);
+defMat('plate', ['#3c2614', '#6c4a2a', '#8a6236', '#a87e4a'], 1);
+defMat('night', ['#0e1436', '#1c2858', '#2e4286', '#5870b2'], 2);
+defMat('moon', ['#86743a', '#d6c474', '#f4e8a6', '#fffce2'], 3);
+defMat('ink', ['#1c1210', '#2a1c16', '#3a2a20', '#4a382a'], 4);
+defMat('wood', ['#26140a', '#462814', '#663c1e', '#86542c'], 1);
+defMat('dark', ['#140c08', '#22160e', '#2e2014', '#3c2c1c'], 0);
+defMat('silver', ['#545462', '#9a9aa8', '#cecfd8', '#ffffff'], 3);
+defMat('rose', ['#542622', '#965042', '#c67a62', '#eab29a'], 2);
+defMat('emer', ['#0c3424', '#1c6a44', '#38a46a', '#a4e8bc'], 6);
+const HI = m => m === M.brass ? M.brass2 : m === M.gold ? M.gold2 : m === M.steel ? M.steel2 : m;
+const FD = 1 << 8, FM = 2 << 8, FL = 3 << 8, FH = 4 << 8;
+const OUTL = hex('#1c100a');
+
+// Shade a material grid into a canvas: pixel-art auto shading (light from top-left)
+function shadeGrid(g, w, h, o = {}) {
+  const c = mkCanvas(w, h), x = c.getContext('2d'), id = x.createImageData(w, h), d = id.data;
+  const at = (i, j) => (i < 0 || j < 0 || i >= w || j >= h) ? 0 : g[j * w + i];
+  const ht = v => v ? MATS[v & 255].h : -9;
+  const outline = o.outline !== false;
+  const oc = o.outlineColor || OUTL, oa = o.outlineAlpha == null ? 255 : o.outlineAlpha;
+  const bev = o.bevel || 1;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const v = g[j * w + i], p = (j * w + i) * 4;
+    if (!v) {
+      if (outline && (at(i - 1, j) || at(i + 1, j) || at(i, j - 1) || at(i, j + 1))) { d[p] = oc[0]; d[p + 1] = oc[1]; d[p + 2] = oc[2]; d[p + 3] = oa; }
+      continue;
+    }
+    const m = MATS[v & 255]; if (!m) continue;
+    const f = v >> 8; let lv;
+    if (f) lv = f - 1;
+    else {
+      const hm = m.h, lo = n => !n || ht(n) < hm;
+      let u = lo(at(i, j - 1)), l = lo(at(i - 1, j)), dn = lo(at(i, j + 1)), r = lo(at(i + 1, j));
+      if (bev > 1) { u = u || lo(at(i, j - 2)); l = l || lo(at(i - 2, j)); }
+      const L = u || l, D = dn || r;
+      if (L && !D) lv = (u && l) ? 3 : 2;
+      else if (D && !L) lv = 0;
+      else if (L && D) lv = (u && l) ? 2 : 1;
+      else lv = 1;
+    }
+    const col = m.ramp[lv];
+    d[p] = col[0]; d[p + 1] = col[1]; d[p + 2] = col[2]; d[p + 3] = 255;
+  }
+  x.putImageData(id, 0, 0);
+  return c;
+}
+function maskCanvas(g, w, h, col, alpha, pad) {
+  const c = mkCanvas(w, h), x = c.getContext('2d'), id = x.createImageData(w, h), d = id.data;
+  for (let k = 0; k < w * h; k++) {
+    let on = g[k] !== 0;
+    if (!on && pad) { const i = k % w, j = (k / w) | 0; on = (i > 0 && g[k - 1]) || (i < w - 1 && g[k + 1]) || (j > 0 && g[k - w]) || (j < h - 1 && g[k + w]); }
+    if (on) { d[k * 4] = col[0]; d[k * 4 + 1] = col[1]; d[k * 4 + 2] = col[2]; d[k * 4 + 3] = alpha; }
+  }
+  x.putImageData(id, 0, 0); return c;
+}
+// ghost (blueprint) = dotted boundary of a shape
+function ghostCanvas(g, w, h, col, alpha) {
+  const c = mkCanvas(w, h), x = c.getContext('2d'), id = x.createImageData(w, h), d = id.data;
+  const at = (i, j) => (i < 0 || j < 0 || i >= w || j >= h) ? 0 : g[j * w + i];
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const v = at(i, j); if (!v) continue;
+    const edge = !at(i - 1, j) || !at(i + 1, j) || !at(i, j - 1) || !at(i, j + 1);
+    if (edge && ((i + j) & 1) === 0) { const p = (j * w + i) * 4; d[p] = col[0]; d[p + 1] = col[1]; d[p + 2] = col[2]; d[p + 3] = alpha; }
+  }
+  x.putImageData(id, 0, 0); return c;
+}
+
+// rasterize a shape function fn(lx,ly)->material code into grid
+function rasterGrid(fn, R, rot = 0, s = 1) {
+  const Rp = Math.ceil(R * s) + 2, w = 2 * Rp + 1, h = w, cx = Rp, cy = Rp;
+  const g = new Int32Array(w * h), cs = Math.cos(rot), sn = Math.sin(rot);
+  const ss = s < 0.75;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    if (!ss) {
+      const px = (i - cx) / s, py = (j - cy) / s;
+      g[j * w + i] = fn(px * cs + py * sn, -px * sn + py * cs) | 0;
+    } else {
+      // supersample 3x3, take the most frequent non-empty if >=3 hits
+      const cnt = new Map(); let hits = 0;
+      for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) {
+        const px = (i - cx + (a - 1) / 3) / s, py = (j - cy + (b - 1) / 3) / s;
+        const v = fn(px * cs + py * sn, -px * sn + py * cs) | 0;
+        if (v) { hits++; cnt.set(v, (cnt.get(v) || 0) + 1); }
+      }
+      if (hits >= 3) { let best = 0, bn = 0; for (const [k, n] of cnt) if (n > bn) { bn = n; best = k; } g[j * w + i] = best; }
+    }
+  }
+  return { g, w, h, cx, cy };
+}
+
+// ---- sprite cache ----
+const SPR = new Map();
+const ANG_STEPS = 128;
+function quantAng(a) { let k = Math.round(a / TAU * ANG_STEPS) % ANG_STEPS; if (k < 0) k += ANG_STEPS; return k; }
+function sprite(key, fn, R, ang = 0, s = 1, o = {}) {
+  const k = quantAng(ang), ck = key + '|' + k + '|' + s;
+  let e = SPR.get(ck);
+  if (!e) {
+    const r = rasterGrid(fn, R, k / ANG_STEPS * TAU, s);
+    e = { c: shadeGrid(r.g, r.w, r.h, o), g: r.g, w: r.w, h: r.h, cx: r.cx, cy: r.cy, _sh: null, _gh: null };
+    SPR.set(ck, e);
+  }
+  return e;
+}
+function sprShadow(e) { return e._sh || (e._sh = maskCanvas(e.g, e.w, e.h, [20, 10, 6], 110, true)); }
+function sprGhost(e, col = [240, 222, 176], a = 170) { return e._gh || (e._gh = ghostCanvas(e.g, e.w, e.h, col, a)); }
+function sprWhite(e) { return e._wh || (e._wh = maskCanvas(e.g, e.w, e.h, [255, 244, 200], 255, true)); }
+function drawSpr(e, x, y, alpha = 1) {
+  if (alpha < 1) ctx.globalAlpha = alpha;
+  ctx.drawImage(e.c, Math.round(x) - e.cx, Math.round(y) - e.cy);
+  if (alpha < 1) ctx.globalAlpha = 1;
+}
+function drawCanv(c, x, y, a = 1) { if (a < 1) ctx.globalAlpha = a; ctx.drawImage(c, Math.round(x), Math.round(y)); if (a < 1) ctx.globalAlpha = 1; }
+
+// ---- fonts ----
+// 5x7 pixel font (caps, digits, symbols)
+const F57 = {
+  A: '0e1111111f1111', B: '1e11111e11111e', C: '0e11101010110e', D: '1c12111111121c', E: '1f10101e10101f', F: '1f10101e101010',
+  G: '0e1110171111 0f', H: '1111111f111111', I: '0e04040404040e', J: '07020202 02120c', K: '11121418141211', L: '1010101010101f',
+  M: '111b1515111111', N: '11111915131111', O: '0e11111111110e', P: '1e11111e101010', Q: '0e111111151 20d', R: '1e11111e141211',
+  S: '0f10100e01011e', T: '1f040404040404', U: '1111111111110e', V: '11111111110a04', W: '1111111515150a', X: '11110a040a1111',
+  Y: '1111110a040404', Z: '1f01020408101f', '0': '0e11131519110e', '1': '040c040404040e', '2': '0e110102040 81f', '3': '1f020402 01110e',
+  '4': '02060a121f0202', '5': '1f101e0101110e', '6': '0608101e11110e', '7': '1f010204080808', '8': '0e11110e11110e', '9': '0e11110f01020c',
+  '.': '000000000000 04', ',': '00000000000408', ':': '00000400000400', '!': '04040404000004', '?': '0e110102040004', '-': '0000001f000000',
+  '/': '01010204081010', '%': '18190204081303', "'": '04040800000000', '(': '02040808080402', ')': '08040202020408', '+': '0004041f040400',
+  '&': '0c12140815120d', '#': '0a0a1f0a1f0a0a', '<': '02040810080402', '>': '08040201020408', '*': '00150e1f0e1500', '=': '00001f001f0000', ' ': '00000000000000',
+  '·': '00000004000000'
+};
+const F57G = {};
+for (const k in F57) { const s = F57[k].replace(/ /g, ''); const rows = []; for (let i = 0; i < 7; i++) rows.push(parseInt(s.substr(i * 2, 2), 16) || 0); F57G[k] = rows; }
+function glyphW(ch) { if (ch === ' ') return 3; const r = F57G[ch]; if (!r) return 4; let mn = 5, mx = -1; for (const row of r) for (let b = 0; b < 5; b++) if (row & (16 >> b)) { mn = Math.min(mn, b); mx = Math.max(mx, b); } return mx < 0 ? 3 : (mx - mn + 1); }
+function glyphL(ch) { const r = F57G[ch]; if (!r) return 0; let mn = 5; for (const row of r) for (let b = 0; b < 5; b++) if (row & (16 >> b)) mn = Math.min(mn, b); return mn === 5 ? 0 : mn; }
+const PFC = new Map();
+// pixel text canvas: scale (1|2), color, shadow color, spacing
+function ptext(str, col = '#f2dca0', sh = '#1c100a', sc = 1, sp = 1) {
+  const key = str + '|' + col + '|' + sh + '|' + sc + '|' + sp; let c = PFC.get(key); if (c) return c;
+  str = String(str).toUpperCase();
+  let w = 0; for (const ch of str) w += (glyphW(ch) + sp);
+  w = Math.max(1, w - sp);
+  c = mkCanvas(w * sc + 1, 7 * sc + 1); const x = c.getContext('2d');
+  const draw = (color, ox, oy) => {
+    x.fillStyle = color; let px = 0;
+    for (const ch of str) {
+      const r = F57G[ch] || F57G['?'], l = glyphL(ch), gw = glyphW(ch);
+      if (ch !== ' ') for (let j = 0; j < 7; j++) for (let b = 0; b < 5; b++) if (r[j] & (16 >> b)) x.fillRect((px + b - l) * sc + ox, j * sc + oy, sc, sc);
+      px += gw + sp;
+    }
+  };
+  if (sh) draw(sh, sc > 1 ? 1 : 0, 1);
+  draw(col, 0, 0);
+  PFC.set(key, c); return c;
+}
+// tiny 3x5 digits
+const F35 = { '0': '75557', '1': '26227', '2': '71747', '3': '71717', '4': '55711', '5': '74717', '6': '74757', '7': '71122', '8': '75757', '9': '75717', 'x': '00525', '%': '41241', '/': '11244', '+': '02720', '-': '00700', ':': '02020' };
+function ttext(str, col = '#f2dca0', sh = '#1c100a') {
+  const key = 't' + str + col + sh; let c = PFC.get(key); if (c) return c;
+  str = String(str); c = mkCanvas(str.length * 4 + 1, 7); const x = c.getContext('2d');
+  const draw = (color, ox, oy) => { x.fillStyle = color; let px = 0; for (const ch of str) { const g = F35[ch]; if (g) for (let j = 0; j < 5; j++) { const v = parseInt(g[j], 16); for (let b = 0; b < 3; b++) if (v & (4 >> b)) x.fillRect(px + b + ox, j + oy, 1, 1); } px += 4; } };
+  if (sh) draw(sh, 1, 1); draw(col, 0, 0); PFC.set(key, c); return c;
+}
+// Japanese text: system font, hard-thresholded to pixels
+const JFONT = '"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Noto Sans CJK JP","Yu Gothic UI","Yu Gothic","Meiryo",sans-serif';
+const JTC = new Map();
+const _jm = mkCanvas(8, 8).getContext('2d');
+function jwidth(str, size = 10) { _jm.font = `${size}px ${JFONT}`; return Math.ceil(_jm.measureText(str).width); }
+// text bitmap at TS x the game resolution (TS=2 when the screen is big enough), hard-thresholded to dots
+function jtext(str, col, sh, size, ts) {
+  const key = str + '|' + col + '|' + sh + '|' + size + '|' + ts; let c = JTC.get(key); if (c) return c;
+  const fs = size * ts, w = Math.ceil(jwidth(str, size) * ts) + 2 * ts + 2, h = Math.ceil(fs * 1.35) + 2;
+  const t = mkCanvas(w, h), tx = t.getContext('2d');
+  tx.font = `${fs}px ${JFONT}`; tx.fillStyle = '#fff'; tx.textBaseline = 'alphabetic';
+  tx.fillText(str, ts, Math.round(fs * 1.02));
+  const src = tx.getImageData(0, 0, w, h).data, th = ts >= 2 ? 112 : 90;
+  c = mkCanvas(w, h); const x = c.getContext('2d'), id = x.createImageData(w, h), d = id.data;
+  const on = new Uint8Array(w * h); for (let k = 0; k < w * h; k++) on[k] = src[k * 4 + 3] >= th ? 1 : 0;
+  const C = hex(col), S = sh ? hex(sh) : null;
+  for (let k = 0; k < w * h; k++) {
+    const p = k * 4, i = k % w;
+    if (on[k]) { d[p] = C[0]; d[p + 1] = C[1]; d[p + 2] = C[2]; d[p + 3] = 255; }
+    else if (S && ((k >= w && on[k - w]) || (ts >= 2 && k >= w + 1 && i > 0 && on[k - w - 1]))) { d[p] = S[0]; d[p + 1] = S[1]; d[p + 2] = S[2]; d[p + 3] = 255; }
+  }
+  x.putImageData(id, 0, 0); c.ts = ts; JTC.set(key, c); return c;
+}
+// wrap Japanese into lines of max width
+const NOSTART = '、。」』）！？ー…・ぁぃぅぇぉっゃゅょァィゥェォッャュョ';
+function jwrap(str, maxW, size = 10) {
+  const out = [];
+  for (const para of String(str).split('\n')) {
+    let line = '';
+    for (const ch of para) {
+      const t = line + ch;
+      if (jwidth(t, size) > maxW && line) {
+        if (NOSTART.includes(ch)) { out.push(t); line = ''; continue; }
+        out.push(line); line = ch;
+      } else line = t;
+    }
+    out.push(line);
+  }
+  return out;
+}
+const JWC = new Map();
+function jdraw(str, x, y, col, sh, size = 10, align = 'l') {
+  const ts = RS >= 2 ? 2 : 1, c = jtext(str, col, sh, size, ts), tw = jwidth(str, size);
+  let dx = x; if (align === 'c') dx = x - tw / 2; else if (align === 'r') dx = x - tw;
+  dx = Math.round(dx * ts) / ts;
+  ctx.drawImage(c, dx - 1, Math.round(y) - 1, c.width / ts, c.height / ts);
+  return tw;
+}
+function jpara(str, x, y, maxW, col, sh, size = 10, lh = 12, align = 'l') {
+  const key = str + '|' + maxW + '|' + size; let lines = JWC.get(key);
+  if (!lines) { lines = jwrap(str, maxW, size); JWC.set(key, lines); }
+  lines.forEach((l, i) => jdraw(l, align === 'c' ? x + maxW / 2 : x, y + i * lh, col, sh, size, align));
+  return lines.length;
+}
+if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', () => JWC.clear());
+function pdraw(str, x, y, col, sh, sc = 1, align = 'l', sp = 1) {
+  const c = ptext(str, col, sh, sc, sp); let dx = x;
+  if (align === 'c') dx = x - ((c.width - 1) >> 1); else if (align === 'r') dx = x - c.width + 1;
+  ctx.drawImage(c, Math.round(dx), Math.round(y)); return c.width;
+}
+// big shaded title text (serif), rendered as a material sprite
+const BIGC = new Map();
+function bigText(str, size, mat = M.gold, o = {}) {
+  const key = str + size + mat + JSON.stringify(o); let e = BIGC.get(key); if (e) return e;
+  const font = `${o.bold === false ? '' : 'bold '}${size}px ${o.font || '"Cinzel","Trajan Pro","Georgia","Times New Roman",serif'}`;
+  _jm.font = font; const tw = Math.ceil(_jm.measureText(str).width) + 8, th = Math.ceil(size * 1.25) + 4;
+  const t = mkCanvas(tw, th), tx = t.getContext('2d'); tx.font = font; tx.fillStyle = '#fff'; tx.fillText(str, 4, size + 1);
+  const src = tx.getImageData(0, 0, tw, th).data; const g = new Int32Array(tw * th);
+  for (let k = 0; k < tw * th; k++) if (src[k * 4 + 3] >= (o.th || 128)) g[k] = mat;
+  // gradient: top rows lighter (forced) for metallic sheen
+  if (o.sheen) { for (let j = 0; j < th; j++) for (let i = 0; i < tw; i++) { const k = j * tw + i; if (g[k] && j > size * 0.62 && j < size * 0.75 && !(hash(i, j) < 0.3)) g[k] = mat | FD; } }
+  e = { c: shadeGrid(g, tw, th, { bevel: o.bevel || 1 }), w: tw, h: th };
+  BIGC.set(key, e); return e;
+}
+
+// ===== parts: procedural pixel shapes =====
+const KIND = {};
+function defKind(id, o) { o.id = id; o.z = o.z == null ? 4 : o.z; o.key = id; KIND[id] = o; return o; }
+
+// polar helpers
+function polar(x, y) { return [Math.hypot(x, y), Math.atan2(y, x)]; }
+function ph(a, n) { let p = (a / TAU) * n % 1; if (p < 0) p += 1; return p; }
+function segDist(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1, l = dx * dx + dy * dy; let t = l ? ((px - x1) * dx + (py - y1) * dy) / l : 0; t = clamp(t, 0, 1);
+  return Math.hypot(px - x1 - dx * t, py - y1 - dy * t);
+}
+
+// gear: r outer radius, n teeth, spokes, material, opts
+function gearFn(o) {
+  const r = o.r, n = o.n, root = r - (o.th || 2), rim = o.rim || 2, mat = o.mat, mat2 = o.mat2 || mat + 1;
+  const sp = o.spokes || 0, hub = o.hub || 3, curve = o.curve || 0;
+  return (x, y) => {
+    const d = Math.hypot(x, y); if (d > r + 0.35) return 0;
+    const a = Math.atan2(y, x);
+    if (d > root) {
+      const p = ph(a, n), t = (d - root) / (r - root);
+      if (o.club) return (p > 0.12 + t * 0.32 && p < 0.62 - t * 0.12) ? mat : 0;
+      if (o.ratchet) return (p < 0.7 - t * 0.55) ? mat : 0;
+      return Math.abs(p - 0.5) < 0.30 - 0.12 * t ? mat : 0;
+    }
+    if (d < 1.2) return o.jewel ? M.ruby : M.steel2;
+    if (o.sqhole && Math.abs(x) < 2 && Math.abs(y) < 2) return 0;
+    if (d < hub) return mat2;
+    if (d > root - rim) return mat;
+    if (sp) {
+      const inner = root - rim;
+      for (let k = 0; k < sp; k++) {
+        const sa = k / sp * TAU + (curve ? curve * (d / inner) : 0);
+        const c = Math.cos(sa), s = Math.sin(sa);
+        if (x * c + y * s > 0 && Math.abs(-x * s + y * c) < (o.sw || 1.15)) return mat;
+      }
+      return 0;
+    }
+    if (o.holes) { // round lightening holes
+      const hr = (hub + root - rim) / 2, rr = (root - rim - hub) * 0.32;
+      for (let k = 0; k < o.holes; k++) { const sa = k / o.holes * TAU + 0.4; if (Math.hypot(x - Math.cos(sa) * hr, y - Math.sin(sa) * hr) < rr) return 0; }
+    }
+    if (d > root - rim - 1) return mat | FD;
+    return mat;
+  };
+}
+
+defKind('gearL', { name: '大型歯車', desc: '輪列の中心をになう大きな歯車。動力を受けとめて伝える。', R: 16, pr: 14.5, fn: gearFn({ r: 16, n: 24, spokes: 5, mat: M.brass, hub: 3.4, curve: 0.5 }), z: 4, gear: 1 });
+defKind('gearM', { name: '中型歯車', desc: '周囲の歯車とかみ合わせて回転を伝える部品。', R: 12, pr: 10.5, fn: gearFn({ r: 12, n: 18, spokes: 4, mat: M.brass, hub: 2.6 }), z: 4, gear: 1 });
+defKind('gearS', { name: '小型歯車', desc: '回転を速めて先へ送る、小さな歯車。', R: 8, pr: 6.5, fn: gearFn({ r: 8, n: 12, mat: M.gold, hub: 2.2, holes: 0 }), z: 4, gear: 1 });
+defKind('pinion', { name: 'カナ', desc: '歯車の軸に重ねる小さな歯車。二重歯車をつくる。', R: 5, pr: 3.8, fn: gearFn({ r: 5, n: 8, mat: M.steel, mat2: M.steel2, hub: 1.8, th: 1.6 }), z: 5, gear: 1 });
+defKind('escWheel', { name: 'ガンギ車', desc: '脱進機の歯車。とがった歯でアンクルを一歩ずつ押す。', R: 10, pr: 8.5, fn: gearFn({ r: 10, n: 15, club: 1, mat: M.steel, mat2: M.steel2, spokes: 5, sw: 0.8, th: 3, rim: 1.6, hub: 2 }), z: 4, gear: 1 });
+defKind('ratchet', { name: '角穴車', desc: 'ぜんまいを巻き上げる歯車。こはぜと組んで逆回転を止める。', R: 10, pr: 8.6, fn: gearFn({ r: 10, n: 20, ratchet: 1, mat: M.steel, mat2: M.steel2, sqhole: 1, hub: 3.4, th: 2 }), z: 6, gear: 1 });
+defKind('crownWheel', { name: '丸穴車', desc: '竜頭の回転を角穴車へ伝える歯車。', R: 7, pr: 5.8, fn: gearFn({ r: 7, n: 12, mat: M.steel, mat2: M.steel2, hub: 2 }), z: 6, gear: 1 });
+
+// barrel: hollow drum gear with hook slot
+defKind('barrel', {
+  name: '香箱', desc: 'ぜんまいを納める円筒の箱。外周の歯で輪列へ力を送る。', R: 19, pr: 17.5, z: 2, gear: 1,
+  fn: (() => { const g = gearFn({ r: 19, n: 30, mat: M.brass }); return (x, y) => {
+    const d = Math.hypot(x, y); if (d > 19.4) return 0;
+    if (d > 15) return g(x, y);
+    if (d > 13.6) { if (x > 12 && Math.abs(y) < 1.4) return M.dark; return M.brass2; }
+    if (d < 1.2) return M.steel2; if (d < 3.2) return M.steel;
+    if (x > 2 && x < 4.6 && Math.abs(y) < 1.2) return M.steel;
+    return M.dark;
+  }; })()
+});
+// mainspring: spiral with outer hook (unrotated: hook points right)
+defKind('spring', {
+  name: 'ぜんまい', desc: '時計の動力源。外側のフックを香箱の切り欠きに合わせる。', R: 14, z: 3, oriented: 1, icon: 0.78,
+  fn: (x, y) => {
+    const d = Math.hypot(x, y); if (d > 14.5) return 0;
+    if (x > 11 && x < 14.6 && Math.abs(y) < 1.3) return M.blue;
+    if (d < 2.4) return 0;
+    let a = Math.atan2(y, x); if (a < 0) a += TAU;
+    const pitch = 1.85, b = pitch / TAU;
+    for (let k = 0; k < 7; k++) { const rr = 3 + b * (a + k * TAU); if (rr > 13.2) break; if (Math.abs(d - rr) < 0.6) return M.blue; }
+    return 0;
+  }
+});
+defKind('arbor', { name: '回転軸', desc: '歯車をささえる芯。先に軸を立てないと歯車はつけられない。', R: 3, z: 1, icon: 2.4,
+  fn: (x, y) => { const d = Math.hypot(x, y); if (d > 2.6) return 0; if (d < 1) return M.steel2; return M.steel; } });
+defKind('jewel', { name: '宝石軸受', desc: 'ルビーの軸受。摩擦を減らし、軸の回転をなめらかにする。', R: 4, z: 1, icon: 2.2,
+  fn: (x, y) => { const d = Math.hypot(x, y); if (d > 3.6) return 0; if (d < 0.8) return M.steel2; if (d < 2.3) return M.ruby; return M.gold; } });
+defKind('screw', { name: 'ネジ', desc: '受けを地板に固定する青焼きのネジ。', R: 3, z: 8, icon: 2.4,
+  fn: (x, y) => { const d = Math.hypot(x, y); if (d > 2.8) return 0; if (Math.abs(y) < 0.5 && Math.abs(x) < 2) return M.dark; return M.blue; } });
+// pallet fork (anchor). unrotated: arms up (toward escape wheel), stem down
+defKind('pallet', {
+  name: 'アンクル', desc: 'ガンギ車とテンプの間で振れ、時を刻む錨形の部品。腕はガンギ車へ向ける。', R: 13, z: 5, oriented: 1,
+  fn: (x, y) => {
+    if (Math.hypot(x, y) < 1) return M.ruby;
+    if (Math.hypot(x, y) < 2.6) return M.steel2;
+    // arms: arc segments
+    if (segDist(x, y, -7, -2, 7, -2) < 1.4 && y > -4) return M.steel;
+    if (segDist(x, y, -7, -2, -6, -8) < 1.3) return y < -6.6 ? M.ruby : M.steel;
+    if (segDist(x, y, 7, -2, 6, -8) < 1.3) return y < -6.6 ? M.ruby : M.steel;
+    if (segDist(x, y, 0, 0, 0, 10) < 1.1) return M.steel;
+    if (y > 9 && y < 12.5 && Math.abs(x) < 3 && !(Math.abs(x) < 1.1 && y > 10.4)) return M.steel;
+    return 0;
+  }
+});
+// balance wheel with screws and hairspring
+defKind('balance', {
+  name: 'テンプ', desc: '一定のリズムで往復する輪。時計の心臓。', R: 14, z: 5, osc: 1,
+  fn: (x, y) => {
+    const d = Math.hypot(x, y), a = Math.atan2(y, x); if (d > 14) return 0;
+    if (d > 12.2) { const p = ph(a, 10); return Math.abs(p - 0.5) < 0.16 ? M.gold2 : 0; }
+    if (d > 10) return d > 11.2 ? M.gold : M.brass;
+    if (Math.abs(y) < 1.1 && d < 10.2) return M.gold;
+    if (d < 1) return M.ruby; if (d < 2.2) return M.gold2;
+    let aa = a < 0 ? a + TAU : a; const pitch = 1.45, b = pitch / TAU;
+    for (let k = 0; k < 5; k++) { const rr = 2.6 + b * (aa + k * TAU); if (rr > 8.6) break; if (Math.abs(d - rr) < 0.5) return M.blue; }
+    return 0;
+  }
+});
+// hands
+function handFn(L, ringAt, ringR, w) {
+  return (x, y) => {
+    if (Math.hypot(x, y) < 2.4) return Math.hypot(x, y) < 1 ? M.steel2 : M.blue;
+    if (y > 0) { if (y < 5 && Math.abs(x) < 0.8) return M.blue; if (Math.hypot(x, y - 5) < 1.7) return M.blue; return 0; }
+    const yy = -y; if (yy > L) return 0;
+    const rd = Math.hypot(x, y + ringAt);
+    if (rd < ringR) return rd < ringR - 1.4 ? 0 : M.blue;
+    const tw = yy > ringAt ? w * (1 - (yy - ringAt) / (L - ringAt)) + 0.45 : w;
+    return Math.abs(x) < tw ? M.blue : 0;
+  };
+}
+defKind('hourHand', { name: '時針', desc: '短い針。12時の方向へ向けて取り付ける。', R: 30, z: 12, oriented: 1, hand: 'h', fn: handFn(28, 20, 3.4, 1.1), icon: 0.5 });
+defKind('minuteHand', { name: '分針', desc: '長い針。12時の方向へ向けて取り付ける。', R: 45, z: 13, oriented: 1, hand: 'm', fn: handFn(43, 33, 2.8, 0.8), icon: 0.38 });
+defKind('hands', { name: '時計針', desc: '時針と分針のひと組。12時の方向へそろえて取り付ける。', R: 45, z: 12, icon: 0.38, oriented: 1, hand: 'hm',
+  fn: (() => { const h = KIND.hourHand.fn, m = KIND.minuteHand.fn; return (x, y) => m(x, y) || h(x, y); })() });
+defKind('secHand', { name: '秒針', desc: '細い針。12時へ向ける。', R: 11, z: 13, oriented: 1, hand: 's',
+  fn: (x, y) => { const d = Math.hypot(x, y); if (d < 1.6) return M.ruby; if (y < 0 && y > -10 && Math.abs(x) < 0.6) return M.ruby; if (y > 0 && y < 3 && Math.abs(x) < 0.6) return M.ruby; return 0; } });
+
+// dial ring (skeleton chapter ring). unrotated: XII at top
+function dialFn(mat, tick, rev) {
+  return (x, y) => {
+    const d = Math.hypot(x, y); if (d > 63.6 || d < 53.4) return 0;
+    if (d > 62.4 || d < 54.6) return M.gold;
+    let a = Math.atan2(x, -y); if (a < 0) a += TAU; // 0 at top, clockwise
+    const hr = a / TAU * 12, hi = Math.round(hr) % 12, dh = Math.abs(hr - Math.round(hr)) * (TAU / 12) * d;
+    if (hi === 0) {
+      if (d > 56.6 && d < 61.6 && (Math.abs(dh - 1.7) < 0.75)) return M.ruby;
+      if (d < 56.6 && d > 55.2 && dh < 2.2) return M.ruby;
+    } else if (d > 56.2 && d < 61.4) {
+      if (hi % 3 === 0 ? dh < 1.25 : dh < 0.62) return tick;
+    }
+    const mi = a / TAU * 60, dm = Math.abs(mi - Math.round(mi)) * (TAU / 60) * d;
+    if (d > 60.8 && d < 61.8 && dm < 0.55 && Math.round(mi) % 5) return tick;
+    if (rev && d > 55 && d < 56.4 && hi === 11 && dh < 3) return M.ruby;
+    return mat;
+  };
+}
+defKind('dial', { name: '文字盤リング', desc: '時刻を示す輪。赤い印（12時）を竜頭の側へ。', R: 64, z: 10, oriented: 1, fn: dialFn(M.enamel, M.ink), icon: 0.15 });
+defKind('dialNight', { name: '夜空の文字盤', desc: '紺の七宝で焼いた文字盤の輪。赤い印を12時へ。', R: 64, z: 10, oriented: 1, fn: dialFn(M.night, M.gold), icon: 0.15 });
+defKind('dialRev', { name: '逆さ文字盤', desc: '目盛りが逆回りに刻まれた輪。赤い印を12時へ。', R: 64, z: 10, oriented: 1, fn: dialFn(M.enamel, M.ink, 1), icon: 0.15 });
+
+// sub dial (small seconds etc.)
+defKind('subdial', { name: '小文字盤', desc: 'もうひとつの時を示す小さな文字盤。赤い印を上へ。', R: 12, z: 11, oriented: 1,
+  fn: (x, y) => {
+    const d = Math.hypot(x, y); if (d > 11.6) return 0;
+    if (d > 10.4) return M.gold;
+    if (d < 1.4) return M.steel2;
+    let a = Math.atan2(x, -y); if (a < 0) a += TAU; const q = a / TAU * 12, dq = Math.abs(q - Math.round(q)) * TAU / 12 * d;
+    if (d > 7.6 && d < 10 && dq < 0.6) return Math.round(q) % 12 === 0 ? M.ruby : M.ink;
+    if (d < 7.4 && d > 6.6) return M.gold;
+    return M.enamel;
+  } });
+
+// moon phase disc (unrotated: a moon at top)
+defKind('moonDisc', { name: '月齢ディスク', desc: 'ふたつの月を描いた紺の円盤。月を上に向けて取り付ける。', R: 14, z: 6, oriented: 1,
+  fn: (x, y) => {
+    const d = Math.hypot(x, y); if (d > 14) return 0; if (d > 12.8) return M.gold;
+    if (Math.hypot(x, y + 7) < 4.4) return Math.hypot(x + 1.6, y + 8.4) < 3.1 && Math.hypot(x, y + 7) > 2.8 ? M.moon | FH : M.moon;
+    if (Math.hypot(x, y - 7) < 4.4) return M.moon;
+    if (d < 1.6) return M.steel2;
+    const h = hash(Math.round(x) + 50, Math.round(y) + 50); if (h < 0.06) return M.gold | FH;
+    return M.night;
+  } });
+// star wheel
+defKind('starWheel', { name: '星車', desc: '六つの角をもつ星形の歯車。夜空の機構を進める。', R: 10, z: 6, gear: 1, pr: 8,
+  fn: (x, y) => {
+    const d = Math.hypot(x, y), a = Math.atan2(y, x); if (d > 10.3) return 0;
+    const p = ph(a + Math.PI / 6, 6), rr = 4.6 + 5.6 * Math.pow(1 - Math.abs(p - 0.5) * 2, 1.7);
+    if (d > rr) return 0; if (d < 1.2) return M.steel2; if (d < 3) return M.sapph; return M.gold;
+  } });
+// music box cylinder (unrotated horizontal) and comb (teeth point up)
+function cylFn(phase) {
+  return (x, y) => {
+    if (Math.abs(y) > 5 || Math.abs(x) > 15) return 0;
+    if (Math.abs(x) > 13) return Math.abs(y) < 2 ? M.steel : (Math.abs(x) > 14 ? 0 : M.brass2);
+    if (Math.abs(y) > 4.2) return M.brass2;
+    const yy = Math.round(y) + phase, xx = Math.round(x);
+    if (hash(xx + 40, ((yy % 9) + 9) % 9) < 0.16 && Math.abs(y) < 3.8) return M.steel2;
+    return M.brass;
+  };
+}
+defKind('musicCyl', { name: 'シリンダー', desc: 'ピンの並んだオルゴールの筒。櫛歯と平行に、縦向きで。', R: 15, z: 5, oriented: 1, sym: 2, fn: cylFn(0), phaseFn: cylFn });
+defKind('comb', { name: '櫛歯', desc: '音を鳴らす鋼の歯。歯先をシリンダーへ向ける。', R: 14, z: 6, oriented: 1,
+  fn: (x, y) => {
+    if (Math.abs(x) > 13) return 0;
+    if (y > 3 && y < 7.5) { if (Math.hypot(x + 10, y - 5.3) < 1.6 || Math.hypot(x - 10, y - 5.3) < 1.6) return M.dark; return M.steel2; }
+    const k = Math.floor((x + 13) / 2.5), xm = (x + 13) - k * 2.5;
+    const len = 4 + (k % 12) * 0.35;
+    if (y <= 3 && y > 3 - len && xm > 0.3 && xm < 1.7) return M.steel;
+    return 0;
+  } });
+// orrery parts
+defKind('sun', { name: '太陽歯車', desc: '天球機構の中心。黄金の歯車に太陽をかたどった飾り。', R: 16, z: 4, gear: 1, pr: 14.5,
+  fn: (() => { const g = gearFn({ r: 16, n: 24, mat: M.gold, spokes: 8, sw: 0.9 }); return (x, y) => { const d = Math.hypot(x, y); if (d < 6.4) { if (d < 1.2) return M.steel2; if (d < 4) return M.ruby; const p = ph(Math.atan2(y, x), 12); return (d < 5.2 || p < 0.5) ? M.gold2 : g(x, y); } return g(x, y); }; })() });
+function armFn(len, pr, pm, ring) {
+  return (x, y) => {
+    const d = Math.hypot(x, y); if (d < 2.6) return d < 1.1 ? M.steel2 : M.brass2;
+    if (Math.hypot(x, y + len) < pr) return pm;
+    if (ring && Math.abs(y + len) < 0.7 && Math.abs(x) < pr + 3.2 && Math.abs(x) > pr - 0.5) return M.gold;
+    if (y < 0 && y > -len && Math.abs(x) < 0.75) return M.steel;
+    return 0;
+  };
+}
+defKind('armInner', { name: '水星の腕', desc: '内側を回る小さな惑星の腕。いちばん下に重ねる。', R: 18, z: 7, oriented: 0, planet: 1, fn: armFn(17, 2.6, M.ruby) });
+defKind('armMid', { name: '地球の腕', desc: '青い惑星の腕。水星の腕の上に重ねる。', R: 30, z: 8, oriented: 0, planet: 1, fn: armFn(29, 3.4, M.sapph) });
+defKind('armOuter', { name: '土星の腕', desc: '環をもつ惑星の腕。いちばん上に重ねる。', R: 43, z: 9, oriented: 0, planet: 1, fn: armFn(42, 3.2, M.gold2, 1), icon: 0.4 });
+// click (pawl). unrotated: tip points left
+defKind('click', { name: 'こはぜ', desc: '角穴車の逆回りを止める爪。爪先を角穴車へ向ける。', R: 8, z: 7, oriented: 1,
+  fn: (x, y) => {
+    if (Math.hypot(x - 4, y) < 2.6) return Math.hypot(x - 4, y) < 1.1 ? M.blue : M.steel2;
+    if (segDist(x, y, 4, 0, -6, 1.5) < 1.6 - (4 - x) * 0.06) return M.steel;
+    if (x < -5 && x > -8 && y > 0 && y < 2.8 - (-5 - x)) return M.steel;
+    return 0;
+  } });
+// crown (winding knob, unrotated stem points down)
+defKind('crown', { name: '竜頭', desc: 'ぜんまいを巻くつまみ。軸を下へ、ケースに差しこむ。', R: 7, z: 3, oriented: 1,
+  fn: (x, y) => {
+    if (y > 2 && y < 7 && Math.abs(x) < 1.3) return M.steel;
+    if (Math.abs(x) < 5.5 && y > -4 && y <= 2) { if (Math.abs(x) > 4.6) return 0; return ((Math.round(x + 10)) % 2) ? M.gold : M.gold2; }
+    if (Math.abs(x) < 3 && y > -6 && y <= -4) return M.gold2;
+    return 0;
+  } });
+// tourbillon cage (tri-arm)
+defKind('cage', { name: 'キャリッジ', desc: 'テンプを抱いて回る鳥かご。トゥールビヨンの要。', R: 16, z: 7, gear: 0,
+  fn: (x, y) => {
+    const d = Math.hypot(x, y), a = Math.atan2(y, x); if (d > 16) return 0;
+    if (d > 14.6) return M.steel;
+    if (d < 2) return d < 1 ? M.ruby : M.steel2;
+    for (let k = 0; k < 3; k++) { const sa = k / 3 * TAU - Math.PI / 2, c = Math.cos(sa), s = Math.sin(sa);
+      const along = x * c + y * s, perp = -x * s + y * c; if (along > 0 && Math.abs(perp) < 1.3 + Math.max(0, along - 10) * 0.35) { if (along > 11 && along < 13.2 && Math.abs(perp) < 1.4) return M.ruby; return M.steel2; } }
+    return 0;
+  } });
+defKind('gem', { name: '星のサファイア', desc: '師匠が最後に残した青い石。中心の受けにはめる。', R: 6, z: 9,
+  fn: (x, y) => { const d = Math.abs(x) + Math.abs(y) * 0.9; if (d > 6) return 0; if (d > 4.8) return M.gold2; if (x < -0.5 && y < -0.5 && d < 3) return M.sapph | FH; return M.sapph; } });
+// heart cock (balance bridge in heart shape). unrotated: point down, foot to the right
+function heartIn(x, y, s) { x /= s; y /= s; y = -y + 0.2; const q = x * x + y * y - 1; return q * q * q - x * x * y * y * y < 0; }
+defKind('heartCock', { name: 'ハートの受け', desc: 'テンプを押さえるハート形の受け。とがった先を下へ。', R: 20, z: 9, oriented: 1,
+  fn: (x, y) => {
+    if (Math.hypot(x - 17, y + 1) < 3.2) return Math.hypot(x - 17, y + 1) < 1.6 ? M.dark : M.gold;
+    if (segDist(x, y, 9, -1, 17, -1) < 2.2) return M.gold;
+    const o = heartIn(x, y + 1, 12.4), i = heartIn(x, y + 1, 9.6);
+    if (o && !i) return M.gold;
+    if (Math.hypot(x, y) < 2.4) return Math.hypot(x, y) < 1.2 ? M.ruby : M.gold;
+    if (Math.abs(y) < 1 && Math.abs(x) < 9.5 && o) return M.gold;
+    return 0;
+  } });
+
+// bridges (dynamic per stage). spec: {segs:[[x1,y1,x2,y2,w]], discs:[[x,y,r]], jewels:[[x,y]], screws:[[x,y]], mat, stripes}
+function bridgeFn(sp) {
+  const mat = sp.mat || M.steel;
+  return (x, y) => {
+    for (const [jx, jy] of (sp.jewels || [])) { const d = Math.hypot(x - jx, y - jy); if (d < 3.2) return d < 0.9 ? M.steel2 : d < 2 ? M.ruby : M.gold; }
+    for (const [sx, sy] of (sp.screws || [])) { const d = Math.hypot(x - sx, y - sy); if (d < 2.6) return M.dark; }
+    let inside = false;
+    for (const s of (sp.segs || [])) if (segDist(x, y, s[0], s[1], s[2], s[3]) < s[4]) { inside = true; break; }
+    if (!inside) for (const s of (sp.discs || [])) if (Math.hypot(x - s[0], y - s[1]) < s[2]) { inside = true; break; }
+    if (!inside) return 0;
+    if (sp.stripes) { const v = Math.floor((x * 0.7 + y * 0.7 + 200) / 3.2) & 1; return v ? mat : (mat | FL); }
+    if (sp.engrave && hash(Math.round(x) + 99, Math.round(y) + 99) < 0.18) return mat | FD;
+    return mat;
+  };
+}
+function bridgeR(sp) { let r = 4; for (const s of sp.segs || []) r = Math.max(r, Math.hypot(s[0], s[1]) + s[4], Math.hypot(s[2], s[3]) + s[4]); for (const s of sp.discs || []) r = Math.max(r, Math.hypot(s[0], s[1]) + s[2]); for (const j of (sp.jewels || []).concat(sp.screws || [])) r = Math.max(r, Math.hypot(j[0], j[1]) + 3.5); return Math.ceil(r); }
+
+// icon scale for tray (fit ~ 9px radius)
+function iconScale(k) { if (k.icon) return k.icon; return clamp(9 / k.R, 0.2, 2.4); }
+function kSpr(k, ang = 0, s = 1) { return sprite(k.key, k.fn, k.R, ang, s); }
+
+// ===== stages =====
+const D2R = Math.PI / 180;
+const pr = k => KIND[k].pr || (KIND[k].R - 1.5);
+function Builder() {
+  const L = [];
+  const api = {
+    L,
+    get: id => L.find(s => s.id === id),
+    add(id, kind, x, y, o = {}) { const s = Object.assign({ id, kind, x, y, rot: 0, req: [] }, o); L.push(s); return s; },
+    mesh(id, kind, from, deg, o = {}) {
+      const f = api.get(from), d = pr(f.kind) + pr(kind) + (o.gap || 0);
+      return api.add(id, kind, f.x + Math.cos(deg * D2R) * d, f.y + Math.sin(deg * D2R) * d, Object.assign({ mesh: from }, o));
+    },
+    on(id, kind, base, o = {}) { const f = api.get(base); return api.add(id, kind, f.x, f.y, Object.assign({ on: base }, o)); },
+    // bridge from absolute points
+    bridge(id, o) {
+      const pts = [].concat(o.jewels || [], o.screws || []).map(p => typeof p === 'string' ? api.get(p) : { x: p[0], y: p[1] });
+      let cx = o.cx, cy = o.cy;
+      if (cx == null) { cx = pts.reduce((a, p) => a + p.x, 0) / pts.length; cy = pts.reduce((a, p) => a + p.y, 0) / pts.length; }
+      const loc = p => { const q = typeof p === 'string' ? api.get(p) : { x: p[0], y: p[1] }; return [q.x - cx, q.y - cy]; };
+      const sp = { jewels: (o.jewels || []).map(loc), screws: (o.screws || []).map(loc), segs: [], discs: [], mat: o.mat, stripes: o.stripes, engrave: o.engrave };
+      for (const s of o.segs || []) { const a = loc(s[0]), b = loc(s[1]); sp.segs.push([a[0], a[1], b[0], b[1], s[2]]); }
+      for (const d of o.discs || []) { const a = loc(d[0]); sp.discs.push([a[0], a[1], d[1]]); }
+      const kid = 'br_' + id + '_' + (o.stage || 0);
+      defKind(kid, { name: o.name || '受け', desc: o.desc || '歯車の軸を上から支える板。宝石の穴を軸に合わせる。', R: bridgeR(sp), z: o.z || 9, oriented: 1, fn: bridgeFn(sp), bridge: 1 });
+      const s = api.add(id, kid, cx, cy, o.sock || {});
+      // screw sockets
+      (o.screws || []).forEach((p, i) => { const q = typeof p === 'string' ? api.get(p) : { x: p[0], y: p[1] }; if (o.screwSock !== false) api.add(id + '_s' + i, 'screw', q.x, q.y, { req: [id], pre: o.sock && o.sock.pre, label: 'ネジ' }); });
+      return s;
+    }
+  };
+  return api;
+}
+// standard going train
+function stdTrain(b, o = {}) {
+  b.add('C', o.cKind || 'gearL', 0, 0, { label: o.cLabel || '二番車', root: 1 });
+  b.mesh('B', 'barrel', 'C', -130, { label: '香箱', pre: o.preB });
+  b.on('SP', 'spring', 'B', { label: 'ぜんまい', pre: o.preB, req: ['B'] });
+  b.mesh('T', 'gearM', 'C', 15, { label: '三番車' });
+  b.mesh('F', 'gearS', 'T', 85, { label: '四番車' });
+  b.mesh('E', 'escWheel', 'F', 140, { label: 'ガンギ車' });
+  b.add('P', 'pallet', 0, 32, { label: 'アンクル', rot: 1, pallet: 1 });
+  b.add('BL', 'balance', -22, 28, { label: 'テンプ', osc: 1 });
+}
+function cock(b, o = {}) {
+  const f = o.foot || [-38, 10], bl = b.get('BL');
+  return b.bridge('K', Object.assign({ name: 'テンプ受け', desc: 'テンプを上から押さえる受け。穴をテンプの軸に合わせる。', jewels: ['BL'], screws: [f], segs: [['BL', f, 3.2]], discs: [['BL', 5], [f, 4]], mat: M.steel, engrave: 1, cx: Math.round((bl.x + f[0]) / 2), cy: Math.round((bl.y + f[1]) / 2) }, o));
+}
+// order: place sockets in list order; reqs set per stage. remove helper
+function only(b, keep) { for (let i = b.L.length - 1; i >= 0; i--) if (!keep.includes(b.L[i].id)) b.L.splice(i, 1); }
+function setPre(b, ids) { for (const s of b.L) if (ids.includes(s.id)) s.pre = true; }
+function req(b, id, ...r) { const s = b.get(id); s.req = s.req.concat(r); }
+function order(b, ids) { const m = new Map(b.L.map(s => [s.id, s])); const out = ids.map(i => m.get(i)).filter(Boolean); for (const s of b.L) if (!out.includes(s)) out.push(s); b.L.length = 0; b.L.push(...out); }
+
+const STAGES = [];
+function defStage(o) { o.idx = STAGES.length; STAGES.push(o); o.parts = null; return o; }
+function stageParts(st) { if (!st.parts) { const b = Builder(); st.build(b, st.idx + 1); st.parts = b.L; } return st.parts; }
+
+defStage({
+  name: 'LITTLE TIME', jp: 'ちいさな時間', era: '1890年代', mat: '真鍮・鋼', mech: 'もっとも基本的な輪列。三つの歯車が力を伝える。',
+  fault: '輪列の歯車が三つ抜け落ち、針も外れている。', story: '見習いの頃、師匠が最初に渡してくれた練習用の懐中時計。小さな手のひらに、時間の仕組みがすべて詰まっている。',
+  caseMat: M.brass, plate: 'brass', face: { dial: M.enamel, tick: M.ink }, ghost: 2, diff: 1,
+  tutorial: ['左の部品置き場から歯車をドラッグして、', 'うすく描かれた図面の位置へ運ぼう。'],
+  build(b) {
+    stdTrain(b); setPre(b, ['B', 'SP', 'E', 'P', 'BL']); cock(b, { sock: { pre: true } });
+    b.add('DL', 'dial', 0, 0, { pre: true });
+    b.add('H', 'hands', 0, 0, { label: '時計針', req: ['C'] });
+  }
+});
+defStage({
+  name: 'GOLDEN HEART', jp: '黄金の心臓', era: '1900年代', mat: '金・真鍮・ルビー', mech: 'ハートの窓からテンプがのぞく「オープンハート」。',
+  fault: 'テンプと輪列が外れ、心臓が止まっている。', story: '婚約の贈り物として作られた時計。ハートの窓から、脈打つテンプがのぞく。持ち主は「この鼓動を、もう一度聞きたい」と言った。',
+  caseMat: M.gold, plate: 'rose', face: { dial: M.enamel, tick: M.ink, heart: 1 }, ghost: 2, diff: 1,
+  tutorial: ['部品を選んで、右の INFO にある回転ボタンで', '向きを変えよう。図面の形に合わせてから運ぶ。'],
+  build(b) {
+    stdTrain(b); setPre(b, ['B', 'SP', 'P']);
+    b.add('HC', 'heartCock', -22, 28, { label: 'ハートの受け', req: ['BL'] });
+    b.add('DL', 'dial', 0, 0, { pre: true });
+    b.add('H', 'hands', 0, 0, { label: '時計針', req: ['C'] });
+    order(b, ['C', 'T', 'F', 'E', 'BL', 'HC', 'H']);
+  }
+});
+defStage({
+  name: 'MOONLIGHT', jp: '月あかり', era: '1910年代', mat: '銀・紺の七宝', mech: '歯車とカナを重ねた二重歯車と、月齢を示す円盤。',
+  fault: '二重歯車がばらばらになり、月の円盤も外れている。', story: '船乗りが夜の海で月を数えるために持っていた時計。紺の文字盤に、ふたつの月がめぐる。',
+  caseMat: M.silver, plate: 'night', face: { dial: M.night, tick: M.gold, moon: 1 }, ghost: 1, diff: 2,
+  tutorial: ['カナ（小さな歯車）は、同じ軸の歯車の上に重ねる。', '受けは歯車がそろってから。順番が大切だ。'],
+  build(b, n) {
+    stdTrain(b); setPre(b, ['B', 'SP', 'E', 'P', 'BL']); cock(b, { stage: n, sock: { pre: true } });
+    b.on('CP', 'pinion', 'C', { label: '二番カナ', req: ['C'] });
+    b.on('TP', 'pinion', 'T', { label: '三番カナ', req: ['T'] });
+    req(b, 'T', 'CP'); req(b, 'F', 'TP');
+    b.bridge('TB', { stage: n, name: '輪列受け', jewels: ['T', 'F'], screws: [[38, 6], [32, 30]], segs: [['T', 'F', 3.4], ['T', [38, 6], 3.4], ['F', [32, 30], 3.2]], discs: [['T', 4.6], ['F', 4.4], [[38, 6], 4], [[32, 30], 3.8]], mat: M.silver, stripes: 1, sock: { req: ['T', 'F', 'TP'] } });
+    b.add('MD', 'moonDisc', 27, -27, { label: '月齢ディスク', spin: 0.05 });
+    b.add('DL', 'dialNight', 0, 0, { pre: true });
+    b.add('H', 'hands', 0, 0, { label: '時計針', req: ['CP'] });
+    order(b, ['C', 'CP', 'T', 'TP', 'F', 'TB', 'TB_s0', 'TB_s1', 'MD', 'H']);
+  }
+});
+defStage({
+  name: 'CLOCKWORK WALTZ', jp: '歯車のワルツ', era: '1920年代', mat: '真鍮・鋼・桜材', mech: '時を刻む輪列と、ワルツを奏でるオルゴール。二つの機構が並ぶ。',
+  fault: 'オルゴールの櫛歯とシリンダー、輪列が外れている。', story: '舞踏会の夜、ワルツを奏でたという時計。時を刻む機構と、音を奏でる機構が、隣り合って眠っている。',
+  caseMat: M.brass, plate: 'brass', face: { dial: M.enamel, tick: M.ink, music: 1 }, ghost: 1, diff: 2,
+  modules: [{ name: 'オルゴール機構', ids: ['MC', 'CB', 'CB_s0', 'CB_s1'], music: 1 }, { name: '輪列', ids: ['C', 'CP', 'T', 'F', 'E', 'P', 'BL'] }],
+  build(b, n) {
+    stdTrain(b); setPre(b, ['B', 'SP']); cock(b, { stage: n, sock: { req: ['BL'] } });
+    b.on('CP', 'pinion', 'C', { label: '二番カナ', req: ['C'] });
+    req(b, 'T', 'CP'); req(b, 'P', 'E'); req(b, 'BL', 'P');
+    b.add('MC', 'musicCyl', 31, -25, { label: 'シリンダー', rot: 1, music: 1 });
+    b.add('CB', 'comb', 20, -25, { label: '櫛歯', rot: 1, req: ['MC'] });
+    b.add('CB_s0', 'screw', 14.7, -35, { label: 'ネジ', req: ['CB'] });
+    b.add('CB_s1', 'screw', 14.7, -15, { label: 'ネジ', req: ['CB'] });
+    b.add('DL', 'dial', 0, 0, { pre: true });
+    b.add('H', 'hands', 0, 0, { label: '時計針', req: ['CP'] });
+    order(b, ['MC', 'CB', 'CB_s0', 'CB_s1', 'C', 'CP', 'T', 'F', 'E', 'P', 'BL', 'K', 'K_s0', 'H']);
+  }
+});
+defStage({
+  name: 'STARRY NIGHT', jp: '星降る夜', era: '1930年代', mat: '金・サファイア・紺の七宝', mech: 'ルビーの宝石軸受と、夜空をめぐる星車。',
+  fault: '軸受の宝石がすべて抜け、星車も失われている。', story: '天文台の観測者が愛用した時計。星車が一晩かけて、ゆっくりと夜空を一周する。',
+  caseMat: M.gold, plate: 'night', face: { dial: M.night, tick: M.gold, stars: 1 }, ghost: 1, diff: 3,
+  build(b, n) {
+    stdTrain(b); setPre(b, ['B', 'SP']);
+    for (const g of ['C', 'T', 'F', 'E']) { const s = b.get(g); b.add('J' + g, 'jewel', s.x, s.y, { label: '宝石軸受' }); req(b, g, 'J' + g); }
+    cock(b, { stage: n, sock: { req: ['BL'] } });
+    b.bridge('TB', { stage: n, name: '輪列受け', jewels: ['T', 'F', 'E'], screws: [[38, 4], [27, 40]], segs: [['T', 'F', 3.2], ['F', 'E', 3.2], ['T', [38, 4], 3.2], ['E', [27, 40], 3]], discs: [['T', 4.4], ['F', 4.2], ['E', 4.2], [[38, 4], 3.8], [[27, 40], 3.8]], mat: M.gold, sock: { req: ['T', 'F', 'E'] } });
+    req(b, 'P', 'E'); req(b, 'BL', 'P');
+    b.add('SW', 'starWheel', 29, -27, { label: '星車', spin: -0.18 });
+    b.add('DL', 'dialNight', 0, 0, { pre: true });
+    b.add('HH', 'hourHand', 0, 0, { label: '時針', req: ['C'] });
+    b.add('MH', 'minuteHand', 0, 0, { label: '分針', req: ['HH'] });
+    order(b, ['JC', 'JT', 'JF', 'JE', 'C', 'T', 'F', 'E', 'TB', 'TB_s0', 'TB_s1', 'P', 'BL', 'K', 'K_s0', 'SW', 'HH', 'MH']);
+  }
+});
+defStage({
+  name: 'REWIND', jp: '巻き戻しの時計', era: '製造年不明', mat: '鋼・真鍮', mech: '逆転中間車をはさみ、針を左回りに進める逆回転機構。',
+  fault: '中間車が抜け、軸も歯車も外れている。', story: '「戻りたい時間がある人のために」と書かれた札とともに持ちこまれた時計。この時計の針は、左へまわる。',
+  caseMat: M.steel, plate: 'silver', face: { dial: M.enamel, tick: M.ink, rev: 1 }, ghost: 0, diff: 3, reverse: 1,
+  build(b, n) {
+    b.add('C', 'gearL', 0, 0, { label: '二番車', root: 1 });
+    b.mesh('B', 'barrel', 'C', -130, { label: '香箱' });
+    b.on('SP', 'spring', 'B', { label: 'ぜんまい', req: ['B'] });
+    b.mesh('I', 'gearS', 'C', 10, { label: '逆転中間車' });
+    b.mesh('T', 'gearM', 'I', 60, { label: '三番車' });
+    b.mesh('F', 'gearS', 'T', 140, { label: '四番車' });
+    b.mesh('E', 'escWheel', 'F', 175, { label: 'ガンギ車' });
+    b.add('P', 'pallet', -11.5, 28.5, { label: 'アンクル', rot: 1, pallet: 1 });
+    b.add('BL', 'balance', -27, 22, { label: 'テンプ', osc: 1 });
+    for (const g of ['C', 'I', 'T']) { const s = b.get(g); b.add('A' + g, 'arbor', s.x, s.y, { label: '回転軸' }); req(b, g, 'A' + g); }
+    req(b, 'I', 'C'); req(b, 'T', 'I'); req(b, 'F', 'T'); req(b, 'E', 'F'); req(b, 'P', 'E'); req(b, 'BL', 'P'); req(b, 'C', 'SP');
+    b.bridge('K', { stage: n, name: 'テンプ受け', desc: 'テンプを上から押さえる受け。穴をテンプの軸に合わせる。', jewels: ['BL'], screws: [[-42, 4]], segs: [['BL', [-42, 4], 3.2]], discs: [['BL', 5], [[-42, 4], 4]], mat: M.steel, engrave: 1, sock: { req: ['BL'] } });
+    b.add('DL', 'dialRev', 0, 0, { label: '逆さ文字盤', req: ['K'] });
+    b.add('HH', 'hourHand', 0, 0, { label: '時針', req: ['C', 'DL'] });
+    b.add('MH', 'minuteHand', 0, 0, { label: '分針', req: ['HH'] });
+    order(b, ['B', 'SP', 'AC', 'C', 'AI', 'I', 'AT', 'T', 'F', 'E', 'P', 'BL', 'K', 'K_s0', 'DL', 'HH', 'MH']);
+  }
+});
+defStage({
+  name: 'TWIN DIALS', jp: 'ふたつの文字盤', era: '1950年代', mat: '銀・ローズゴールド', mech: '二つの小文字盤が、秒と遠い町の時刻を示す。',
+  fault: '小文字盤の歯車が欠け、片方の時間が止まっている。', story: '遠く離れて暮らす家族の時間を、いっしょに刻むために作られた。左は秒を、右は遠い町の時刻を示す。',
+  caseMat: M.rose, plate: 'rose', face: { dial: M.enamel, tick: M.ink, twin: 1 }, ghost: 0, diff: 4,
+  build(b, n) {
+    stdTrain(b); setPre(b, ['B', 'SP']);
+    b.on('CP', 'pinion', 'C', { label: '二番カナ', req: ['C'] });
+    req(b, 'T', 'CP'); req(b, 'F', 'T'); req(b, 'E', 'F'); req(b, 'P', 'E'); req(b, 'BL', 'P');
+    cock(b, { stage: n, foot: [-9, 45], sock: { req: ['BL'] } });
+    b.add('GL', 'gearS', -36, 2, { label: '秒の小歯車', spin: 0.6 });
+    b.add('GR', 'gearS', 30, -27, { label: '時差の小歯車', spin: -0.2 });
+    b.add('SL', 'subdial', -36, 2, { label: '左の小文字盤', req: ['GL'], sub: 's' });
+    b.add('SR', 'subdial', 30, -27, { label: '右の小文字盤', req: ['GR'], sub: 'far' });
+    b.add('DL', 'dial', 0, 0, { label: '文字盤リング', req: ['SL', 'SR'] });
+    b.add('HH', 'hourHand', 0, 0, { label: '時針', req: ['CP', 'DL'] });
+    b.add('MH', 'minuteHand', 0, 0, { label: '分針', req: ['HH'] });
+    order(b, ['C', 'CP', 'T', 'F', 'E', 'P', 'BL', 'K', 'K_s0', 'GL', 'SL', 'GR', 'SR', 'DL', 'HH', 'MH']);
+  }
+});
+defStage({
+  name: 'CELESTIA', jp: '天球の歯車', era: '1700年代（推定）', mat: '金・ルビー・サファイア', mech: '太陽をめぐる三つの惑星の腕。それぞれの速さで回る天球機構。',
+  fault: '惑星の腕と太陽歯車が外れ、小さな宇宙が止まっている。', story: '王立天文台の時計師が残した小さな宇宙。三つの惑星が、それぞれの速さで太陽をめぐる。',
+  caseMat: M.gold, plate: 'night', face: { dial: M.night, tick: M.gold, orrery: 1 }, ghost: 0, diff: 4, noHands: 1,
+  build(b, n) {
+    stdTrain(b, { cKind: 'sun', cLabel: '太陽歯車' }); setPre(b, ['B', 'SP']);
+    b.add('AC', 'arbor', 0, 0, { label: '回転軸' }); req(b, 'C', 'AC');
+    b.on('CP', 'pinion', 'C', { label: '太陽のカナ', req: ['C'] });
+    for (const g of ['T', 'F']) { const s = b.get(g); b.add('J' + g, 'jewel', s.x, s.y, { label: '宝石軸受' }); req(b, g, 'J' + g); }
+    req(b, 'T', 'CP'); req(b, 'E', 'F'); req(b, 'P', 'E'); req(b, 'BL', 'P');
+    cock(b, { stage: n, sock: { req: ['BL'] } });
+    b.add('SW', 'starWheel', 30, -26, { label: '星車', spin: 0.25 });
+    b.add('A1', 'armInner', 0, 0, { label: '水星の腕', req: ['CP', 'K'], spin: 0.7, planet: 1 });
+    b.add('A2', 'armMid', 0, 0, { label: '地球の腕', req: ['A1'], spin: 0.32, planet: 1 });
+    b.add('A3', 'armOuter', 0, 0, { label: '土星の腕', req: ['A2'], spin: 0.12, planet: 1 });
+    b.add('DL', 'dialNight', 0, 0, { label: '夜空の文字盤' });
+    order(b, ['AC', 'C', 'CP', 'JT', 'JF', 'T', 'F', 'E', 'P', 'BL', 'K', 'K_s0', 'SW', 'DL', 'A1', 'A2', 'A3']);
+  }
+});
+defStage({
+  name: 'GRAND ENGINE', jp: '大いなる動力', era: '1880年代', mat: '鋼・真鍮', mech: '竜頭・丸穴車・角穴車・こはぜ。巻き上げから輪列まで続く動力伝達。',
+  fault: '巻き上げ機構ごと分解され、部品がばらばらになっている。', story: '機関車の運転士が使っていた頑丈な時計。竜頭を巻けば、力が歯車から歯車へと流れていく。',
+  caseMat: M.steel, plate: 'silver', face: { dial: M.enamel, tick: M.ink, skel: 1 }, ghost: 0, diff: 5,
+  build(b, n) {
+    stdTrain(b);
+    b.on('CP', 'pinion', 'C', { label: '二番カナ', req: ['C'] });
+    b.on('TP', 'pinion', 'T', { label: '三番カナ', req: ['T'] });
+    req(b, 'C', 'SP'); req(b, 'T', 'CP'); req(b, 'F', 'TP'); req(b, 'E', 'F'); req(b, 'P', 'E'); req(b, 'BL', 'P');
+    b.bridge('BB', { stage: n, name: '香箱受け', desc: '香箱を上から押さえる受け。穴を香箱の軸に合わせる。', jewels: ['B'], screws: [[-42, -10], [-4, -42]], segs: [['B', [-42, -10], 4], ['B', [-4, -42], 4]], discs: [['B', 7], [[-42, -10], 4.4], [[-4, -42], 4.4]], mat: M.steel, stripes: 1, sock: { req: ['SP'] } });
+    const B = b.get('B');
+    b.add('RW', 'ratchet', B.x, B.y, { label: '角穴車', req: ['BB'], mesh: null, z: 9.5 });
+    b.mesh('CW', 'crownWheel', 'RW', -62, { label: '丸穴車', req: ['RW'], z: 9.5 });
+    b.add('CK', 'click', -37, -24.5, { label: 'こはぜ', rot: 2, req: ['RW'], z: 9.6 });
+    b.add('CR', 'crown', 0, -76, { label: '竜頭', req: ['CW'] });
+    b.bridge('TB', { stage: n, name: '輪列受け', jewels: ['T', 'F', 'E'], screws: [[38, 4], [27, 40]], segs: [['T', 'F', 3.2], ['F', 'E', 3.2], ['T', [38, 4], 3.2], ['E', [27, 40], 3]], discs: [['T', 4.4], ['F', 4.2], ['E', 4.2], [[38, 4], 3.8], [[27, 40], 3.8]], mat: M.steel, stripes: 1, sock: { req: ['T', 'F', 'E', 'TP'] } });
+    b.add('DL', 'dial', 0, 0, { pre: true });
+    b.add('H', 'hands', 0, 0, { label: '時計針', req: ['CP'] });
+    order(b, ['B', 'SP', 'BB', 'BB_s0', 'BB_s1', 'RW', 'CK', 'CW', 'CR', 'C', 'CP', 'T', 'TP', 'F', 'E', 'TB', 'TB_s0', 'TB_s1', 'P', 'BL', 'H']);
+  }
+});
+defStage({
+  name: 'THE LAST TICK', jp: '最後の一秒', era: '製造年不明', mat: '金・鋼・星のサファイア', mech: 'テンプを抱いた鳥かごが一分で一周するトゥールビヨン。',
+  fault: '師匠が最後に手がけ、未完のまま残された時計。', story: '師匠の作業机に残されていた、最後の時計。「最後の一秒を、もう一度」――そう書かれたメモが添えられていた。',
+  caseMat: M.gold, plate: 'brass', face: { dial: M.enamel, tick: M.ink, tourb: 1 }, ghost: 0, diff: 5,
+  build(b, n) {
+    b.add('C', 'gearL', 0, 0, { label: '二番車', root: 1 });
+    b.mesh('B', 'barrel', 'C', -130, { label: '香箱' });
+    b.on('SP', 'spring', 'B', { label: 'ぜんまい', req: ['B'] });
+    b.on('CP', 'pinion', 'C', { label: '二番カナ', req: ['C'] });
+    b.mesh('T', 'gearM', 'C', 15, { label: '三番車' });
+    b.mesh('F', 'gearS', 'T', 100, { label: '四番車' });
+    b.add('BL', 'balance', 0, 34, { label: 'テンプ', osc: 1 });
+    b.add('CG', 'cage', 0, 34, { label: 'キャリッジ', req: ['BL', 'F'], spin: 2 * Math.PI / 60 });
+    for (const g of ['T', 'F']) { const s = b.get(g); b.add('J' + g, 'jewel', s.x, s.y, { label: '宝石軸受' }); req(b, g, 'J' + g); }
+    req(b, 'C', 'SP'); req(b, 'T', 'CP'); req(b, 'F', 'T');
+    b.bridge('TB', { stage: n, name: 'トゥールビヨン受け', desc: 'キャリッジをまたいで支える受け。', jewels: [[0, 34]], screws: [[-25, 40], [24, 31]], segs: [[[0, 34], [-25, 40], 3], [[0, 34], [24, 31], 3]], discs: [[[0, 34], 5], [[-25, 40], 4.2], [[24, 31], 4.2]], mat: M.gold, sock: { req: ['CG'] }, z: 9 });
+    b.add('GM', 'gem', 0, 34, { label: '星のサファイア', req: ['TB'] });
+    b.add('DL', 'dial', 0, 0, { label: '文字盤リング', req: ['GM'] });
+    b.add('HH', 'hourHand', 0, 0, { label: '時針', req: ['CP', 'DL'] });
+    b.add('MH', 'minuteHand', 0, 0, { label: '分針', req: ['HH'] });
+    order(b, ['B', 'SP', 'C', 'CP', 'JT', 'JF', 'T', 'F', 'BL', 'CG', 'TB', 'TB_s0', 'TB_s1', 'GM', 'DL', 'HH', 'MH']);
+  }
+});
+
+// ===== UI helpers, backgrounds =====
+const COL = {
+  ink: '#1c100a', cream: '#f2e2c0', creamD: '#cdb68a', gold: '#f0c860', goldD: '#b07c34', amber: '#ffb648', brown: '#2c1a14',
+  dim: '#a08a6a', red: '#e06050', blue: '#8fb0e8', paper: '#e8d8b0', paperInk: '#4a3220', paperInkL: '#7a5a3a'
+};
+const UIC = new Map();
+function cached(key, w, h, fn) { let c = UIC.get(key); if (!c) { c = mkCanvas(w, h); fn(c.getContext('2d'), w, h); UIC.set(key, c); } return c; }
+function px(x, X, Y, w, h, c) { x.fillStyle = c; x.fillRect(X, Y, w, h); }
+// textured dark fill
+function texFill(x, X, Y, w, h, a = '#2a1812', b = '#2f1c15', c2 = '#26150f') {
+  px(x, X, Y, w, h, a);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const r = hash(X + i, Y + j); if (r < 0.08) px(x, X + i, Y + j, 1, 1, b); else if (r > 0.95) px(x, X + i, Y + j, 1, 1, c2); }
+}
+// brass frame panel
+function framePanel(w, h, o = {}) {
+  return cached('fp' + w + 'x' + h + JSON.stringify(o), w, h, (x) => {
+    px(x, 0, 0, w, h, COL.ink);
+    px(x, 1, 1, w - 2, h - 2, '#6a4220');
+    px(x, 1, 1, w - 3, h - 3, '#e8b85a');
+    px(x, 2, 2, w - 4, h - 4, '#a8742c');
+    px(x, 3, 3, w - 6, h - 6, '#6a4220');
+    px(x, 3, 3, w - 7, h - 7, '#1a0e08');
+    if (o.paper) { px(x, 4, 4, w - 8, h - 8, '#e4d2a6'); for (let j = 4; j < h - 4; j++) for (let i = 4; i < w - 4; i++) { const r = hash(i * 3, j * 7); if (r < 0.06) px(x, i, j, 1, 1, '#d4c090'); else if (r > 0.97) px(x, i, j, 1, 1, '#f0e2bc'); } }
+    else texFill(x, 4, 4, w - 8, h - 8, o.fill || '#2a1812', '#301c15', '#24130d');
+    // rivets
+    for (const [rx, ry] of [[2, 2], [w - 4, 2], [2, h - 4], [w - 4, h - 4]]) { px(x, rx, ry, 2, 2, '#f8e09a'); px(x, rx + 1, ry + 1, 1, 1, '#7a4c1c'); }
+  });
+}
+function nameplate(label, w) {
+  const c = ptext(label, '#3a2210', '#f6d88a'); w = w || c.width + 10;
+  return cached('np' + label + w, w, 11, (x) => {
+    px(x, 0, 0, w, 11, COL.ink); px(x, 1, 1, w - 2, 9, '#7a4c1c'); px(x, 1, 1, w - 3, 8, '#f0c860'); px(x, 2, 2, w - 4, 7, '#d6a446');
+    px(x, 2, 6, w - 4, 3, '#c8943a');
+    x.drawImage(c, ((w - c.width) >> 1) + 1, 2);
+  });
+}
+// brass button
+function brassBtn(w, h, state) { // 0 normal 1 hover 2 down 3 disabled
+  return cached('bb' + w + 'x' + h + state, w, h, (x) => {
+    const top = state === 3 ? '#8a7050' : state === 1 ? '#fbe0a0' : '#e8b85a', mid = state === 3 ? '#6a5640' : state === 2 ? '#9a6a2a' : state === 1 ? '#d8aa50' : '#c08a38', bot = state === 3 ? '#4a3a2a' : '#6a4220';
+    px(x, 1, 0, w - 2, h, COL.ink); px(x, 0, 1, w, h - 2, COL.ink);
+    px(x, 1, 1, w - 2, h - 2, bot); px(x, 1, 1, w - 3, h - 3, top); px(x, 2, 2, w - 4, h - 4, mid);
+    if (state !== 2) { px(x, 2, h - 4, w - 4, 1, bot); }
+    for (let j = 3; j < h - 4; j += 3) for (let i = 3; i < w - 3; i++) if (hash(i, j + w) < 0.12) px(x, i, j, 1, 1, state === 3 ? '#5a4836' : '#b07c34');
+  });
+}
+// dark recess slot
+function slotBox(w, h, state) {
+  return cached('sl' + w + 'x' + h + state, w, h, (x) => {
+    px(x, 0, 0, w, h, state === 2 ? '#fff0a0' : state === 1 ? '#c89640' : '#5a3a1c');
+    px(x, 1, 1, w - 2, h - 2, '#120a06');
+    px(x, 2, 2, w - 3, h - 3, state === 2 ? '#3a2a1a' : '#24160e');
+    px(x, 2, 2, w - 4, 1, '#0c0604'); px(x, 2, 2, 1, h - 4, '#0c0604');
+  });
+}
+// buttons
+class Btn {
+  constructor(x, y, w, h, o) { Object.assign(this, { x, y, w, h, hover: false, down: false, enabled: true, visible: true }, o); }
+  hit(p) { return this.visible && this.enabled && p.x >= this.x && p.y >= this.y && p.x < this.x + this.w && p.y < this.y + this.h; }
+  draw() {
+    if (!this.visible || this.style === 'img') return;
+    const st = !this.enabled ? 3 : this.down ? 2 : this.hover ? 1 : 0;
+    if (this.style === 'text') {
+      const col = !this.enabled ? '#6a5a48' : this.hover ? '#fff2c0' : COL.cream;
+      if (this.hover && this.enabled) { drawGearCursor(this.x - 9, this.y + this.h / 2); }
+      if (this.jp) jdraw(this.jp, this.x, this.y + (this.h - 10) / 2, col, '#120804', 10);
+      else pdraw(this.label, this.x, this.y + (this.h - 7) / 2, col, '#120804');
+      return;
+    }
+    ctx.drawImage(brassBtn(this.w, this.h, st), this.x, this.y + (st === 2 ? 1 : 0));
+    const oy = st === 2 ? 1 : 0, tc = st === 3 ? '#4a3a2a' : '#3a2010', sc = st === 3 ? '#8a7050' : '#f6d88a';
+    let cx = this.x + this.w / 2, ty = this.y + (this.h - 10) / 2;
+    if (this.icon && this.stack) { drawIcon(this.icon, cx, this.y + 11 + oy, st === 3); ty = this.y + this.h - 15; }
+    else if (this.icon) { const ic = this.icon; drawIcon(ic, this.jp || this.label ? this.x + 9 : cx, this.y + this.h / 2 + oy, st === 3); cx += (this.jp || this.label) ? 6 : 0; }
+    if (this.jp) jdraw(this.jp, cx, ty + oy, tc, sc, 10, 'c');
+    else if (this.label) pdraw(this.label, cx, this.y + ((this.h - 7) >> 1) + oy, tc, sc, 1, 'c');
+  }
+}
+function drawGearCursor(x, y) {
+  const e = sprite('cursorGear', gearFn({ r: 4, n: 6, mat: M.gold, hub: 1.5 }), 4, NOW * 2);
+  drawSpr(e, x, y);
+}
+// small icons drawn with pixel rects
+function drawIcon(name, cx, cy, dis) {
+  const c = dis ? '#4a3a2a' : '#3a2010', l = dis ? '#8a7050' : '#fff0b0';
+  cx = Math.round(cx); cy = Math.round(cy);
+  const R = (x, y, w, h, col = c) => { ctx.fillStyle = col; ctx.fillRect(cx + x, cy + y, w, h); };
+  if (name === 'rotL' || name === 'rotR') {
+    const s = name === 'rotR' ? 1 : -1, seen = new Set();
+    for (let a = 0; a <= 270; a += 12) { const t = a * Math.PI / 180; const x = Math.round(Math.cos(t) * 3.6) * s, y = Math.round(Math.sin(t) * 3.6); const k = x + ',' + y; if (!seen.has(k)) { seen.add(k); R(x, y, 1, 1); } }
+    R(-1 * s, -5, 1, 3); R(0, -6, 1, 5); R(s, -5, 1, 3); R(2 * s, -4, 1, 1);
+  } else if (name === 'hint') {
+    R(-2, -5, 5, 1); R(-3, -4, 7, 4); R(-2, 0, 5, 1); R(-1, 1, 3, 1); R(-1, 3, 3, 1); R(-1, 2, 3, 1, l); R(-1, -3, 2, 2, l);
+  } else if (name === 'menu') {
+    R(-4, -4, 8, 1); R(-4, -1, 8, 1); R(-4, 2, 8, 1);
+  } else if (name === 'back') {
+    R(-1, -3, 1, 1); R(-2, -2, 1, 1); R(-3, -1, 1, 1); R(-2, 0, 1, 1); R(-1, 1, 1, 1); R(-3, -1, 7, 1);
+  } else if (name === 'x') { for (let i = -3; i <= 3; i++) { R(i, i, 1, 1); R(i, -i, 1, 1); } }
+  else if (name === 'plus') { R(-3, 0, 7, 1); R(0, -3, 1, 7); }
+  else if (name === 'minus') { R(-3, 0, 7, 1); }
+}
+
+// ===== backgrounds =====
+function wallBG() {
+  return cached('wall', W, H, (x) => {
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+      const stripe = (i % 14) < 7; let c = stripe ? '#2a1620' : '#25131c';
+      const mx = i % 14, my = j % 18; if (mx === 10 && (my === 4 || my === 6) || (mx >= 9 && mx <= 11 && my === 5)) c = '#3a2030';
+      if (hash(i, j) < 0.05) c = '#311a26';
+      x.fillStyle = c; x.fillRect(i, j, 1, 1);
+    }
+  });
+}
+function woodBG(w, h, seed = 0, dark = 0) {
+  return cached('wood' + w + 'x' + h + seed + dark, w, h, (x) => {
+    const base = dark ? ['#1e100a', '#26150c', '#2e1a10', '#36200f'] : ['#3a2212', '#4a2c18', '#56341c', '#623c20'];
+    for (let j = 0; j < h; j++) {
+      const plank = Math.floor((j + seed) / 11), py = (j + seed) % 11;
+      for (let i = 0; i < w; i++) {
+        const g = Math.sin((i + plank * 37) * 0.06 + Math.sin(j * 0.5 + plank) * 1.2) + hash(i >> 2, j + plank * 13) * 0.9;
+        let k = g > 1.1 ? 3 : g > 0.3 ? 2 : g > -0.5 ? 1 : 0;
+        if (py === 0) k = 0; else if (py === 1) k = Math.min(3, k + 1);
+        if (((i + plank * 53) % 97) === 0 && py > 1) k = 0;
+        x.fillStyle = base[k]; x.fillRect(i, j, 1, 1);
+      }
+    }
+  });
+}
+// blueprint paper with grid
+function paperBG(w, h) {
+  return cached('paper' + w + 'x' + h, w, h, (x) => {
+    px(x, 0, 0, w, h, '#d9c69c');
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      let c = null; const r = hash(i + 300, j + 300);
+      if (r < 0.05) c = '#cdb88c'; else if (r > 0.97) c = '#e6d6b0';
+      if ((i % 12 === 0 || j % 12 === 0) && ((i + j) & 1)) c = '#c7b083';
+      if (c) { x.fillStyle = c; x.fillRect(i, j, 1, 1); }
+    }
+    // edges: burnt/aged
+    for (let i = 0; i < w; i++) for (let j = 0; j < h; j++) { const e = Math.min(i, j, w - 1 - i, h - 1 - j); if (e < 3 && hash(i * 7, j * 3) < 0.5 - e * 0.15) { x.fillStyle = e === 0 ? '#a88a5c' : '#c4aa7c'; x.fillRect(i, j, 1, 1); } }
+    // blueprint doodles
+    x.fillStyle = '#9c845c';
+    const circ = (cx, cy, r, step = 2) => { const n = Math.ceil(TAU * r / step); for (let k = 0; k < n; k++) { const a = k / n * TAU; x.fillRect(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r), 1, 1); } };
+    circ(20, 22, 12); circ(20, 22, 7, 3); circ(w - 22, h - 26, 15); circ(w - 22, h - 26, 4, 2); circ(w - 30, 30, 8, 3);
+    for (let i = 8; i < 60; i += 2) x.fillRect(i, h - 14, 1, 1);
+    for (let i = 0; i < 26; i++) x.fillRect(10, h - 40 + i, 1, 1);
+    for (let k = 0; k < 4; k++) for (let i = 0; i < 18 + k * 5; i += 1) if (hash(i, k) < 0.7) x.fillRect(w - 66 + i, 10 + k * 4, 1, 1);
+  });
+}
+// banded lamp glow overlay (pixel-friendly)
+function glowOverlay(w, h, cx, cy, r, col = [255, 190, 100], maxA = 0.14, bands = 5) {
+  return cached('glow' + [w, h, cx, cy, r, col, maxA, bands].join(), w, h, (x) => {
+    const id = x.createImageData(w, h), d = id.data;
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const t = 1 - Math.hypot(i - cx, (j - cy) * 1.2) / r; if (t <= 0) continue;
+      let q = Math.floor(t * bands + (BAYER[(i & 3) + ((j & 3) << 2)] / 16 - 0.5) * 0.5) / bands; if (q <= 0) continue;
+      const p = (j * w + i) * 4; d[p] = col[0]; d[p + 1] = col[1]; d[p + 2] = col[2]; d[p + 3] = Math.round(255 * maxA * q);
+    }
+    x.putImageData(id, 0, 0);
+  });
+}
+// vignette (dark corners), banded
+function vignette(w, h, a = 0.45) {
+  return cached('vig' + w + h + a, w, h, (x) => {
+    const id = x.createImageData(w, h), d = id.data;
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const dx = (i - w / 2) / (w / 2), dy = (j - h / 2) / (h / 2); let t = Math.max(0, Math.hypot(dx * 0.85, dy) - 0.7) / 0.6;
+      t = Math.floor(clamp(t, 0, 1) * 4 + BAYER[(i & 3) + ((j & 3) << 2)] / 16 * 0.6) / 4; const p = (j * w + i) * 4; d[p] = 10; d[p + 1] = 4; d[p + 2] = 8; d[p + 3] = Math.round(255 * a * t);
+    }
+    x.putImageData(id, 0, 0);
+  });
+}
+// dotted circle marker
+function dotCircle(r, col = [240, 222, 176], a = 170) {
+  return cached('dc' + r + col + a, r * 2 + 3, r * 2 + 3, (x) => {
+    const n = Math.max(8, Math.round(TAU * r / 2.6)); x.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${a / 255})`;
+    const seen = new Set();
+    for (let k = 0; k < n; k++) { const t = k / n * TAU, X = Math.round(r + 1 + Math.cos(t) * r), Y = Math.round(r + 1 + Math.sin(t) * r); const key = X + ',' + Y; if (!seen.has(key)) { seen.add(key); x.fillRect(X, Y, 1, 1); } }
+  });
+}
+
+// ===== particles =====
+const PARTS = [];
+function spark(x, y, o = {}) { PARTS.push(Object.assign({ x, y, vx: 0, vy: 0, life: 1, t: 0, kind: 'dot', col: '#fff2b0' }, o)); }
+function updParts(dt) {
+  for (let i = PARTS.length - 1; i >= 0; i--) { const p = PARTS[i]; p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += (p.g || 0) * dt; if (p.t >= p.life) PARTS.splice(i, 1); }
+}
+function drawParts() {
+  for (const p of PARTS) {
+    const k = p.t / p.life, x = Math.round(p.x), y = Math.round(p.y);
+    if (p.kind === 'star') {
+      const s = k < 0.3 ? k / 0.3 : 1 - (k - 0.3) / 0.7, big = s > 0.55;
+      ctx.fillStyle = p.col; ctx.fillRect(x, y, 1, 1);
+      if (s > 0.25) { ctx.fillStyle = p.col2 || '#f0c860'; ctx.fillRect(x - 1, y, 1, 1); ctx.fillRect(x + 1, y, 1, 1); ctx.fillRect(x, y - 1, 1, 1); ctx.fillRect(x, y + 1, 1, 1); }
+      if (big) { ctx.fillStyle = 'rgba(240,200,96,0.7)'; ctx.fillRect(x - 2, y, 1, 1); ctx.fillRect(x + 2, y, 1, 1); ctx.fillRect(x, y - 2, 1, 1); ctx.fillRect(x, y + 2, 1, 1); }
+    } else { if (k < 0.7 || ((p.t * 20) | 0) % 2) { ctx.fillStyle = p.col; ctx.fillRect(x, y, p.s || 1, p.s || 1); } }
+  }
+}
+function shade(a, col = '#0c0608') { ctx.globalAlpha = a; ctx.fillStyle = col; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
+// dithered fade overlay
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+function ditherFill(a, col = '#0c0608') {
+  if (a <= 0) return; if (a >= 1) { ctx.fillStyle = col; ctx.fillRect(0, 0, W, H); return; }
+  const lvl = Math.round(a * 16);
+  const c = cached('dith' + lvl + col, 4, 4, (x) => { x.fillStyle = col; for (let k = 0; k < 16; k++) if (BAYER[k] < lvl) x.fillRect(k % 4, k >> 2, 1, 1); });
+  const pat = ctx.createPattern(c, 'repeat'); ctx.fillStyle = pat; ctx.fillRect(0, 0, W, H);
+}
+function ditherRect(x0, y0, w, h, a, col = '#0c0608') {
+  const lvl = Math.round(clamp(a, 0, 1) * 16); if (!lvl) return;
+  const c = cached('dith' + lvl + col, 4, 4, (x) => { x.fillStyle = col; for (let k = 0; k < 16; k++) if (BAYER[k] < lvl) x.fillRect(k % 4, k >> 2, 1, 1); });
+  ctx.fillStyle = ctx.createPattern(c, 'repeat'); ctx.fillRect(x0, y0, w, h);
+}
+
+// ===== watch view: base (case/plate) + parts animation =====
+const TICK_F = 4; // ticks per second
+const stepT = tt => { const k = Math.floor(tt * TICK_F), fr = tt * TICK_F - k; return (k + easeOut(Math.min(1, fr * 3.5))) / TICK_F; };
+defKind('subHand', { name: '', R: 9, z: 12, fn: (x, y) => { const d = Math.hypot(x, y); if (d < 1.6) return M.steel2; if (y < 0 && y > -8 && Math.abs(x) < 0.65) return M.blue; if (y > 0 && y < 2.5 && Math.abs(x) < 0.65) return M.blue; return 0; } });
+
+function plateFn(style, holes) {
+  const base = style === 'rose' ? M.rose : style === 'night' ? M.night : style === 'silver' ? M.silver : M.plate;
+  return (x, y) => {
+    const d = Math.hypot(x, y); if (d > 64.6) return 0;
+    for (const h of holes) { const hd = Math.hypot(x - h[0], y - h[1]); if (hd < 1.5) return M.dark; if (hd < 2.6) return base | FD; }
+    if (d > 63.4) return base | FD;
+    if (d > 62.4) return base | FL;
+    if (style === 'rose') { const v = Math.floor((x * 0.8 + y * 0.6 + 300) / 3.4) & 1; return v ? base | FD : base; }
+    if (style === 'night') { const h = hash(Math.round(x) + 200, Math.round(y) + 200); if (h < 0.012) return M.gold | FH; if (h < 0.03) return base | FL; return (Math.floor((d) / 3) & 1) ? base : base | FD; }
+    if (style === 'silver') { return (Math.floor(d) % 4 === 0) ? base | FD : (Math.floor(d) % 4 === 1 ? base | FL : base | FM); }
+    // perlage (overlapping circular graining)
+    const cs = 6, gx = Math.floor((x + 300) / cs), gy = Math.floor((y + 300) / cs);
+    let best = 99, bx = 0, by = 0;
+    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
+      const ccx = (gx + a) * cs - 300 + cs / 2 + ((gy + b) & 1) * 3, ccy = (gy + b) * cs - 300 + cs / 2;
+      const dd = Math.hypot(x - ccx, y - ccy); if (dd < best) { best = dd; bx = x - ccx; by = y - ccy; }
+    }
+    const dk = style === 'silver';
+    if (best > 3.6) return base | FD;
+    if (best < 1.2) return dk ? base | FM : base | FL;
+    return (bx + by < 0) ? (dk ? base | FM : base | FL) : (dk ? base | FD : base | FM);
+  };
+}
+function caseFn(cm, noPendant) {
+  return (x, y) => {
+    const d = Math.hypot(x, y);
+    // bow (ring at top)
+    const bd = Math.hypot(x * 1.1, y + 84);
+    if (bd < 10.5 && bd > 6.5 && y < -76) return HI(cm);
+    if (!noPendant) {
+      if (Math.abs(x) < 4.5 && y > -79 && y < -71) { if (y < -76) return (Math.round(x + 9) & 1) ? HI(cm) : cm | FD; return cm; }
+    } else if (Math.abs(x) < 3 && y > -76 && y < -70) return cm;
+    if (d > 72.5 || d < 64.4) return 0;
+    if (d > 71.3) { const p = ph(Math.atan2(y, x), 120); return p < 0.5 ? cm : cm | FD; }
+    if (d < 65.6) return HI(cm);
+    if (d > 67.5 && d < 69.5) { const h = hash(Math.round(x) + 500, Math.round(y) + 500); if (h < 0.1) return cm | FD; }
+    return cm;
+  };
+}
+function stageBase(st) {
+  return cached('base' + st.idx, 176, 184, (x) => {
+    const parts = stageParts(st);
+    const holes = parts.filter(s => { const k = KIND[s.kind]; return (k.gear || ['arbor', 'jewel', 'balance', 'cage', 'moonDisc', 'starWheel'].includes(s.kind)) && Math.hypot(s.x, s.y) > 0.5; }).map(s => [s.x, s.y]);
+    holes.push([0, 0]);
+    const cx = 88, cy = 96;
+    // soft shadow
+    const sh = rasterGrid((X, Y) => Math.hypot(X - 3, Y - 4) < 73 ? 1 : 0, 78);
+    x.globalAlpha = 0.28; x.drawImage(maskCanvas(sh.g, sh.w, sh.h, [30, 16, 8], 255), cx - sh.cx, cy - sh.cy);
+    x.globalAlpha = 0.18; x.drawImage(maskCanvas(sh.g, sh.w, sh.h, [30, 16, 8], 255, true), cx - sh.cx + 1, cy - sh.cy + 1); x.globalAlpha = 1;
+    const pl = rasterGrid(plateFn(st.plate, holes), 66);
+    x.drawImage(shadeGrid(pl.g, pl.w, pl.h), cx - pl.cx, cy - pl.cy);
+    const hasCrown = parts.some(s => s.kind === 'crown');
+    const cs = rasterGrid(caseFn(st.caseMat, hasCrown), 95);
+    x.drawImage(shadeGrid(cs.g, cs.w, cs.h), cx - cs.cx, cy - cs.cy);
+  });
+}
+
+class WatchView {
+  constructor(st) {
+    this.st = st; this.parts = stageParts(st); this.inst = new Set(); this.A = {};
+    this.run = false; this.tt = 0; this.ramp = 0; this.modRun = new Set(); this.handF = 0; this.t = 0; this.lastTick = 0;
+    this.omega = {}; this.computeOmega();
+    for (const s of this.parts) this.A[s.id] = { ang: 0, angT: 0, base: 0, snap: 1, fx: 0, fy: 0, sink: 0, running: false };
+    this.sorted = this.parts.slice().sort((a, b) => this.z(a) - this.z(b));
+  }
+  z(s) { return s.z != null ? s.z : KIND[s.kind].z; }
+  computeOmega() {
+    const P = this.parts, by = id => P.find(s => s.id === id);
+    const q = [];
+    for (const s of P) if (s.root) { this.omega[s.id] = 0.42; q.push(s); }
+    while (q.length) {
+      const a = q.shift(), wa = this.omega[a.id];
+      for (const b of P) {
+        if (this.omega[b.id] != null) continue;
+        if (b.mesh === a.id && KIND[b.kind].gear) this.omega[b.id] = -wa * pr(a.kind) / pr(b.kind);
+        else if (a.mesh === b.id && KIND[b.kind].gear) this.omega[b.id] = -wa * pr(a.kind) / pr(b.kind);
+        else if (b.on === a.id || a.on === b.id) this.omega[b.id] = wa;
+        else continue;
+        q.push(b);
+      }
+    }
+    for (const s of P) if (s.spin != null && this.omega[s.id] == null) { this.omega[s.id] = s.spin; s._free = 1; }
+  }
+  on(s) { return s.pre || this.inst.has(s.id); }
+  get(id) { return this.parts.find(s => s.id === id); }
+  running(s) { return this.run || this.modRun.has(s.id); }
+  component(id) {
+    const out = new Set([id]), q = [id];
+    while (q.length) { const a = this.get(q.shift()); for (const b of this.parts) { if (out.has(b.id) || !this.on(b)) continue; if (b.mesh === a.id || a.mesh === b.id || b.on === a.id || a.on === b.id) { out.add(b.id); q.push(b.id); } } }
+    return out;
+  }
+  install(id, fx, fy) {
+    this.inst.add(id); const A = this.A[id]; A.snap = 0; A.fx = fx; A.fy = fy; A.sink = 0;
+    const s = this.get(id);
+    if (this.omega[id] != null && !s._free) {
+      const w0 = this.omega[id];
+      for (const cid of this.component(id)) { const w = this.omega[cid]; if (w == null || this.get(cid)._free) continue; this.A[cid].angT += 0.9 * w / Math.abs(w0) * Math.sign(w0) * Math.sign(w0); }
+      this.A[id].ang = this.A[id].angT - 0.9 * Math.sign(w0);
+    }
+  }
+  startRun(ids) {
+    for (const s of this.parts) {
+      if (ids && !ids.includes(s.id)) continue;
+      if (ids) this.modRun.add(s.id);
+      const A = this.A[s.id], w = this.omega[s.id] || 0;
+      A.base = A.ang - (s._free ? w * this.tt : w * stepT(this.tt));
+    }
+    if (!ids) { this.run = true; this.ramp = 0; }
+  }
+  update(dt) {
+    this.t += dt;
+    const anyRun = this.run || this.modRun.size;
+    if (anyRun) {
+      this.ramp = Math.min(1, this.ramp + dt * 0.9);
+      const prev = this.tt; this.tt += dt * (this.run ? ease(this.ramp) : 1);
+      if (Math.floor(this.tt * TICK_F) !== Math.floor(prev * TICK_F)) this.onTick && this.onTick();
+    }
+    if (this.run) this.handF = Math.min(1, this.handF + dt / 2.6);
+    for (const s of this.parts) {
+      const A = this.A[s.id];
+      if (A.snap < 1) A.snap = Math.min(1, A.snap + dt / 0.14);
+      else if (A.sink < 1) A.sink = Math.min(1, A.sink + dt / 0.16);
+      const w = this.omega[s.id];
+      if (w != null && this.running(s)) A.ang = A.base + (s._free ? w * this.tt : w * stepT(this.tt));
+      else if (w != null) A.ang += (A.angT - A.ang) * Math.min(1, dt * 7);
+    }
+  }
+  timeAngles() {
+    const d = new Date(), h = d.getHours(), m = d.getMinutes(), sc = d.getSeconds() + d.getMilliseconds() / 1000;
+    const ha = ((h % 12) + m / 60 + sc / 3600) / 12 * TAU, ma = (m + sc / 60) / 60 * TAU;
+    return { ha, ma, sec: Math.floor(sc) / 60 * TAU, far: (((h + 15) % 12) + m / 60) / 12 * TAU };
+  }
+  handAngle(kind) {
+    if (!this.run) return 0;
+    if (this.st.reverse) { const a = -this.t * 0 - (this.tt) * TAU / 60; return kind === 'h' ? a / 12 : a; }
+    const T = this.timeAngles(), f = ease(this.handF);
+    const turns = T.ha * 12; // unwrapped minute angle from 12:00
+    if (kind === 'h') return T.ha * f; return f >= 1 ? T.ma : turns * f;
+  }
+  angle(s) {
+    const k = KIND[s.kind], A = this.A[s.id]; let a = (s.rot || 0) * TAU / 4;
+    if (k.hand) return a + (k.hand === 'm' ? this.handAngle('m') : this.handAngle('h'));
+    if (s.osc || k.osc) return a + (this.running(s) ? 2.3 * Math.sin(Math.PI * TICK_F * this.tt) : 0);
+    if (s.pallet) return a + (this.running(s) ? 0.13 * clamp(5 * Math.sin(Math.PI * TICK_F * this.tt), -1, 1) : 0);
+    if (this.omega[s.id] != null) return a + A.ang;
+    return a;
+  }
+  drawPart(s, X, Y, alpha = 1, shadow = true) {
+    const k = KIND[s.kind], A = this.A[s.id];
+    let x = X + s.x, y = Y + s.y;
+    if (A.snap < 1) { const t = easeOut(A.snap); x = lerp(X + A.fx, x, t); y = lerp(Y + A.fy, y, t); }
+    else if (A.sink < 1 && !s.pre) { y += A.sink < 0.5 ? 1 : 0; }
+    const ang = this.angle(s);
+    if (k.hand === 'hm') {
+      this.drawPart({ id: s.id, kind: 'hourHand', x: s.x, y: s.y, rot: 0 }, X, Y, alpha, shadow);
+      this.drawPart({ id: s.id, kind: 'minuteHand', x: s.x, y: s.y, rot: 0 }, X, Y, alpha, shadow);
+      return;
+    }
+    let e;
+    if (k.phaseFn) { const phs = this.running(s) ? Math.floor(this.tt * 5) % 9 : 0; e = sprite(k.key + 'p' + phs, k.phaseFn(phs), k.R, ang, 1); }
+    else e = kSpr(k, ang);
+    if (shadow) { ctx.globalAlpha = alpha; ctx.drawImage(sprShadow(e), Math.round(x) - e.cx + 1, Math.round(y) - e.cy + 2); ctx.globalAlpha = 1; }
+    drawSpr(e, x, y, alpha);
+    if (s.sub) { // sub-dial hand
+      let a = 0; if (this.run) { const T = this.timeAngles(); a = s.sub === 's' ? T.sec : T.far; }
+      drawSpr(kSpr(KIND.subHand, a), x, y, alpha);
+    }
+  }
+  drawBase(X, Y) { ctx.drawImage(stageBase(this.st), Math.round(X) - 88, Math.round(Y) - 96); }
+  draw(X, Y, o = {}) {
+    this.drawBase(X, Y);
+    for (const s of this.sorted) {
+      if (!this.on(s)) continue;
+      const kk = KIND[s.kind];
+      if (kk.hand === 'hm' || kk.hand) continue;
+      this.drawPart(s, X, Y);
+    }
+    // hands always on top
+    for (const s of this.sorted) { if (!this.on(s) || !KIND[s.kind].hand) continue; this.drawPart(s, X, Y); }
+    // just-installed glint
+    for (const s of this.parts) { const A = this.A[s.id]; if (this.inst.has(s.id) && A.snap >= 1 && A.sink < 1) { const e = kSpr(KIND[s.kind], this.angle(s)); ctx.globalAlpha = 0.5 * (1 - A.sink); ctx.drawImage(sprWhite(e), Math.round(X + s.x) - e.cx, Math.round(Y + s.y) - e.cy); ctx.globalAlpha = 1; } }
+  }
+}
+
+// ===== small watch faces for menus =====
+function faceSprite(st, r, hA, mA, broken, key) {
+  const f = st.face, cm = st.caseMat, dial = f.dial, tick = f.tick, hand = dial === M.night ? M.gold2 : M.blue;
+  const fn = (x, y) => {
+    const d = Math.hypot(x, y);
+    const bd = Math.hypot(x * 1.1, y + r + r * 0.36);
+    if (bd < r * 0.24 && bd > r * 0.12 && y < -r) return HI(cm);
+    if (Math.abs(x) < Math.max(1.5, r * 0.12) && y < -r + 1 && y > -r - r * 0.2) return (Math.round(x + 9) & 1) ? HI(cm) : cm | FD;
+    if (d > r) return 0;
+    if (d > r - Math.max(2, r * 0.1)) return cm;
+    if (d > r - Math.max(2.8, r * 0.14)) return M.gold;
+    const rr = r - Math.max(2.8, r * 0.14);
+    // hands
+    if (!f.orrery) {
+      const hd = (a, L) => { const c = Math.cos(a - Math.PI / 2), s = Math.sin(a - Math.PI / 2); const al = x * c + y * s, pp = -x * s + y * c; return al > -1 && al < L && Math.abs(pp) < 0.62; };
+      if (d < Math.max(1.2, r * 0.07)) return M.steel2;
+      if (hd(mA, rr * 0.78)) return hand;
+      if (hd(hA, rr * 0.5)) return hand;
+    }
+    if (broken) { const cl = Math.abs((y - x * 0.55) - Math.sin(x * 0.9) * 1.2 - r * 0.15); if (cl < 0.5 && d < rr - 1) return M.silver | FH; }
+    if (f.heart && heartIn(x, y - rr * 0.42, rr * 0.3)) { const hd2 = Math.hypot(x, y - rr * 0.44); return hd2 < rr * 0.18 && hd2 > rr * 0.1 ? M.gold : M.dark; }
+    if (f.moon && y < -rr * 0.2 && y > -rr * 0.72 && Math.abs(x) < rr * 0.5 && Math.hypot(x, y + rr * 0.2) < rr * 0.52) { if (Math.hypot(x - rr * 0.12, y + rr * 0.46) < rr * 0.16) return M.moon; return M.night | FD; }
+    if (f.music && Math.abs(x) < rr * 0.42 && y > rr * 0.3 && y < rr * 0.62) { if (Math.abs(x) > rr * 0.4 || y < rr * 0.33 || y > rr * 0.59) return M.gold; return hash(Math.round(x) + 9, Math.round(y)) < 0.25 ? M.steel2 : M.brass; }
+    if (f.twin) { for (const sx of [-0.45, 0.45]) { const sd = Math.hypot(x - rr * sx, y - rr * 0.1); if (sd < rr * 0.26) return sd > rr * 0.2 ? M.gold : M.enamel | FL; } }
+    if (f.tourb && Math.hypot(x, y - rr * 0.46) < rr * 0.3) { const td = Math.hypot(x, y - rr * 0.46); if (td > rr * 0.25) return M.gold; const a = Math.atan2(y - rr * 0.46, x); return (Math.abs(ph(a, 3) - 0.5) < 0.12 || td < 1.2) ? M.steel2 : (td > rr * 0.14 && td < rr * 0.2 ? M.gold : M.dark); }
+    if (f.skel && d < rr * 0.62) { const a = Math.atan2(y, x); const g1 = Math.hypot(x + rr * 0.2, y + rr * 0.15); if (g1 < rr * 0.34 && (g1 > rr * 0.26 || Math.abs(ph(a * 3, 4) - 0.5) < 0.15)) return M.brass; return M.dark; }
+    if (f.orrery) {
+      for (const [or, pa, pm] of [[0.3, 1.0, M.ruby], [0.52, 3.6, M.sapph], [0.74, 5.2, M.gold2]]) {
+        const od = Math.abs(d - rr * or); const px = Math.cos(pa) * rr * or, py = Math.sin(pa) * rr * or;
+        if (Math.hypot(x - px, y - py) < Math.max(1.2, rr * 0.09)) return pm;
+        if (od < 0.45 && ((Math.round(x) + Math.round(y)) & 1)) return M.gold | FD;
+      }
+      if (d < rr * 0.14) return M.gold2;
+    }
+    if (f.stars) { const h = hash(Math.round(x) + 77, Math.round(y) + 77); if (h < 0.05) return M.gold | FH; }
+    // ticks
+    const a = Math.atan2(x, -y), q = (a < 0 ? a + TAU : a) / TAU * 12, dq = Math.abs(q - Math.round(q)) * TAU / 12 * d;
+    if (d > rr - Math.max(2, r * 0.16) && d < rr - 0.6 && dq < 0.55) return Math.round(q) % 12 === 0 ? M.ruby : tick;
+    if (f.rev && Math.abs(y + rr * 0.55) < 0.6 && x < 0 && x > -rr * 0.3) return M.ruby;
+    return dial;
+  };
+  return sprite('face' + st.idx + '_' + r + '_' + key, fn, r + r * 0.6, 0, 1);
+}
+function drawFace(st, x, y, r, mode) { // mode: 'run' | 'broken' | 'locked'
+  if (mode === 'locked') {
+    const e = sprite('lockface' + r, (X, Y) => { const d = Math.hypot(X, Y); const bd = Math.hypot(X * 1.1, Y + r + r * 0.36); if (bd < r * 0.24 && bd > r * 0.12 && Y < -r) return M.dark; if (d > r) return 0; if (d > r - 2) return M.ink; return M.dark; }, r * 1.6);
+    drawSpr(e, x, y); pdraw('?', x, y - 3, '#6a5040', null, 1, 'c'); return;
+  }
+  let hA, mA, key;
+  if (mode === 'broken') { hA = 2.2 + st.idx; mA = 4.1 + st.idx * 1.7; key = 'b'; }
+  else { const d = new Date(); const m = d.getMinutes(), h = d.getHours(); hA = ((h % 12) + m / 60) / 12 * TAU; mA = m / 60 * TAU; key = h + ':' + m; }
+  const e = faceSprite(st, r, hA, mA, mode === 'broken', key);
+  ctx.drawImage(sprShadow(e), Math.round(x) - e.cx + 1, Math.round(y) - e.cy + 2);
+  drawSpr(e, x, y);
+  if (mode === 'broken') { ctx.globalAlpha = 0.3; ctx.drawImage(e._dk || (e._dk = maskCanvas(e.g, e.w, e.h, [16, 8, 10], 255)), Math.round(x) - e.cx, Math.round(y) - e.cy); ctx.globalAlpha = 1; }
+}
+
+// ===== repair scene =====
+const WX = 216, WY = 98;
+const LP = { x: 3, y: 3, w: 98, h: 186 }, WA = { x: 104, y: 3, w: 224, h: 186 }, RP = { x: 331, y: 3, w: 98, h: 148 }, BBAR = { x: 3, y: 192, w: 426, h: 21 };
+const SLOT = { x: 17, y: 42, s: 22, p: 24, cols: 3 };
+const inWA = p => p.x >= WA.x + 2 && p.x < WA.x + WA.w - 2 && p.y >= WA.y + 2 && p.y < WA.y + WA.h - 2;
+
+const Repair = {
+  enter(idx) {
+    this.idx = idx; this.st = STAGES[idx]; this.view = new WatchView(this.st);
+    this.view.onTick = () => AUDIO.tick(this.view.run ? 1 : 0.5);
+    this.socks = this.view.parts.filter(s => !s.pre);
+    this.kinds = []; for (const s of this.socks) if (!this.kinds.includes(s.kind)) this.kinds.push(s.kind);
+    this.rot = {}; for (const k of this.kinds) this.rot[k] = 0;
+    // scramble starting rotations of oriented parts a little (deterministic)
+    this.kinds.forEach((k, i) => { if (KIND[k].oriented && idx > 0) { const tgt = this.socks.find(s => s.kind === k).rot || 0; this.rot[k] = (tgt + 1 + (i % 3)) % 4; } });
+    this.sel = null; this.drag = null; this.pend = null; this.fly = []; this.msg = null; this.hint = { lv: 0, id: null };
+    this.done = false; this.doneT = 0; this.overlay = null; this.modDone = new Set(); this.tutOn = !!this.st.tutorial; this.hover = null; this.hoverP = { x: 0, y: 0 };
+    const pg = SAVE.progress[idx];
+    if (pg && pg.length) { for (const id of pg) if (this.view.get(id)) { this.view.inst.add(id); this.view.A[id].sink = 1; } this.tutOn = false; for (const m of this.st.modules || []) if (m.ids.every(i => this.view.on(this.view.get(i)))) { this.modDone.add(m.name); this.view.startRun(m.ids); } }
+    this.btnHint = new Btn(RP.x, 153, 47, 36, { jp: 'ヒント', icon: 'hint', stack: 1, cb: () => this.doHint() });
+    this.btnMenu = new Btn(RP.x + 51, 153, 47, 36, { jp: 'メニュー', icon: 'menu', stack: 1, cb: () => this.openMenu() });
+    this.btnRL = new Btn(337, 57, 22, 15, { icon: 'rotL', cb: () => this.rotate(-1) });
+    this.btnRR = new Btn(401, 57, 22, 15, { icon: 'rotR', cb: () => this.rotate(1) });
+    this.btns = [this.btnHint, this.btnMenu, this.btnRL, this.btnRR];
+    if (this.allDone()) { this.view.inst.clear(); SAVE.progress[idx] = []; }
+  },
+  remaining(kind) { return this.socks.filter(s => s.kind === kind && !this.view.inst.has(s.id)).length; },
+  allDone() { return this.socks.every(s => this.view.inst.has(s.id)); },
+  next() { return this.socks.find(s => !this.view.inst.has(s.id) && s.req.every(r => this.view.on(this.view.get(r)))) || this.socks.find(s => !this.view.inst.has(s.id)); },
+  label(s) { return s.label || KIND[s.kind].name; },
+  say(t, col, dur = 2.4) { this.msg = { t, col: col || COL.paperInk, life: dur, age: 0 }; },
+  slotRect(i) { const c = i % SLOT.cols, r = Math.floor(i / SLOT.cols); return { x: SLOT.x + c * SLOT.p, y: SLOT.y + r * SLOT.p, w: SLOT.s, h: SLOT.s }; },
+  slotAt(p) { for (let i = 0; i < this.kinds.length; i++) { const r = this.slotRect(i); if (p.x >= r.x && p.y >= r.y && p.x < r.x + r.w && p.y < r.y + r.h) return i; } return -1; },
+  rotate(d) {
+    const k = this.drag ? this.drag.kind : this.sel; if (!k) return;
+    if (!KIND[k].oriented) { this.say('この部品は向きを気にしなくていい。', COL.paperInkL, 1.6); return; }
+    this.rot[k] = (this.rot[k] + d + 4) % 4; AUDIO.se('rot');
+  },
+  select(k) { if (this.sel !== k) AUDIO.se('select'); this.sel = k; },
+  tryPlace(kind, x, y) {
+    const lx = x - WX, ly = y - WY, K = KIND[kind], v = this.view;
+    const tolOf = s => { const k = KIND[s.kind]; if (k.hand || s.kind.startsWith('dial') || k.planet) return 9; return clamp(k.R * 0.55, 6, 11); };
+    const cands = this.socks.filter(s => s.kind === kind && !v.inst.has(s.id)).map(s => ({ s, d: Math.hypot(s.x - lx, s.y - ly) })).filter(c => c.d <= tolOf(c.s));
+    cands.sort((a, b) => { const ra = a.s.req.every(r => v.on(v.get(r))) ? 0 : 1, rb = b.s.req.every(r => v.on(v.get(r))) ? 0 : 1; return ra - rb || a.d - b.d; });
+    const fail = (m) => { this.say(m, '#8a2a1a'); this.bounce(kind, x, y); AUDIO.se('wrong'); };
+    if (!cands.length) {
+      const other = this.socks.find(s => !v.inst.has(s.id) && Math.hypot(s.x - lx, s.y - ly) < tolOf(s));
+      if (other) return fail('ここには別の部品が入るようだ。');
+      return fail('取り付ける場所が見つからない…');
+    }
+    const s = cands[0].s;
+    const miss = s.req.find(r => !v.on(v.get(r)));
+    if (miss) { const ms = v.get(miss); return fail(`先に『${this.label(ms)}』を取り付けよう。`); }
+    if (K.oriented) {
+      const per = 4 / (K.sym || 1); if ((((this.rot[kind] - (s.rot || 0)) % per) + per) % per !== 0) return fail('向きが合っていないようだ…');
+    }
+    // success
+    v.install(s.id, lx, ly); AUDIO.se('click'); if (K.gear) setTimeout(() => AUDIO.se('gears'), 90);
+    for (let i = 0; i < 7; i++) { const a = rnd() * TAU; spark(WX + s.x + Math.cos(a) * 3, WY + s.y + Math.sin(a) * 3, { vx: Math.cos(a) * 26, vy: Math.sin(a) * 26 - 8, life: 0.35 + rnd() * 0.2, col: rnd() < 0.5 ? '#fff2b0' : '#f0c860' }); }
+    this.tutOn = false;
+    if (this.hint.id === s.id) this.hint = { lv: 0, id: null };
+    SAVE.progress[this.idx] = [...v.inst]; save();
+    if (!this.remaining(kind) && this.sel === kind) this.sel = null;
+    // modules
+    for (const m of this.st.modules || []) if (!this.modDone.has(m.name) && m.ids.every(i => v.on(v.get(i)))) {
+      this.modDone.add(m.name); v.startRun(m.ids);
+      if (!this.allDone()) { this.say(`${m.name}が完成した！`, '#2a5a2a', 3); AUDIO.se('module'); if (m.music) AUDIO.waltz(); }
+    }
+    if (this.allDone()) this.complete();
+    else this.say(`${this.label(s)}を取り付けた。`, COL.paperInkL, 1.4);
+  },
+  bounce(kind, x, y) {
+    const i = this.kinds.indexOf(kind), r = this.slotRect(i);
+    this.fly.push({ kind, rot: this.rot[kind], x0: x, y0: y, x1: r.x + r.w / 2, y1: r.y + r.h / 2, t: 0 });
+  },
+  doHint() {
+    if (this.done) return;
+    const n = this.next(); if (!n) return;
+    if (this.hint.id !== n.id) this.hint = { id: n.id, lv: 1 }; else this.hint.lv = Math.min(3, this.hint.lv + 1);
+    const k = KIND[n.kind]; this.sel = n.kind; AUDIO.se('hint');
+    if (this.hint.lv === 1) this.say(`ヒント1：次は『${k.name}』（${this.label(n)}）`, '#3a3a7a', 4);
+    else if (this.hint.lv === 2) this.say('ヒント2：光っている場所に取り付けよう。', '#3a3a7a', 4);
+    else {
+      if (k.oriented) { const per = 4 / (k.sym || 1); const d = ((((n.rot || 0) - this.rot[n.kind]) % per) + per) % per; this.say(d === 0 ? 'ヒント3：向きはこのままでいい。' : `ヒント3：右回りに${d}回まわしてから。`, '#3a3a7a', 4); }
+      else this.say('ヒント3：この部品は向きを気にしなくていい。', '#3a3a7a', 4);
+    }
+  },
+  complete() {
+    this.done = true; this.doneT = 0; this.sel = null; this.hint = { lv: 0, id: null };
+    SAVE.cleared[this.idx] = SAVE.cleared[this.idx] || new Date().toISOString().slice(0, 10); delete SAVE.progress[this.idx]; save();
+    this.say('', null, 0); this.msg = null;
+    const last = this.idx === STAGES.length - 1;
+    this.doneBtns = [
+      new Btn(RP.x + 4, 80, 90, 20, { jp: 'コレクションへ', cb: () => go(Collection, this.idx) }),
+      new Btn(RP.x + 4, 104, 90, 20, { jp: last ? 'タイトルへ' : '次の時計へ', cb: () => last ? go(Title) : go(Select, this.idx + 1) }),
+      new Btn(RP.x + 4, 128, 90, 20, { jp: '時計を眺める', cb: () => { this.hideDone = !this.hideDone; } })
+    ];
+    this.hideDone = false;
+  },
+  openMenu() {
+    if (this.done) return; AUDIO.se('select');
+    const items = [['修理を続ける', () => this.overlay = null], ['最初からやり直す', () => { SAVE.progress[this.idx] = []; save(); this.enter(this.idx); }], ['ヒント', () => { this.overlay = null; this.doHint(); }], ['時計の説明', () => this.overlay = { kind: 'desc' }], ['タイトルへ戻る', () => go(Title)]];
+    this.overlay = { kind: 'menu', btns: items.map((it, i) => new Btn(166, 62 + i * 18, 110, 14, { style: 'text', jp: it[0], cb: it[1] })) };
+  },
+  update(dt) {
+    this.view.update(dt);
+    if (!this.done) { this.amb = (this.amb || 0) + dt; if (this.amb >= 1) { this.amb -= 1; this.tock = !this.tock; AUDIO.tick(this.tock ? 0.32 : 0.26, this.tock); } }
+    if (this.msg) { this.msg.age += dt; if (this.msg.age > this.msg.life) this.msg = null; }
+    for (let i = this.fly.length - 1; i >= 0; i--) { const f = this.fly[i]; f.t += dt / 0.45; if (f.t >= 1) this.fly.splice(i, 1); }
+    if (this.done) {
+      const t0 = this.doneT; this.doneT += dt;
+      if (t0 < 0.35 && this.doneT >= 0.35) { this.view.startRun(); AUDIO.se('windup'); }
+      if (t0 < 2.6 && this.doneT >= 2.6) AUDIO.fanfare();
+      if (this.doneT > 1.0 && rnd() < dt * 22) { const a = rnd() * TAU, r = 60 + rnd() * 30; spark(WX + Math.cos(a) * r, WY + Math.sin(a) * r * 0.95, { kind: 'star', life: 0.9 + rnd() * 0.8, vy: -4 - rnd() * 6, col: '#fffbe0', col2: rnd() < 0.5 ? '#f0c860' : '#e8d8ff' }); }
+    }
+    updParts(dt);
+  },
+  draw() {
+    const v = this.view;
+    ctx.drawImage(woodBG(W, H, 3, 1), 0, 0);
+    // ---- work area ----
+    ctx.save(); ctx.beginPath(); ctx.rect(WA.x, WA.y, WA.w, WA.h); ctx.clip();
+    ctx.drawImage(woodBG(WA.w, WA.h, 7), WA.x, WA.y);
+    ctx.drawImage(paperBG(196, 178), WA.x + 14, WA.y + 4);
+    drawTools();
+    v.draw(WX, WY);
+    if (!this.done) this.drawGhosts();
+    drawParts();
+    ctx.drawImage(glowOverlay(WA.w, WA.h, WA.w / 2, -10, 220, [255, 190, 110], 0.12, 5), WA.x, WA.y);
+    if (this.msg && this.msg.t) this.drawMsg();
+    else if (this.tutOn && this.st.tutorial) this.drawNote(this.st.tutorial);
+    ctx.restore();
+    // frame around work area
+    ctx.strokeStyle = COL.ink; ctx.strokeRect(WA.x + 0.5, WA.y + 0.5, WA.w - 1, WA.h - 1);
+    ctx.strokeStyle = '#a8742c'; ctx.strokeRect(WA.x + 1.5, WA.y + 1.5, WA.w - 3, WA.h - 3);
+    // ---- left: stage + parts ----
+    ctx.drawImage(framePanel(LP.w, LP.h), LP.x, LP.y);
+    pdraw('STAGE ' + String(this.idx + 1).padStart(2, '0'), LP.x + LP.w / 2, LP.y + 7, COL.gold, COL.ink, 1, 'c');
+    jdraw(this.st.jp, LP.x + LP.w / 2, LP.y + 16, COL.cream, COL.ink, 10, 'c');
+    ctx.drawImage(nameplate('PARTS', 48), LP.x + 25, 29);
+    this.kinds.forEach((k, i) => {
+      const r = this.slotRect(i), n = this.remaining(k), K = KIND[k];
+      const glow = this.hint.lv >= 1 && this.hint.id && this.view.get(this.hint.id).kind === k && ((NOW * 3) | 0) % 2;
+      ctx.drawImage(slotBox(r.w, r.h, glow ? 2 : this.sel === k ? 2 : this.hover === i ? 1 : 0), r.x, r.y);
+      const dragging = this.drag && this.drag.kind === k;
+      if (n > 0 && !(dragging && n === 1)) {
+        const e = kSpr(K, (K.oriented ? this.rot[k] : 0) * TAU / 4, iconScale(K));
+        drawSpr(e, r.x + r.w / 2, r.y + r.h / 2);
+        if (n > 1 || (dragging && n > 1)) ctx.drawImage(ttext('x' + (dragging ? n - 1 : n)), r.x + r.w - 10, r.y + r.h - 7);
+      } else if (!n) { ctx.fillStyle = '#4a7a3a'; for (const [a, b] of [[-3, 0], [-2, 1], [-1, 2], [0, 1], [1, 0], [2, -1], [3, -2]]) ctx.fillRect(r.x + 11 + a, r.y + 11 + b, 1, 1); }
+    });
+    // ---- right: info ----
+    ctx.drawImage(framePanel(RP.w, RP.h), RP.x, RP.y);
+    ctx.drawImage(nameplate('INFO', 44), RP.x + 27, RP.y + 4);
+    const k = this.drag ? this.drag.kind : this.sel;
+    this.btnRL.visible = this.btnRR.visible = !!(k && KIND[k].oriented) && !this.done;
+    if (k && !this.done) {
+      const K = KIND[k];
+      ctx.drawImage(cached('velvet', 86, 38, (x) => { px(x, 0, 0, 86, 38, COL.ink); texFill(x, 1, 1, 84, 36, '#3a0e18', '#46121e', '#300a12'); px(x, 1, 1, 84, 1, '#5a1a26'); }), 337, 17);
+      const s = Math.min(1.5, 16 / K.R), e = kSpr(K, (K.oriented ? this.rot[k] : 0) * TAU / 4, s);
+      ctx.drawImage(sprShadow(e), 380 - e.cx + 1, 36 - e.cy + 2); drawSpr(e, 380, 36);
+      if (K.oriented) pdraw(this.rot[k] * 90 + "'", 380, 61, COL.creamD, COL.ink, 1, 'c');
+      jdraw(K.name, 380, 75, COL.gold, COL.ink, 10, 'c');
+      jpara(K.desc, 337, 88, 86, COL.cream, COL.ink, 10, 12);
+    } else if (!this.done) {
+      jdraw(this.st.jp, 380, 19, COL.gold, COL.ink, 10, 'c');
+      jdraw(this.st.era, 380, 31, COL.creamD, COL.ink, 10, 'c');
+      jdraw('故障の状態', 337, 45, '#e09070', COL.ink, 10);
+      const fl = jpara(this.st.fault, 337, 58, 86, COL.cream, COL.ink, 10, 12);
+      if (58 + fl * 12 + 28 < 148) jpara('部品を選んで、図面の場所へ運ぼう。', 337, 122, 86, COL.dim, COL.ink, 10, 12);
+    } else {
+      jdraw(this.st.jp, 380, 22, COL.gold, COL.ink, 10, 'c');
+      jpara('修理が完了し、コレクションに登録されました。', 337, 36, 86, COL.cream, COL.ink, 10, 12);
+    }
+    for (const b of this.btns) { if (b === this.btnHint || b === this.btnMenu) b.enabled = !this.done; if (this.done && (b === this.btnHint || b === this.btnMenu)) continue; b.draw(); }
+    if (this.done) { ctx.drawImage(framePanel(98, 36), RP.x, 153); pdraw('REPAIRED', RP.x + 49, 168, COL.gold, COL.ink, 1, 'c'); }
+    // ---- bottom bar ----
+    ctx.drawImage(framePanel(BBAR.w, BBAR.h), BBAR.x, BBAR.y);
+    const tot = this.socks.length, got = this.socks.filter(s => v.inst.has(s.id)).length, pct = Math.round(got / tot * 100);
+    const nx = this.next();
+    if (this.done) jdraw('修理完了 ― 時計がふたたび時を刻みはじめた', 12, 197, COL.gold, COL.ink, 10);
+    else if (nx) { jdraw(`工程 ${got + 1}/${tot}`, 12, 197, COL.gold, COL.ink, 10); jdraw(`${this.label(nx)}を取り付ける`, 72, 197, COL.cream, COL.ink, 10); }
+    pdraw('PROGRESS', 272, 199, COL.creamD, COL.ink);
+    ctx.fillStyle = COL.ink; ctx.fillRect(325, 197, 74, 9); ctx.fillStyle = '#120a06'; ctx.fillRect(326, 198, 72, 7);
+    const fw = Math.round(72 * got / tot); ctx.fillStyle = '#c87a20'; ctx.fillRect(326, 198, fw, 7); ctx.fillStyle = '#f0b040'; ctx.fillRect(326, 198, fw, 3); ctx.fillStyle = '#ffe08a'; ctx.fillRect(326, 198, fw, 1);
+    for (let i = 326 + 6; i < 326 + fw; i += 6) { ctx.fillStyle = '#a05a18'; ctx.fillRect(i, 201, 1, 4); }
+    pdraw(pct + '%', 424, 199, COL.gold, COL.ink, 1, 'r');
+    // ---- flying (bounced) parts ----
+    for (const f of this.fly) {
+      const K = KIND[f.kind], t = f.t; let x, y, s;
+      if (t < 0.25) { const u = t / 0.25; x = f.x0 + Math.sin(u * 20) * 2 * (1 - u); y = f.y0 - Math.sin(u * Math.PI) * 5; s = 1; }
+      else { const u = easeOut((t - 0.25) / 0.75); x = lerp(f.x0, f.x1, u); y = lerp(f.y0, f.y1, u) - Math.sin(u * Math.PI) * 14; s = lerp(1, iconScale(K), u); }
+      s = Math.round(s * 4) / 4 || 0.25;
+      drawSpr(kSpr(K, (K.oriented ? f.rot : 0) * TAU / 4, s), x, y);
+    }
+    // ---- drag ----
+    if (this.drag) {
+      const K = KIND[this.drag.kind], e = kSpr(K, (K.oriented ? this.rot[this.drag.kind] : 0) * TAU / 4);
+      const x = this.drag.x, y = this.drag.y + this.drag.off;
+      ctx.globalAlpha = 0.6; ctx.drawImage(sprShadow(e), Math.round(x) - e.cx + 3, Math.round(y) - e.cy + 4); ctx.globalAlpha = 1;
+      drawSpr(e, x, y - 1);
+    }
+    // ---- completion ----
+    if (this.done) this.drawDone();
+    if (this.overlay) this.drawOverlay();
+  },
+  drawGhosts() {
+    const v = this.view, mode = this.st.ghost, hs = this.hint.id ? v.get(this.hint.id) : null, gc = this.st.plate === 'silver' ? [40, 34, 56] : null;
+    for (const s of this.socks) {
+      if (v.inst.has(s.id)) continue;
+      const K = KIND[s.kind]; const x = WX + s.x, y = WY + s.y;
+      const full = mode === 2 || (mode === 1 && !K.oriented);
+      if (full) { const e = kSpr(K, (s.rot || 0) * TAU / 4); ctx.drawImage(gc ? (e._gd || (e._gd = ghostCanvas(e.g, e.w, e.h, gc, 200))) : sprGhost(e), Math.round(x) - e.cx, Math.round(y) - e.cy); }
+      else { const r = K.hand ? 4 : s.kind.startsWith('dial') ? 58 : K.planet ? 6 : Math.round(K.gear ? K.R : Math.min(K.R, 10)); const c = dotCircle(r, gc || undefined, gc ? 220 : undefined); ctx.drawImage(c, Math.round(x) - r - 1, Math.round(y) - r - 1); }
+    }
+    if (hs && !v.inst.has(hs.id)) {
+      const K = KIND[hs.kind], x = WX + hs.x, y = WY + hs.y;
+      if (this.hint.lv >= 3 && ((NOW * 2.5) | 0) % 2) { const e = kSpr(K, (hs.rot || 0) * TAU / 4); drawSpr(e, x, y, 0.55); }
+      if (this.hint.lv >= 2) {
+        const r = Math.round(Math.min(K.R, 20) + 3 + Math.sin(NOW * 6) * 1.5);
+        ctx.drawImage(dotCircle(r, [255, 236, 140], 255), Math.round(x) - r - 1, Math.round(y) - r - 1);
+        const ay = Math.round(y - r - 9 + Math.sin(NOW * 6) * 2);
+        ctx.fillStyle = '#ffe08a'; for (let i = 0; i < 4; i++) ctx.fillRect(Math.round(x) - 3 + i, ay + i, 7 - i * 2, 1);
+        ctx.fillStyle = COL.ink; ctx.fillRect(Math.round(x) - 4, ay - 1, 9, 1);
+      }
+    }
+  },
+  drawNote(lines) {
+    lines = jwrap(lines.join(''), 196, 10);
+    const w = Math.max(...lines.map(l => jwidth(l, 10))) + 14, h = lines.length * 12 + 8, x = Math.round(WA.x + (WA.w - w) / 2), y = WA.y + 5;
+    ctx.fillStyle = COL.ink; ctx.fillRect(x - 1, y - 1, w + 2, h + 2); ctx.fillStyle = '#efe2bd'; ctx.fillRect(x, y, w, h); ctx.fillStyle = '#d8c69a'; ctx.fillRect(x, y + h - 2, w, 2);
+    lines.forEach((l, i) => jdraw(l, x + 7, y + 4 + i * 12, COL.paperInk, null, 10));
+  },
+  drawMsg() {
+    const m = this.msg, w = jwidth(m.t, 10) + 14, x = Math.round(WA.x + (WA.w - w) / 2), y = WA.y + 5;
+    const a = m.age < 0.12 ? m.age / 0.12 : m.age > m.life - 0.3 ? (m.life - m.age) / 0.3 : 1;
+    const oy = m.age < 0.12 ? Math.round((1 - a) * 4) : 0;
+    ctx.globalAlpha = clamp(a, 0, 1);
+    ctx.fillStyle = COL.ink; ctx.fillRect(x - 1, y - 1 + oy, w + 2, 16); ctx.fillStyle = '#efe2bd'; ctx.fillRect(x, y + oy, w, 14); ctx.fillStyle = '#d8c69a'; ctx.fillRect(x, y + 12 + oy, w, 2);
+    jdraw(m.t, x + 7, y + 2 + oy, m.col, null, 10);
+    ctx.globalAlpha = 1;
+  },
+  drawDone() {
+    const t = this.doneT;
+    if (this.hideDone) { this.doneBtns[2].jp = '表示をもどす'; this.doneBtns[2].draw(); return; }
+    this.doneBtns[2].jp = '時計を眺める';
+    if (t > 2.6) {
+      const e = bigText('REPAIRED', 26, M.gold, { sheen: 1, bevel: 1 });
+      const u = clamp((t - 2.6) / 0.6, 0, 1), hh = Math.round(e.h * u);
+      const x = Math.round(WX - e.w / 2), y = 6;
+      ctx.drawImage(e.c, 0, 0, e.w, hh, x, y, e.w, hh);
+      if (u < 1) { ctx.fillStyle = '#fff6c8'; ctx.fillRect(x + 4, y + hh, e.w - 8, 1); }
+    }
+    if (t > 3.4) {
+      const s = 'また、時が動き出しました――', w = jwidth(s, 10) + 16, x = Math.round(WX - w / 2), y = 170;
+      ctx.globalAlpha = clamp((t - 3.4) * 2, 0, 1) * 0.8; ctx.fillStyle = '#140a06'; ctx.fillRect(x, y, w, 15); ctx.fillStyle = '#b07c34'; ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y + 14, w, 1); ctx.globalAlpha = 1;
+      jdraw(s, WX, y + 2, COL.cream, COL.ink, 10, 'c');
+    }
+    if (t > 4.2) for (const b of this.doneBtns) b.draw();
+  },
+  drawOverlay() {
+    const o = this.overlay; shade(0.6);
+    if (o.kind === 'menu') {
+      ctx.drawImage(framePanel(140, 120), 146, 40);
+      ctx.drawImage(nameplate('MENU', 50), 191, 44);
+      for (const b of o.btns) b.draw();
+    } else if (o.kind === 'desc') {
+      ctx.drawImage(framePanel(300, 180, { paper: 1 }), 66, 18);
+      const st = this.st;
+      drawFace(st, 112, 70, 26, 'broken');
+      pdraw(st.name, 150, 28, '#6a3a14', null, 1);
+      jdraw(st.jp, 150, 38, COL.paperInk, null, 10);
+      const rows = [['製造年代', st.era], ['素材', st.mat], ['機構', st.mech], ['故障', st.fault]];
+      let y = 54; for (const [a, b] of rows) { jdraw(a, 150, y, '#8a4a20', null, 10); const n = jpara(b, 200, y, 158, COL.paperInk, null, 10, 12); y += n * 12 + 2; }
+      jpara(st.story, 78, Math.max(y + 4, 112), 278, COL.paperInkL, null, 10, 12);
+      jdraw('タップで閉じる', 216, 184, '#9a7a50', null, 10, 'c');
+    }
+  },
+  // ---- input ----
+  down(p) {
+    if (this.overlay) {
+      if (this.overlay.kind === 'menu') { for (const b of this.overlay.btns) if (b.hit(p)) { b.down = true; return; } if (p.x < 146 || p.x > 286 || p.y < 40 || p.y > 160) this.overlay = null; }
+      else this.overlay = null;
+      return;
+    }
+    if (this.done) { if (this.doneT > 4.2 || this.hideDone) for (const b of this.doneBtns) if (b.hit(p)) { b.down = true; return; } return; }
+    for (const b of this.btns) if (b.hit(p)) { b.down = true; return; }
+    const si = this.slotAt(p);
+    if (si >= 0) { const k = this.kinds[si]; if (this.remaining(k)) { this.select(k); this.pend = { kind: k, x: p.x, y: p.y, touch: p.touch }; } return; }
+    if (inWA(p) && this.sel && this.remaining(this.sel)) this.pend = { kind: this.sel, x: p.x, y: p.y, touch: p.touch, inWA: true };
+  },
+  move(p) {
+    this.hover = this.slotAt(p); this.hoverP = p;
+    const all = this.overlay ? (this.overlay.btns || []) : this.done ? this.doneBtns : this.btns; for (const b of all) b.hover = b.hit(p);
+    if (this.pend && !this.drag && Math.hypot(p.x - this.pend.x, p.y - this.pend.y) > 3) {
+      this.drag = { kind: this.pend.kind, x: p.x, y: p.y, off: p.touch ? -12 : 0 }; AUDIO.se('pick'); this.tutOn = this.tutOn && this.idx === 0;
+    }
+    if (this.drag) { this.drag.x = p.x; this.drag.y = p.y; }
+  },
+  up(p) {
+    const all = this.overlay ? (this.overlay.btns || []) : this.done ? this.doneBtns : this.btns;
+    for (const b of all) { if (b.down && b.hit(p)) { b.down = false; AUDIO.se('select'); b.cb(); return; } b.down = false; }
+    if (this.drag) {
+      const d = this.drag; this.drag = null; this.pend = null;
+      const x = d.x, y = d.y + d.off;
+      if (inWA({ x, y })) this.tryPlace(d.kind, x, y); else this.bounce(d.kind, x, y);
+      return;
+    }
+    if (this.pend && this.pend.inWA) { this.tryPlace(this.pend.kind, this.pend.x, this.pend.y); }
+    this.pend = null;
+  },
+  key(e) {
+    const k = e.key.toLowerCase();
+    if (k === 'escape') { if (this.overlay) this.overlay = null; else this.openMenu(); }
+    else if (this.overlay || this.done) return;
+    else if (k === 'h') this.doHint();
+  }
+};
+
+// desk tools drawn at the edges of the work area
+function drawTools() {
+  const tw = sprite('tweezers', (x, y) => { // pointing up-left, length ~44
+    const t = (y + 22) / 44; if (t < 0 || t > 1) return 0;
+    const spread = 0.6 + t * 2.4; const w = 0.9 + t * 0.6;
+    if (Math.abs(x - spread) < w || Math.abs(x + spread) < w) return t > 0.75 ? M.steel2 : M.steel;
+    return 0;
+  }, 24, 0.5);
+  ctx.drawImage(sprShadow(tw), WA.x + WA.w - 28 - tw.cx + 2, WA.y + 140 - tw.cy + 3); drawSpr(tw, WA.x + WA.w - 28, WA.y + 140);
+  const sd = sprite('driver', (x, y) => {
+    if (y > -24 && y < -6 && Math.abs(x) < 2.5) return (Math.round(y) & 2) ? M.wood : M.copper;
+    if (y >= -6 && y < -3 && Math.abs(x) < 2) return M.brass2;
+    if (y >= -3 && y < 14 && Math.abs(x) < 0.8) return M.steel;
+    if (y >= 14 && y < 16 && Math.abs(x) < 0.6) return M.steel2;
+    return 0;
+  }, 26, -0.35);
+  ctx.drawImage(sprShadow(sd), WA.x + WA.w - 18 - sd.cx + 2, WA.y + 52 - sd.cy + 3); drawSpr(sd, WA.x + WA.w - 18, WA.y + 52);
+  const lp = sprite('loupe', (x, y) => { const d = Math.hypot(x, y); if (d < 7) return d > 5.4 ? M.ink : (x + y < -3 && d < 4 ? M.silver | FH : M.night | FL); if (Math.abs(y - 0) < 6 && x > 6.5 && x < 13) return Math.abs(y) < (x < 9 ? 5 : 3.5) ? M.wood : 0; return 0; }, 14, 2.2);
+  ctx.drawImage(sprShadow(lp), WA.x + 22 - lp.cx + 2, WA.y + 156 - lp.cy + 3); drawSpr(lp, WA.x + 22, WA.y + 156);
+  // a few loose screws / gear on the desk
+  drawSpr(kSpr(KIND.screw, 0.7), WA.x + 12, WA.y + 24); drawSpr(kSpr(KIND.screw, 2.1), WA.x + 18, WA.y + 30);
+  drawSpr(kSpr(KIND.gearS, 0.3, 0.75), WA.x + 14, WA.y + 98, 0.9);
+}
+
+// ===== audio (all synthesized) =====
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+const AUDIO = {
+  ac: null, ok: false, duck: 1,
+  init() {
+    if (this.ac) { if (this.ac.state === 'suspended') this.ac.resume(); return; }
+    try { this.ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+    const ac = this.ac;
+    this.master = ac.createDynamicsCompressor(); this.master.threshold.value = -14; this.master.ratio.value = 3; this.master.connect(ac.destination);
+    this.bgm = ac.createGain(); this.se_ = ac.createGain(); this.duckG = ac.createGain();
+    this.bgm.connect(this.duckG); this.duckG.connect(this.master); this.se_.connect(this.master);
+    // reverb
+    const len = ac.sampleRate * 2.2, ir = ac.createBuffer(2, len, ac.sampleRate);
+    for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2) * (i < 200 ? i / 200 : 1); }
+    this.rev = ac.createConvolver(); this.rev.buffer = ir; const rg = ac.createGain(); rg.gain.value = 0.32; this.rev.connect(rg); rg.connect(this.master);
+    this.revB = ac.createGain(); this.revB.gain.value = 0.9; this.revB.connect(this.rev);
+    this.revS = ac.createGain(); this.revS.gain.value = 0.35; this.revS.connect(this.rev);
+    this.bgm.connect(this.revB); this.se_.connect(this.revS);
+    const nb = ac.createBuffer(1, ac.sampleRate, ac.sampleRate), nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1; this.noiseB = nb;
+    this.setVol(); this.ok = true;
+    if (ac.state === 'suspended') ac.resume();
+    this.startBGM();
+  },
+  setVol() { if (!this.ok && !this.ac) return; const b = SAVE.bgm / 10, s = SAVE.se / 10; this.bgm.gain.value = b * b * 0.55; this.se_.gain.value = s * s * 0.9; },
+  t() { return this.ac.currentTime; },
+  env(g, t, a, peak, dec) { g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + dec); },
+  osc(type, f, t, dur, peak, dest, a = 0.004, detune = 0) {
+    const ac = this.ac, o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f; o.detune.value = detune;
+    this.env(g, t, a, peak, dur); o.connect(g); g.connect(dest); o.start(t); o.stop(t + a + dur + 0.05); return o;
+  },
+  noise(t, dur, peak, dest, type = 'bandpass', f = 3000, q = 1) {
+    const ac = this.ac, s = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain();
+    s.buffer = this.noiseB; fl.type = type; fl.frequency.value = f; fl.Q.value = q; this.env(g, t, 0.001, peak, dur);
+    s.connect(fl); fl.connect(g); g.connect(dest); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.05);
+  },
+  // instruments
+  mbox(t, m, v, dest) { const f = mtof(m); this.osc('sine', f, t, 1.6, v, dest, 0.002); this.osc('sine', f * 2.01, t, 0.5, v * 0.28, dest, 0.002); this.osc('sine', f * 4.2, t, 0.12, v * 0.12, dest, 0.001); },
+  celesta(t, m, v, dest) { const f = mtof(m); this.osc('sine', f, t, 1.1, v, dest, 0.003); this.osc('triangle', f * 4, t, 0.25, v * 0.15, dest, 0.002); },
+  piano(t, m, v, dest, dur = 1.6) {
+    const ac = this.ac, f = mtof(m), fl = ac.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.setValueAtTime(Math.min(5000, f * 6), t); fl.frequency.exponentialRampToValueAtTime(Math.max(300, f * 1.5), t + dur); fl.connect(dest);
+    this.osc('triangle', f, t, dur, v, fl, 0.005); this.osc('sine', f * 2, t, dur * 0.5, v * 0.3, fl, 0.004); this.osc('sine', f * 0.5, t, dur * 0.8, v * 0.2, fl, 0.006);
+  },
+  pad(t, ms, dur, v, dest) {
+    const ac = this.ac, fl = ac.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = 900; fl.connect(dest);
+    for (const m of ms) for (const dt of [-7, 6]) {
+      const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sawtooth'; o.frequency.value = mtof(m); o.detune.value = dt;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + dur * 0.35); g.gain.linearRampToValueAtTime(v * 0.8, t + dur * 0.7); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.6);
+      o.connect(g); g.connect(fl); o.start(t); o.stop(t + dur + 0.7);
+    }
+  },
+  // ---- BGM: "THE CLOCKMAKER'S ROOM" (F major waltz) ----
+  CH: [[41, [57, 60, 64, 65]], [38, [57, 60, 62, 65]], [34, [57, 62, 65, 58]], [36, [58, 60, 64, 67]], [33, [57, 60, 64, 67]], [38, [57, 60, 62, 65]], [31, [58, 62, 65, 67]], [36, [58, 60, 64, 67]],
+  [41, [57, 60, 64, 65]], [33, [57, 60, 64, 67]], [38, [57, 60, 62, 65]], [34, [57, 62, 65, 58]], [31, [58, 62, 65, 67]], [36, [58, 60, 64, 67]], [41, [57, 60, 64, 65]], [36, [58, 60, 65, 67]]],
+  MEL: [[[69, 2], [72, 1]], [[77, 2], [76, 1]], [[74, 2], [72, 1]], [[70, 1], [69, 1], [67, 1]], [[69, 2], [76, 1]], [[74, 2], [72, 1]], [[70, 1], [74, 1], [77, 1]], [[76, 3]],
+  [[81, 2], [79, 1]], [[76, 2], [72, 1]], [[74, 1], [77, 1], [81, 1]], [[79, 2], [77, 1]], [[74, 2], [70, 1]], [[72, 1], [76, 1], [79, 1]], [[77, 3]], [[0, 1], [67, 1], [70, 1]]],
+  startBGM() {
+    if (this.bgmOn) return; this.bgmOn = true; this.beat = 0.82; this.nextBar = this.ac.currentTime + 0.3; this.bar = 0; this.loop = 0;
+    this.timer = setInterval(() => this.sched(), 120);
+  },
+  sched() {
+    if (!this.ac) return;
+    while (this.nextBar < this.ac.currentTime + 0.6) { this.playBar(this.nextBar, this.bar, this.loop); this.nextBar += this.beat * 3; this.bar++; if (this.bar >= 16) { this.bar = 0; this.loop++; } }
+  },
+  playBar(t, i, loop) {
+    const b = this.beat, d = this.bgm, [root, ch] = this.CH[i];
+    this.piano(t, root, 0.16, d, 2.2); this.piano(t, root + 12, 0.06, d, 1.4);
+    for (const k of [1, 2]) { this.piano(t + b * k, ch[0], 0.045, d, 0.7); this.piano(t + b * k, ch[1], 0.04, d, 0.7); this.piano(t + b * k, ch[2], 0.04, d, 0.7); }
+    if (i % 2 === 0) this.pad(t, [ch[0] - 12, ch[2] - 12, ch[1]], b * 6, 0.012, d);
+    let bt = 0; const alt = loop % 2 === 1;
+    for (const [m, l] of this.MEL[i]) {
+      if (m) { if (alt) this.celesta(t + bt * b, m + 12, 0.07, d); else this.mbox(t + bt * b, m + 12, 0.075, d); if (alt && l >= 2) this.mbox(t + bt * b + b, m + 19, 0.03, d); }
+      bt += l;
+    }
+    if (loop % 3 === 2) this.mbox(t + b * 2.5, ch[3] + 24, 0.025, d);
+  },
+  duckTo(v, sec) { if (!this.ok) return; const g = this.duckG.gain, t = this.t(); g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(v, t + sec); },
+  waltz() {
+    if (!this.ok) return; this.duckTo(0.15, 0.6); const t0 = this.t() + 0.5, b = 0.42, d = this.se_;
+    for (let i = 0; i < 8; i++) {
+      const t = t0 + i * b * 3, [root, ch] = this.CH[i];
+      this.mbox(t, root + 36, 0.05, d); this.mbox(t + b, ch[1] + 12, 0.035, d); this.mbox(t + b * 2, ch[2] + 12, 0.035, d);
+      let bt = 0; for (const [m, l] of this.MEL[i]) { if (m) this.mbox(t + bt * b, m + 12, 0.09, d); bt += l; }
+    }
+    setTimeout(() => this.duckTo(1, 2), (0.5 + 8 * b * 3) * 1000 + 800);
+  },
+  fanfare() {
+    if (!this.ok) return; this.duckTo(0.25, 0.3); const t = this.t() + 0.05, d = this.se_;
+    [77, 81, 84, 89, 93].forEach((m, i) => this.mbox(t + i * 0.11, m, 0.11, d));
+    for (const m of [77, 81, 84, 89]) this.mbox(t + 0.62, m, 0.06, d);
+    this.celesta(t + 0.62, 96, 0.05, d); this.celesta(t + 0.95, 101, 0.035, d);
+    setTimeout(() => this.duckTo(1, 2.5), 2600);
+  },
+  tick(v = 0.5, alt) { if (!this.ok) return; const t = this.t(); this.noise(t, 0.018, 0.09 * v, this.se_, 'bandpass', alt ? 2300 : 3600, 6); this.osc('sine', alt ? 1900 : 2700, t, 0.02, 0.012 * v, this.se_); },
+  se(n) {
+    if (!this.ok) return; const t = this.t(), d = this.se_;
+    switch (n) {
+      case 'select': this.osc('sine', 2600, t, 0.07, 0.07, d); this.osc('sine', 3920, t, 0.05, 0.035, d); break;
+      case 'pick': this.noise(t, 0.06, 0.12, d, 'bandpass', 2600, 2); this.osc('sine', 1800, t, 0.04, 0.03, d); break;
+      case 'rot': this.noise(t, 0.012, 0.18, d, 'highpass', 4000); this.osc('sine', 1500, t, 0.03, 0.04, d); break;
+      case 'click':
+        this.noise(t, 0.012, 0.5, d, 'highpass', 3500); this.noise(t + 0.038, 0.014, 0.42, d, 'highpass', 4200);
+        this.osc('sine', 320, t + 0.035, 0.08, 0.2, d); this.osc('sine', 2240, t + 0.04, 0.16, 0.035, d); break;
+      case 'wrong': { const o = this.osc('triangle', 520, t, 0.16, 0.09, d); o.frequency.exponentialRampToValueAtTime(430, t + 0.16); this.osc('sine', 760, t, 0.1, 0.05, d); this.noise(t, 0.03, 0.08, d, 'bandpass', 1200, 2); break; }
+      case 'gears': for (let i = 0; i < 6; i++) this.noise(t + i * 0.05, 0.01, 0.12 * (1 - i / 7), d, 'bandpass', 3200 + i * 120, 5); break;
+      case 'hint': this.celesta(t, 84, 0.06, d); this.celesta(t + 0.09, 91, 0.05, d); break;
+      case 'module': [72, 76, 79, 84].forEach((m, i) => this.mbox(t + i * 0.09, m, 0.08, d)); break;
+      case 'windup': for (let i = 0; i < 14; i++) { const tt = t + Math.pow(i / 14, 0.8) * 0.9; this.noise(tt, 0.01, 0.16, d, 'bandpass', 2800 + i * 60, 4); } break;
+      case 'page': this.noise(t, 0.12, 0.06, d, 'bandpass', 1800, 0.8); break;
+    }
+  }
+};
+
+// ===== title / select / collection / settings =====
+function bgGear(x, y, r, n, a, alpha = 0.55) {
+  const e = sprite('bgg' + r, gearFn({ r, n, spokes: 6, mat: M.wood, hub: r * 0.22, curve: 0.4, rim: 3, sw: 1.6 }), r, a);
+  drawSpr(e, x, y, alpha);
+}
+function unlocked(i) { return i === 0 || !!SAVE.cleared[i - 1] || !!SAVE.cleared[i]; }
+function firstOpen() { for (let i = 0; i < STAGES.length; i++) if (!SAVE.cleared[i] && unlocked(i)) return i; return 0; }
+function stars(n, x, y) { for (let i = 0; i < 5; i++) { const on = i < n; const c = on ? '#f0c860' : '#4a3828'; ctx.fillStyle = c; ctx.fillRect(x + i * 8 + 2, y, 1, 5); ctx.fillRect(x + i * 8, y + 2, 5, 1); ctx.fillRect(x + i * 8 + 1, y + 1, 3, 3); if (on) { ctx.fillStyle = '#fff2b0'; ctx.fillRect(x + i * 8 + 2, y + 1, 1, 1); } } }
+
+const Select = {
+  enter(i) {
+    this.sel = i == null ? firstOpen() : i; if (!unlocked(this.sel)) this.sel = firstOpen();
+    this.back = new Btn(6, 5, 52, 15, { label: 'TITLE', icon: 'back', cb: () => go(Title) });
+    this.play = new Btn(306, 186, 112, 22, { jp: '修理をはじめる', cb: () => { if (unlocked(this.sel)) go(Repair, this.sel); } });
+    this.btns = [this.back, this.play];
+  },
+  cell(i) { const c = i % 5, r = Math.floor(i / 5); return { x: 12 + c * 56, y: 30 + r * 92, w: 52, h: 88 }; },
+  update(dt) { updParts(dt); },
+  draw() {
+    ctx.drawImage(woodBG(W, H, 5), 0, 0);
+    ctx.drawImage(glowOverlay(W, H, 150, -20, 260, [255, 190, 110], 0.14, 5), 0, 0);
+    // velvet tray
+    ctx.fillStyle = COL.ink; ctx.fillRect(7, 25, 288, 188); ctx.fillStyle = '#7a4c1c'; ctx.fillRect(8, 26, 286, 186); ctx.fillStyle = '#d6a446'; ctx.fillRect(8, 26, 285, 1); ctx.fillRect(8, 26, 1, 185);
+    ctx.drawImage(cached('velvetTray', 280, 180, (x) => texFill(x, 0, 0, 280, 180, '#3a0e18', '#46121e', '#2e0a12')), 11, 29);
+    ctx.drawImage(nameplate('SELECT A WATCH', 100), 101, 8);
+    for (let i = 0; i < STAGES.length; i++) {
+      const c = this.cell(i), st = STAGES[i], un = unlocked(i), cl = !!SAVE.cleared[i];
+      ctx.fillStyle = '#24080e'; ctx.fillRect(c.x, c.y, c.w, c.h); ctx.fillStyle = '#5a1a26'; ctx.fillRect(c.x, c.y + c.h - 1, c.w, 1); ctx.fillRect(c.x + c.w - 1, c.y, 1, c.h);
+      if (i === this.sel) { ctx.strokeStyle = ((NOW * 2) | 0) % 2 ? '#f0c860' : '#c89640'; ctx.strokeRect(c.x + 0.5, c.y + 0.5, c.w - 1, c.h - 1); }
+      drawFace(st, c.x + c.w / 2, c.y + 40, 17, !un ? 'locked' : cl ? 'run' : 'broken');
+      pdraw(String(i + 1).padStart(2, '0'), c.x + 4, c.y + 4, un ? COL.gold : '#5a4030', COL.ink);
+      if (un) jpara(st.jp, c.x + 1, c.y + 62, c.w - 2, cl ? COL.gold : COL.cream, COL.ink, 10, 11, 'c');
+      if (cl) { ctx.fillStyle = '#8ad07a'; for (const [a, b] of [[0, 2], [1, 3], [2, 4], [3, 3], [4, 2], [5, 1], [6, 0]]) ctx.fillRect(c.x + c.w - 11 + a, c.y + 4 + b, 1, 2); }
+    }
+    // detail panel
+    ctx.drawImage(framePanel(130, 210), 299, 3);
+    const st = STAGES[this.sel], un = unlocked(this.sel), cl = !!SAVE.cleared[this.sel];
+    drawFace(st, 364, 44, 25, cl ? 'run' : 'broken');
+    pdraw(st.name, 364, 82, COL.gold, COL.ink, 1, 'c');
+    jdraw(st.jp, 364, 92, COL.cream, COL.ink, 10, 'c');
+    jdraw(st.era, 364, 104, COL.creamD, COL.ink, 10, 'c');
+    stars(st.diff, 345, 118);
+    const n = stageParts(st).filter(s => !s.pre).length; jdraw('部品 ' + n + ' 点', 364, 126, COL.creamD, COL.ink, 10, 'c');
+    jdraw(cl ? '修理済み' : '故障の状態', 306, 140, cl ? '#8ad07a' : '#e09070', COL.ink, 10);
+    jpara(cl ? st.mech : st.fault, 306, 152, 118, COL.cream, COL.ink, 10, 11);
+    this.play.jp = cl ? 'もう一度修理する' : (SAVE.progress[this.sel] && SAVE.progress[this.sel].length ? '修理を続ける' : '修理をはじめる');
+    this.play.enabled = un;
+    for (const b of this.btns) b.draw();
+    ctx.drawImage(vignette(W, H, 0.35), 0, 0);
+  },
+  down(p) {
+    for (const b of this.btns) if (b.hit(p)) { b.down = true; return; }
+    for (let i = 0; i < STAGES.length; i++) { const c = this.cell(i); if (p.x >= c.x && p.y >= c.y && p.x < c.x + c.w && p.y < c.y + c.h) { if (unlocked(i)) { if (this.sel === i && this.lastTap && NOW - this.lastTap < 0.4) { go(Repair, i); } this.sel = i; this.lastTap = NOW; AUDIO.se('select'); } else AUDIO.se('wrong'); } }
+  },
+  move(p) { for (const b of this.btns) b.hover = b.hit(p); },
+  up(p) { for (const b of this.btns) { if (b.down && b.hit(p)) { AUDIO.se('select'); b.cb(); } b.down = false; } },
+  key(e) {
+    if (e.key === 'Escape') go(Title);
+    const d = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 5, ArrowUp: -5 }[e.key];
+    if (d) { const n = this.sel + d; if (n >= 0 && n < STAGES.length && unlocked(n)) { this.sel = n; AUDIO.se('select'); } }
+    if (e.key === 'Enter') go(Repair, this.sel);
+  }
+};
+
+const Collection = {
+  enter(focus) {
+    this.back = new Btn(6, 5, 52, 15, { label: 'TITLE', icon: 'back', cb: () => go(Title) });
+    this.btns = [this.back]; this.zoom = null;
+    if (focus != null && SAVE.cleared[focus]) this.open(focus);
+  },
+  open(i) { const v = new WatchView(STAGES[i]); for (const s of v.parts) { v.inst.add(s.id); v.A[s.id].sink = 1; } v.startRun(); v.ramp = 1; v.handF = 0.4; this.zoom = { i, v }; AUDIO.se('page'); },
+  cell(i) { const c = i % 5, r = Math.floor(i / 5); return { x: 40 + c * 74, y: 48 + r * 80 }; },
+  update(dt) { if (this.zoom) this.zoom.v.update(dt); updParts(dt); },
+  draw() {
+    ctx.drawImage(wallBG(), 0, 0);
+    // cabinet
+    ctx.drawImage(woodBG(392, 186, 1, 0), 20, 26);
+    ctx.fillStyle = COL.ink; ctx.strokeStyle = COL.ink; ctx.strokeRect(19.5, 25.5, 393, 187);
+    ctx.drawImage(cached('cabIn', 376, 166, (x) => { texFill(x, 0, 0, 376, 166, '#1e100c', '#24140e', '#1a0c08'); }), 28, 34);
+    for (const sy of [104, 184]) { ctx.fillStyle = '#8a5a30'; ctx.fillRect(28, sy, 376, 3); ctx.fillStyle = '#c8945a'; ctx.fillRect(28, sy, 376, 1); ctx.fillStyle = '#2a1608'; ctx.fillRect(28, sy + 3, 376, 1); }
+    ctx.drawImage(glowOverlay(376, 166, 188, -30, 240, [255, 200, 120], 0.12, 5), 28, 34);
+    ctx.drawImage(nameplate('COLLECTION', 80), 176, 8);
+    const n = Object.keys(SAVE.cleared).length; ctx.drawImage(ttext(n + '/10'), 392, 12);
+    for (let i = 0; i < STAGES.length; i++) {
+      const c = this.cell(i), st = STAGES[i], cl = !!SAVE.cleared[i];
+      // pedestal
+      ctx.fillStyle = COL.ink; ctx.fillRect(c.x - 16, c.y + 30, 32, 6); ctx.fillStyle = '#6a3e1e'; ctx.fillRect(c.x - 15, c.y + 31, 30, 4); ctx.fillStyle = '#a8703a'; ctx.fillRect(c.x - 15, c.y + 31, 30, 1);
+      if (cl) { drawFace(st, c.x, c.y + 8, 14, 'run'); jdraw(st.jp.slice(0, 6), c.x, c.y + 38, COL.cream, COL.ink, 10, 'c'); }
+      else { ctx.globalAlpha = 0.35; drawFace(st, c.x, c.y + 8, 14, 'locked'); ctx.globalAlpha = 1; pdraw('?', c.x, c.y + 40, '#5a4030', null, 1, 'c'); }
+      // glass dome
+      ctx.drawImage(cached('dome', 40, 50, (x) => {
+        x.fillStyle = 'rgba(200,220,255,0.10)'; for (let j = 0; j < 50; j++) for (let k = 0; k < 40; k++) { const dx = (k - 20) / 18, dy = (j - 20) / 20; const inD = j < 20 ? dx * dx + dy * dy < 1 : Math.abs(dx) < 1; if (inD && j < 48) x.fillRect(k, j, 1, 1); }
+        x.fillStyle = 'rgba(255,255,255,0.45)'; for (let j = 6; j < 40; j++) { const k = j < 20 ? Math.round(20 - 18 * Math.sqrt(1 - Math.pow((j - 20) / 20, 2))) + 3 : 5; x.fillRect(k, j, 1, 1); }
+        x.fillStyle = 'rgba(255,255,255,0.7)'; x.fillRect(14, 3, 4, 1); x.fillRect(12, 4, 2, 1);
+      }), c.x - 20, c.y - 18);
+    }
+    for (const b of this.btns) b.draw();
+    if (!n) jdraw('修理した時計が、ここに飾られます。', 216, 192, COL.creamD, COL.ink, 10, 'c');
+    ctx.drawImage(vignette(W, H, 0.4), 0, 0);
+    if (this.zoom) this.drawZoom();
+  },
+  drawZoom() {
+    const { i, v } = this.zoom, st = STAGES[i];
+    shade(0.78);
+    ctx.drawImage(glowOverlay(W, H, 112, 110, 110, [255, 210, 140], 0.12, 5), 0, 0);
+    v.draw(112, 114);
+    ctx.drawImage(framePanel(196, 204, { paper: 1 }), 230, 6);
+    pdraw(st.name, 328, 14, '#6a3a14', null, 1, 'c');
+    jdraw(st.jp, 328, 24, COL.paperInk, null, 10, 'c');
+    ctx.fillStyle = '#b8a070'; ctx.fillRect(244, 37, 168, 1);
+    const rows = [['製造年代', st.era], ['素材', st.mat], ['機構', st.mech], ['修理状態', '修理済み（' + String(SAVE.cleared[i]).replace(/-/g, '.') + '）']];
+    let y = 42; for (const [a, b] of rows) { jdraw(a, 240, y, '#8a4a20', null, 10); const nn = jpara(b, 290, y, 128, COL.paperInk, null, 10, 12); y += nn * 12 + 1; }
+    ctx.fillStyle = '#b8a070'; ctx.fillRect(244, y + 2, 168, 1);
+    jpara(st.story, 240, y + 6, 178, COL.paperInkL, null, 10, 12);
+    jdraw('◀ ▶ で切りかえ・タップで閉じる', 328, 197, '#9a7a50', null, 10, 'c');
+  },
+  step(d) { if (!this.zoom) return; const ids = STAGES.map((s, i) => i).filter(i => SAVE.cleared[i]); const k = ids.indexOf(this.zoom.i); this.open(ids[(k + d + ids.length) % ids.length]); },
+  down(p) {
+    if (this.zoom) { if (p.x > 230) { if (p.y > 180) { if (p.x < 300) this.step(-1); else if (p.x > 356) this.step(1); else this.zoom = null; } else this.zoom = null; } else this.zoom = null; return; }
+    for (const b of this.btns) if (b.hit(p)) { b.down = true; return; }
+    for (let i = 0; i < STAGES.length; i++) { const c = this.cell(i); if (Math.abs(p.x - c.x) < 22 && p.y > c.y - 18 && p.y < c.y + 46 && SAVE.cleared[i]) { this.open(i); return; } }
+  },
+  move(p) { for (const b of this.btns) b.hover = b.hit(p); },
+  up(p) { for (const b of this.btns) { if (b.down && b.hit(p)) { AUDIO.se('select'); b.cb(); } b.down = false; } },
+  key(e) { if (e.key === 'Escape') { if (this.zoom) this.zoom = null; else go(Title); } if (e.key === 'ArrowRight') this.step(1); if (e.key === 'ArrowLeft') this.step(-1); }
+};
+
+const Settings = {
+  enter() {
+    this.confirm = 0;
+    const mk = (y, key) => [new Btn(214, y, 16, 13, { icon: 'minus', cb: () => { SAVE[key] = clamp(SAVE[key] - 1, 0, 10); save(); AUDIO.setVol(); if (key === 'se') AUDIO.se('click'); } }), new Btn(318, y, 16, 13, { icon: 'plus', cb: () => { SAVE[key] = clamp(SAVE[key] + 1, 0, 10); save(); AUDIO.setVol(); if (key === 'se') AUDIO.se('click'); } })];
+    this.btns = [...mk(52, 'bgm'), ...mk(72, 'se'),
+      new Btn(158, 182, 116, 16, { jp: 'もどる', cb: () => go(Title) }),
+      new Btn(214, 96, 120, 15, { jp: 'セーブデータを消去', cb: () => { if (this.confirm) { SAVE.cleared = {}; SAVE.progress = {}; save(); this.confirm = 0; this.erased = 2; } else this.confirm = 1; } })];
+  },
+  update(dt) { if (this.erased) this.erased = Math.max(0, this.erased - dt); },
+  draw() {
+    ctx.drawImage(wallBG(), 0, 0);
+    ctx.drawImage(framePanel(300, 196), 66, 10);
+    ctx.drawImage(nameplate('SETTINGS', 70), 181, 14);
+    const bar = (y, v) => { ctx.fillStyle = COL.ink; ctx.fillRect(235, y + 2, 78, 9); for (let i = 0; i < 10; i++) { ctx.fillStyle = i < v ? (i < 7 ? '#d6a446' : '#f0c860') : '#2a1a10'; ctx.fillRect(236 + i * 7 + 1, y + 3, 5, 7); } };
+    jdraw('BGM 音量', 92, 53, COL.cream, COL.ink, 10); bar(52, SAVE.bgm); pdraw(String(SAVE.bgm), 346, 55, COL.gold, COL.ink);
+    jdraw('効果音 音量', 92, 73, COL.cream, COL.ink, 10); bar(72, SAVE.se); pdraw(String(SAVE.se), 346, 75, COL.gold, COL.ink);
+    jdraw('データ', 92, 98, COL.cream, COL.ink, 10);
+    this.btns[5].jp = this.confirm ? 'もう一度押すと消去' : this.erased ? '消去しました' : 'セーブデータを消去';
+    ctx.fillStyle = '#6a4220'; ctx.fillRect(82, 118, 268, 1);
+    jdraw('操作', 92, 124, COL.gold, COL.ink, 10);
+    jpara('部品をドラッグして図面の位置へ。部品を選んでから場所をタップしてもOK。', 130, 124, 222, COL.creamD, COL.ink, 10, 12);
+    jpara('回転：INFO の回転ボタン　ヒント：H　メニュー：Esc', 130, 150, 222, COL.creamD, COL.ink, 10, 12);
+    for (const b of this.btns) b.draw();
+  },
+  down(p) { for (const b of this.btns) if (b.hit(p)) { b.down = true; return; } },
+  move(p) { for (const b of this.btns) b.hover = b.hit(p); },
+  up(p) { for (const b of this.btns) { if (b.down && b.hit(p)) { if (b !== this.btns[5]) this.confirm = 0; AUDIO.se('select'); b.cb(); } b.down = false; } },
+  key(e) { if (e.key === 'Escape') go(Title); }
+};
+
+// ===== title screen: the user's illustration reduced to 216x108 (28 colours), shown at 2x =====
+const TITLE_IMG = new Image(); TITLE_IMG.src = 'data:image/png;base64,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';
+const TWINKLE = [[40, 15], [230, 15], [62, 117], [180, 157], [240, 123], [300, 22], [12, 70], [150, 40], [205, 60], [330, 36], [118, 132]];
+const Title = {
+  enter() {
+    this.t = 0; this.sel = -1;
+    const mk = (x, y, w, h, label, cb) => new Btn(x, y, w, h, { style: 'img', label, cb });
+    this.btns = [mk(267, 127, 117, 23, 'START', () => go(Select, firstOpen())), mk(272, 157, 105, 17, 'COLLECTION', () => go(Collection)), mk(272, 180, 105, 18, 'SETTINGS', () => go(Settings))];
+  },
+  update(dt) {
+    this.t += dt; updParts(dt);
+    if (rnd() < dt * 4) spark(rnd() * W, H + 2, { vx: (rnd() - 0.5) * 4, vy: -5 - rnd() * 7, life: 6 + rnd() * 4, col: rnd() < 0.5 ? '#f0c86077' : '#fff2b066', kind: 'dot', s: 2 });
+    if (rnd() < dt * 2.2) { const p = TWINKLE[(rnd() * TWINKLE.length) | 0]; spark(p[0] + (rnd() - 0.5) * 14, p[1] + (rnd() - 0.5) * 10, { kind: 'star', life: 0.9 + rnd() * 0.7, col: '#fffbe0', col2: '#f0c860' }); }
+    if (rnd() < dt * 1.2) spark(140 + rnd() * 110, 8 + rnd() * 70, { kind: 'star', life: 0.8 + rnd() * 0.6, col: '#fff6e8', col2: '#e8c8f0' });
+  },
+  draw() {
+    if (TITLE_IMG.complete && TITLE_IMG.naturalWidth) ctx.drawImage(TITLE_IMG, 0, 0, W, H); else { ctx.fillStyle = '#1e1220'; ctx.fillRect(0, 0, W, H); }
+    const fl = 0.55 + 0.25 * Math.sin(this.t * 7.3) * Math.sin(this.t * 3.1 + 1) + 0.15 * Math.sin(this.t * 13);
+    ctx.globalAlpha = clamp(fl, 0.2, 1); ctx.drawImage(glowOverlay(W / 2, H / 2, 202, 86, 26, [255, 186, 96], 0.26, 4), 0, 0, W, H); ctx.globalAlpha = 1;
+    drawParts();
+    const sub = '最後の一秒を、もう一度。', sw = jwidth(sub, 10);
+    jdraw(sub, 316, 97, '#f2dca0', '#1c100a', 10, 'c');
+    ctx.fillStyle = '#c8945a'; ctx.fillRect(Math.round(316 - sw / 2 - 16), 102, 10, 2); ctx.fillRect(Math.round(316 + sw / 2 + 6), 102, 10, 2);
+    pdraw('START', 330, 136, '#f6e2a8', '#1c100a', 1, 'c', 2);
+    ctx.fillStyle = '#1c100a'; for (let k = 0; k < 4; k++) ctx.fillRect(305 + k, 137 + k, 1, 7 - k * 2);
+    ctx.fillStyle = '#f6e2a8'; for (let k = 0; k < 4; k++) ctx.fillRect(304 + k, 136 + k, 1, 7 - k * 2);
+    pdraw('COLLECTION', 324, 162, '#e8d2a0', '#1c100a', 1, 'c');
+    pdraw('SETTINGS', 324, 184, '#e8d2a0', '#1c100a', 1, 'c');
+    this.btns.forEach((b, i) => {
+      if (!(b.hover || this.sel === i)) return;
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.3 + 0.1 * Math.sin(this.t * 6);
+      ctx.fillStyle = '#c08a40'; ctx.fillRect(b.x + 4, b.y + 4, b.w - 8, b.h - 8);
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#ffe9a8'; ctx.fillRect(b.x + 4, b.y + 3, b.w - 8, 1); ctx.fillRect(b.x + 4, b.y + b.h - 4, b.w - 8, 1);
+      drawGearCursor(b.x - (i ? 8 : 12), b.y + b.h / 2);
+    });
+  },
+  down(p) { for (const b of this.btns) if (b.hit(p)) b.down = true; },
+  move(p) { for (const b of this.btns) b.hover = b.hit(p); if (this.btns.some(b => b.hover)) this.sel = -1; },
+  up(p) { for (const b of this.btns) { if (b.down && b.hit(p)) { AUDIO.se('select'); b.cb(); } b.down = false; } },
+  key(e) {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { this.sel = this.sel < 0 ? 0 : (this.sel + (e.key === 'ArrowDown' ? 1 : -1) + 3) % 3; AUDIO.se('select'); }
+    if (e.key === 'Enter' || e.key === ' ') { (this.btns[this.sel] || this.btns[0]).cb(); AUDIO.se('select'); }
+  }
+};
+
+// ===== main loop, scenes, input =====
+let NOW = 0, SCENE = null, NEXT = null, FADE = 0, FADE_DIR = 0;
+function go(scene, arg) { if (NEXT) return; NEXT = [scene, arg]; FADE_DIR = 1; }
+function toGame(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H, touch: e.pointerType === 'touch' || e.pointerType === 'pen' }; }
+let firstGesture = true;
+function gesture() { AUDIO.init(); if (firstGesture) { firstGesture = false; } }
+cv.addEventListener('pointerdown', e => {
+  e.preventDefault(); gesture(); try { cv.setPointerCapture(e.pointerId); } catch (_) { }
+  if (FADE_DIR) return; const p = toGame(e);
+  if (e.button === 2) return;
+  SCENE.down && SCENE.down(p);
+});
+cv.addEventListener('pointermove', e => { const p = toGame(e); SCENE && SCENE.move && SCENE.move(p); });
+cv.addEventListener('pointerup', e => { if (e.button === 2) return; const p = toGame(e); if (!FADE_DIR) SCENE.up && SCENE.up(p); });
+cv.addEventListener('pointercancel', e => { const p = toGame(e); SCENE.up && SCENE.up({ x: -99, y: -99 }); });
+cv.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('wheel', e => e.preventDefault(), { passive: false });
+window.addEventListener('keydown', e => { gesture(); if (!FADE_DIR && SCENE.key) SCENE.key(e); if (['ArrowUp', 'ArrowDown', ' '].includes(e.key)) e.preventDefault(); });
+document.addEventListener('visibilitychange', () => { if (!AUDIO.ac) return; if (document.hidden) AUDIO.ac.suspend(); else AUDIO.ac.resume(); });
+
+let last = performance.now();
+function frame(t) {
+  let dt = Math.min(0.05, (t - last) / 1000); last = t; NOW += dt;
+  if (FADE_DIR > 0) { FADE += dt * 4; if (FADE >= 1) { FADE = 1; PARTS.length = 0; SCENE = NEXT[0]; SCENE.enter(NEXT[1]); NEXT = null; FADE_DIR = -1; AUDIO.se('page'); } }
+  else if (FADE_DIR < 0) { FADE -= dt * 4; if (FADE <= 0) { FADE = 0; FADE_DIR = 0; } }
+  SCENE.update(dt);
+  ctx.setTransform(RS, 0, 0, RS, 0, 0); ctx.imageSmoothingEnabled = false;
+  SCENE.draw();
+  if (FADE > 0) ditherFill(FADE);
+  requestAnimationFrame(frame);
+}
+fit();
+SCENE = Title; Title.enter();
+requestAnimationFrame(frame);
+// dev hooks
+
+
+</script></body></html>
