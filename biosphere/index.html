@@ -1,0 +1,2544 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>LITTLE BIOSPHERE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<style>
+/*
+VOICE: やさしい、おもちゃ箱のような、静かに眺めていられる
+IDEA: 手のひらにのる、ガラス玉の中のちいさな星
+PICTURE: 画面の中央にまるい低ポリの星。UI はすみに小さく、すりガラスのパステル
+COLOUR and TYPE: 空はパステルの水色〜桃色、UI は白いすりガラスにすみれ灰の文字、差し色はミントとさんご。Fredoka（英字）＋ M PLUS Rounded 1c
+LAYOUT: 上の左右に小さな操作、下の中央にカテゴリと道具、右下に大きな GROW
+*/
+:root{--ink:#5b5573;--ink2:#8a83a3;--glass:rgba(255,255,255,.74);--line:rgba(255,255,255,.9);--mint:#6fd3ad;--mint2:#4fbf98;--coral:#ff8f9f;--sun:#ffd36b;--shadow:0 10px 30px rgba(92,80,150,.16),0 2px 6px rgba(92,80,150,.08);--dockH:150px;color-scheme:light}
+*{box-sizing:border-box;min-width:0;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#cfe9ff;color:var(--ink);font:500 14px/1.45 "M PLUS Rounded 1c","Hiragino Maru Gothic ProN",system-ui,sans-serif;user-select:none;-webkit-user-select:none;touch-action:none}
+canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;outline:none}
+#vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 46%,transparent 58%,rgba(70,60,130,.13) 100%)}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+button:focus-visible,input:focus-visible{outline:3px solid #a99cff;outline-offset:2px}
+.panel{background:var(--glass);backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow)}
+.hidden{display:none!important}
+svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+#hud{position:fixed;inset:0;pointer-events:none}
+#hud>*{pointer-events:auto}
+#tl{position:absolute;left:max(16px,env(safe-area-inset-left));top:max(14px,env(safe-area-inset-top));pointer-events:none}
+.logo{font:700 19px/1 Fredoka,sans-serif;letter-spacing:.02em;color:#fff;text-shadow:0 2px 0 rgba(120,100,190,.25),0 6px 18px rgba(120,100,190,.25)}
+.logo b{color:#fff6c9;font-weight:700}
+#stats{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;pointer-events:auto}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px 4px 8px;border-radius:99px;background:rgba(255,255,255,.62);border:1px solid var(--line);font-size:12px;font-weight:700;color:var(--ink);box-shadow:0 2px 8px rgba(92,80,150,.08)}
+.chip i{width:8px;height:8px;border-radius:50%;display:block}
+#tr{position:absolute;right:max(14px,env(safe-area-inset-right));top:max(12px,env(safe-area-inset-top));display:flex;gap:4px;padding:5px;border-radius:18px}
+.ib{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;color:var(--ink);transition:background .15s,transform .15s}
+.ib:hover{background:rgba(255,255,255,.8)}.ib:active{transform:scale(.92)}
+.ib[disabled]{opacity:.35;pointer-events:none}
+.ib.sep{margin-left:4px}
+#toasts{position:absolute;left:50%;top:max(16px,env(safe-area-inset-top));transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;width:min(380px,70vw)}
+.toast{padding:10px 18px 10px 12px;border-radius:18px;display:flex;align-items:center;gap:10px;font-weight:700;animation:tin .45s cubic-bezier(.2,1.4,.4,1) both;max-width:100%}
+.toast small{display:block;font-weight:500;color:var(--ink2);font-size:12px}
+.toast .dot{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,#ffd36b,#ff9fb0)}
+.toast.out{animation:tout .4s ease both}
+@keyframes tin{from{opacity:0;transform:translateY(-14px) scale(.9)}}
+@keyframes tout{to{opacity:0;transform:translateY(-10px)}}
+#dock{position:absolute;left:50%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;width:min(760px,calc(100vw - 190px))}
+#cats{display:flex;gap:2px;padding:5px;border-radius:20px}
+.cat{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 10px 5px;border-radius:15px;min-width:64px;font-size:12px;font-weight:700;color:var(--ink2);transition:background .15s,color .15s}
+.cat:hover{background:rgba(255,255,255,.7);color:var(--ink)}
+.cat.on{background:#fff;color:var(--ink);box-shadow:0 3px 10px rgba(92,80,150,.12)}
+.cat.on svg{color:var(--mint2)}
+.cat.selc{border-right:1px solid rgba(140,130,180,.18);border-radius:15px 15px 15px 15px;margin-right:3px}
+#tray{width:100%;padding:12px 14px;border-radius:20px;display:flex;flex-direction:column;gap:10px;animation:tray .3s cubic-bezier(.2,1.2,.4,1) both}
+@keyframes tray{from{opacity:0;transform:translateY(10px)}}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row.scroll{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.row.scroll::-webkit-scrollbar{display:none}
+.lbl{font-size:12px;font-weight:700;color:var(--ink2);min-width:3.6em}
+.tool{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:62px;padding:6px 6px 5px;border-radius:14px;font-size:11.5px;font-weight:700;color:var(--ink);background:rgba(255,255,255,.55);border:2px solid transparent;transition:transform .15s,border-color .15s,background .15s;flex:none}
+.tool:hover{background:#fff}.tool:active{transform:scale(.94)}
+.tool.on{border-color:var(--mint);background:#fff;box-shadow:0 4px 12px rgba(80,190,150,.22)}
+.tool img{width:44px;height:44px;display:block;image-rendering:auto}
+.tool .ti{width:44px;height:44px;display:grid;place-items:center}
+.tool .ti svg{width:28px;height:28px}
+.sw{width:30px;height:30px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(92,80,150,.2);flex:none;transition:transform .15s}
+.sw.on{transform:scale(1.15);box-shadow:0 0 0 2px var(--mint),0 2px 8px rgba(92,80,150,.25)}
+.seg{display:inline-flex;background:rgba(255,255,255,.5);border-radius:12px;padding:3px;gap:2px}
+.seg button{padding:5px 11px;border-radius:9px;font-size:12px;font-weight:700;color:var(--ink2)}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:0 2px 6px rgba(92,80,150,.12)}
+input[type=range]{-webkit-appearance:none;appearance:none;height:28px;background:transparent;flex:1;min-width:90px;max-width:220px}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:6px;background:linear-gradient(90deg,var(--mint) var(--p,50%),rgba(140,130,180,.22) var(--p,50%))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;margin-top:-7px;border-radius:50%;background:#fff;border:0;box-shadow:0 2px 6px rgba(92,80,150,.35)}
+input[type=range]::-moz-range-track{height:6px;border-radius:6px;background:rgba(140,130,180,.22)}
+input[type=range]::-moz-range-progress{height:6px;border-radius:6px;background:var(--mint)}
+input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#fff;border:0;box-shadow:0 2px 6px rgba(92,80,150,.35)}
+input[type=color]{width:30px;height:30px;border:0;padding:0;border-radius:50%;overflow:hidden;background:none;cursor:pointer}
+input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-webkit-color-swatch{border:3px solid #fff;border-radius:50%}
+.sld{display:flex;align-items:center;gap:8px;flex:1 1 200px}
+.sld output{font-size:12px;font-weight:700;color:var(--ink2);width:2.4em;text-align:right;font-variant-numeric:tabular-nums}
+#hint{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(var(--dockH) + 22px);font-size:12px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(70,60,130,.5);white-space:nowrap;pointer-events:none;transition:opacity .3s;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
+#grow{position:absolute;right:max(18px,env(safe-area-inset-right));bottom:max(18px,env(safe-area-inset-bottom));width:96px;height:96px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;color:#fff;font:700 16px/1 Fredoka,sans-serif;letter-spacing:.06em;background:radial-gradient(circle at 35% 28%,#a6f0c6,#5fcf9f 55%,#3fb48a);box-shadow:0 12px 26px rgba(63,180,138,.42),inset 0 -5px 0 rgba(0,0,0,.08),inset 0 3px 0 rgba(255,255,255,.45);transition:transform .2s cubic-bezier(.2,1.6,.4,1)}
+#grow svg{width:38px;height:38px;stroke-width:2.1;margin-bottom:2px}
+#grow:hover{transform:scale(1.05)}#grow:active{transform:scale(.92)}
+#grow::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:3px solid rgba(255,255,255,.75);opacity:0;pointer-events:none}
+#grow.pulse::after{animation:ring .9s ease-out}
+#grow .n{position:absolute;top:-4px;right:-4px;min-width:26px;height:26px;padding:0 6px;border-radius:13px;background:#fff;color:var(--mint2);font:700 12px/26px Fredoka;box-shadow:0 2px 6px rgba(92,80,150,.2)}
+@keyframes ring{from{opacity:1;transform:scale(.9)}to{opacity:0;transform:scale(1.5)}}
+#sel{position:absolute;left:max(16px,env(safe-area-inset-left));bottom:max(16px,env(safe-area-inset-bottom));width:236px;padding:14px;display:flex;flex-direction:column;gap:10px;animation:tray .3s cubic-bezier(.2,1.2,.4,1) both}
+#sel .sld{flex:none}
+#sel h3{margin:0;font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px}
+#sel h3 small{font-size:11px;font-weight:700;color:var(--ink2);background:rgba(255,255,255,.7);padding:2px 8px;border-radius:9px}
+.stg{display:flex;gap:4px}.stg i{flex:1;height:6px;border-radius:3px;background:rgba(140,130,180,.2)}.stg i.on{background:var(--mint)}
+.btns{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.btns .ib{width:auto;height:40px;background:rgba(255,255,255,.55)}
+.btns .ib.del{color:#e26b7c}
+#title{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 20px max(9vh,40px);pointer-events:none;transition:opacity .8s}
+#title.gone{opacity:0}
+#title .big{font:700 clamp(40px,8vw,76px)/.95 Fredoka,sans-serif;color:#fff;text-align:center;letter-spacing:.01em;text-shadow:0 4px 0 rgba(130,110,200,.22),0 14px 40px rgba(130,110,200,.3);position:absolute;top:max(9vh,36px);left:0;right:0;animation:float 6s ease-in-out infinite}
+#title .big span{display:block;font:700 clamp(14px,2.2vw,18px)/1.4 "M PLUS Rounded 1c";letter-spacing:.3em;margin-top:14px;text-shadow:0 2px 8px rgba(110,90,180,.35)}
+@keyframes float{50%{transform:translateY(-6px)}}
+#title .menu{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;pointer-events:auto}
+.big-b{padding:14px 26px;border-radius:99px;font-size:16px;font-weight:800;background:#fff;color:var(--ink);box-shadow:var(--shadow);transition:transform .2s cubic-bezier(.2,1.6,.4,1)}
+.big-b:hover{transform:translateY(-2px) scale(1.03)}.big-b:active{transform:scale(.96)}
+.big-b.pri{background:linear-gradient(135deg,#8ee6bd,#5cc9a0);color:#fff}
+#title p{margin:14px 0 0;font-size:12px;font-weight:700;color:#fff;text-shadow:0 1px 4px rgba(70,60,130,.45);text-align:center}
+#modal{position:fixed;inset:0;display:grid;place-items:center;background:rgba(90,80,140,.22);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);z-index:10;padding:16px}
+#modal .card{width:min(560px,100%);max-height:min(82vh,720px);overflow:auto;padding:20px 22px;border-radius:26px;animation:tray .3s cubic-bezier(.2,1.2,.4,1) both;background:rgba(255,255,255,.9)}
+#modal h2{margin:0 0 4px;font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:space-between;gap:10px}
+#modal .sub{color:var(--ink2);font-size:12.5px;margin:0 0 14px}
+.slots{display:grid;gap:10px}
+.slot{display:grid;grid-template-columns:112px 1fr auto;gap:12px;align-items:center;padding:8px;border-radius:16px;background:rgba(245,242,255,.8)}
+.slot img,.slot .ph{width:112px;height:70px;border-radius:11px;object-fit:cover;background:linear-gradient(135deg,#d7ecff,#ffe3ef);display:block}
+.slot b{display:block;font-size:14px}.slot small{color:var(--ink2);font-size:12px}
+.slot .acts{display:flex;gap:6px}
+.sb{padding:8px 13px;border-radius:11px;font-size:12.5px;font-weight:800;background:#fff;box-shadow:0 2px 6px rgba(92,80,150,.12)}
+.sb.pri{background:var(--mint);color:#fff}.sb.warn{color:#d9596c}
+.sb[disabled]{opacity:.4;pointer-events:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.disc{padding:10px 12px;border-radius:14px;background:rgba(245,242,255,.85);display:flex;gap:10px;align-items:flex-start}
+.disc .ic{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;font:700 13px Fredoka;color:#fff}
+.disc b{display:block;font-size:13px}.disc small{display:block;font-size:11.5px;color:var(--ink2);line-height:1.4}
+.disc.lock{opacity:.55}.disc.lock .ic{background:#cfc9e2!important}
+.set{display:grid;gap:12px}
+.set .r{display:flex;align-items:center;gap:12px}
+.set .r .lbl{min-width:7.5em;font-size:13px}
+.tg{width:46px;height:28px;border-radius:14px;background:rgba(140,130,180,.3);position:relative;transition:background .2s;flex:none}
+.tg::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18);transition:transform .2s}
+.tg.on{background:var(--mint)}.tg.on::after{transform:translateX(18px)}
+textarea{width:100%;height:120px;border-radius:12px;border:1px solid rgba(140,130,180,.3);padding:10px;font:12px/1.4 ui-monospace,monospace;color:var(--ink);background:#fff;resize:vertical}
+#loading{position:fixed;inset:0;display:grid;place-items:center;background:linear-gradient(#bfe3ff,#ffe6f1);font:700 18px Fredoka;color:#fff;z-index:20;transition:opacity .6s}
+#loading div{display:flex;flex-direction:column;align-items:center;gap:14px;text-shadow:0 2px 8px rgba(110,90,180,.35)}
+#loading i{width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#bff3cf,#6fd3ad);animation:bob 1s ease-in-out infinite alternate;box-shadow:0 10px 24px rgba(80,180,140,.35)}
+@keyframes bob{to{transform:translateY(-10px) scale(1.06)}}
+.keys{font-size:12px;color:var(--ink2);line-height:1.8}
+.keys kbd{display:inline-block;min-width:22px;padding:0 6px;border-radius:6px;background:#fff;border:1px solid rgba(140,130,180,.3);font:700 11px/20px Fredoka;text-align:center;color:var(--ink)}
+@media (max-width:820px){
+ #dock{width:calc(100vw - 20px);bottom:max(8px,env(safe-area-inset-bottom))}
+ #cats{width:100%;justify-content:space-between}
+ .cat{min-width:0;flex:1;padding:6px 2px 5px;font-size:10.5px}
+ #grow{width:76px;height:76px;font-size:13px;bottom:calc(var(--dockH) + 18px);right:12px}
+ #grow svg{width:30px;height:30px}
+ #sel{left:10px;right:auto;bottom:calc(var(--dockH) + 18px);width:min(236px,calc(100vw - 110px));padding:12px}
+ #tr .ib{width:38px;height:38px}
+ #tr{gap:1px;padding:4px}
+ .logo{font-size:15px}
+ #hint{font-size:11px}
+ #tray{padding:10px}
+ .tool{min-width:56px}
+ .tool img{width:38px;height:38px}
+}
+@media (max-width:520px){#tr .ib.opt{display:none}#stats .chip:nth-child(n+3){display:none}#toasts{top:calc(max(12px,env(safe-area-inset-top)) + 84px);width:calc(100vw - 24px)}#hint{white-space:normal;text-align:center;width:calc(100vw - 120px);left:12px;transform:none;line-height:1.35}body.tray #hint,body.sel #hint{display:none}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important;transition-duration:.01s!important}}
+</style>
+</head>
+<body>
+<div id="loading"><div><i></i>LITTLE BIOSPHERE</div></div>
+<canvas id="c" tabindex="0"></canvas>
+<div id="vig"></div>
+<div id="hud" class="hidden">
+ <div id="tl"><div class="logo">LITTLE <b>BIOSPHERE</b></div><div id="stats"></div></div>
+ <div id="tr" class="panel">
+  <button class="ib" data-act="undo" title="もとにもどす（Ctrl+Z）"></button>
+  <button class="ib" data-act="redo" title="やりなおす（Ctrl+Shift+Z）"></button>
+  <button class="ib sep opt" data-act="save" title="セーブ"></button>
+  <button class="ib opt" data-act="load" title="ロード"></button>
+  <button class="ib sep" data-act="reset" title="カメラをもとの位置に（R）"></button>
+  <button class="ib" data-act="book" title="はっけん図鑑"></button>
+  <button class="ib" data-act="settings" title="設定"></button>
+ </div>
+ <div id="toasts"></div>
+ <div id="sel" class="panel hidden"></div>
+ <div id="hint"></div>
+ <button id="grow" title="GROW（G）"><span class="gi"></span>GROW</button>
+ <div id="dock"><div id="tray" class="panel hidden"></div><div id="cats" class="panel"></div></div>
+</div>
+<div id="title" class="hidden">
+ <div class="big">LITTLE BIOSPHERE<span>ちいさな星の、ちいさないのち</span></div>
+ <div class="menu" id="tmenu"></div>
+ <p>ドラッグで星をまわす　・　ホイール／ピンチでズーム</p>
+</div>
+<div id="modal" class="hidden"><div class="card panel"></div></div>
+<script type="module">
+import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+const DEV = false; //DEV
+const R = 10;
+const $ = s => document.querySelector(s);
+const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+const lerp = (a, b, t) => a + (b - a) * t;
+const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const TAU = Math.PI * 2;
+
+// ---------- 乱数とノイズ ----------
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+let rnd = mulberry(Date.now() & 0xffffff);
+const rr = (a, b) => a + (b - a) * rnd();
+const pick = a => a[Math.floor(rnd() * a.length)];
+function hash1(n) { n = Math.imul(n ^ 61 ^ (n >>> 16), 9); n ^= n >>> 4; n = Math.imul(n, 0x27d4eb2d); n ^= n >>> 15; return (n >>> 0) / 4294967296; }
+
+const Noise = (() => {
+  let perm = new Uint8Array(512);
+  const G = [[1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0],[1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],[0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]];
+  function seed(s) { const r = mulberry(s); const p = [...Array(256).keys()]; for (let i = 255; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [p[i], p[j]] = [p[j], p[i]]; } for (let i = 0; i < 512; i++) perm[i] = p[i & 255]; }
+  const fade = t => t * t * t * (t * (t * 6 - 15) + 10);
+  function n3(x, y, z) {
+    const X = Math.floor(x), Y = Math.floor(y), Z = Math.floor(z); x -= X; y -= Y; z -= Z;
+    const xi = X & 255, yi = Y & 255, zi = Z & 255;
+    const g = (i, j, k, dx, dy, dz) => { const v = G[perm[xi + i + perm[yi + j + perm[zi + k]]] % 12]; return v[0] * dx + v[1] * dy + v[2] * dz; };
+    const u = fade(x), v = fade(y), w = fade(z);
+    const a = lerp(lerp(g(0,0,0,x,y,z), g(1,0,0,x-1,y,z), u), lerp(g(0,1,0,x,y-1,z), g(1,1,0,x-1,y-1,z), u), v);
+    const b = lerp(lerp(g(0,0,1,x,y,z-1), g(1,0,1,x-1,y,z-1), u), lerp(g(0,1,1,x,y-1,z-1), g(1,1,1,x-1,y-1,z-1), u), v);
+    return lerp(a, b, w);
+  }
+  function fbm(x, y, z, o = 4) { let s = 0, a = 1, f = 1, n = 0; for (let i = 0; i < o; i++) { s += n3(x * f, y * f, z * f) * a; n += a; a *= .5; f *= 2.03; } return s / n; }
+  seed(7);
+  return { seed, n3, fbm };
+})();
+
+// ---------- 描画の土台 ----------
+const canvas = $('#c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight, false);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.NoToneMapping;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.05, 900);
+const clock = new THREE.Clock();
+let TIME = 0;
+
+const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _v4 = new THREE.Vector3();
+const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
+const _m1 = new THREE.Matrix4(), _m2 = new THREE.Matrix4();
+const Y_AXIS = new THREE.Vector3(0, 1, 0), Z_AXIS = new THREE.Vector3(0, 0, 1), X_AXIS = new THREE.Vector3(1, 0, 0);
+const col = h => new THREE.Color(h);
+
+// 風でゆれる植物の材質（インスタンスの位置で位相をずらす）
+const WIND = { t: { value: 0 }, amp: { value: .3 }, snow: { value: 0 } };
+function swayMat(opts = {}) {
+  const m = new THREE.MeshLambertMaterial({ vertexColors: true, ...opts });
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uT = WIND.t; sh.uniforms.uAmp = WIND.amp; sh.uniforms.uSnow = WIND.snow;
+    sh.vertexShader = 'uniform float uT;uniform float uAmp;varying float vUp;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      vUp = normal.y;
+      #ifdef USE_INSTANCING
+      vec3 ip = instanceMatrix[3].xyz; float ph = dot(ip, vec3(.7,1.3,.9));
+      #else
+      float ph = 0.;
+      #endif
+      float hh = max(position.y, 0.);
+      float k = hh * hh * 1.6 * uAmp;
+      transformed.x += (sin(uT*1.7 + ph) * .7 + sin(uT*3.1 + ph*1.7) * .3) * k * .16;
+      transformed.z += (cos(uT*1.3 + ph*1.1)) * k * .1;`);
+    sh.fragmentShader = 'uniform float uSnow;varying float vUp;\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.93,.96,1.), uSnow * smoothstep(.35,.9,vUp) * .75);`);
+  };
+  return m;
+}
+const MAT = {
+  plant: swayMat(),
+  obj: new THREE.MeshLambertMaterial({ vertexColors: true }),
+  glow: new THREE.MeshBasicMaterial({ vertexColors: true }),
+  animal: new THREE.MeshLambertMaterial({ vertexColors: true }),
+};
+MAT.obj.onBeforeCompile = sh => {
+  sh.uniforms.uSnow = WIND.snow;
+  sh.vertexShader = 'varying float vUp;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvUp = normal.y;');
+  sh.fragmentShader = 'uniform float uSnow;varying float vUp;\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.94,.96,1.), uSnow * smoothstep(.55,.95,vUp) * .8);`);
+};
+
+// ================= 星（地形） =================
+const TERR = [
+  { id: 'grass', name: '草原', c: '#95d56e' },
+  { id: 'young', name: '若草', c: '#c0e27c' },
+  { id: 'moss', name: 'こけ', c: '#86cb93' },
+  { id: 'bloom', name: '花畑', c: '#f5c3d2' },
+  { id: 'sand', name: '砂', c: '#f3dfa8' },
+  { id: 'soil', name: '土', c: '#d2a27a' },
+  { id: 'rock', name: '岩', c: '#b4aec6' },
+  { id: 'snow', name: '雪', c: '#f4f7ff' },
+];
+const TCOL = TERR.map(t => col(t.c));
+const CLIFF = col('#c9a987'), CLIFF_R = col('#9d97b2'), BED = col('#e9dcae'), SNOWC = col('#f5f8ff');
+
+const PL = (() => {
+  // 正二十面体を 5 回分割した球（頂点 10242・面 20480）
+  const t = (1 + Math.sqrt(5)) / 2;
+  let v = [[-1,t,0],[1,t,0],[-1,-t,0],[1,-t,0],[0,-1,t],[0,1,t],[0,-1,-t],[0,1,-t],[t,0,-1],[t,0,1],[-t,0,-1],[-t,0,1]].map(a => { const l = Math.hypot(...a); return a.map(x => x / l); });
+  let f = [[0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],[1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],[3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],[4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1]];
+  for (let k = 0; k < 5; k++) {
+    const cache = new Map(), nf = [];
+    const mid = (a, b) => { const key = a < b ? a * 65536 + b : b * 65536 + a; let i = cache.get(key); if (i === undefined) { const p = v[a], q = v[b]; const m = [p[0] + q[0], p[1] + q[1], p[2] + q[2]]; const l = Math.hypot(...m); i = v.length; v.push(m.map(x => x / l)); cache.set(key, i); } return i; };
+    for (const [a, b, c] of f) { const ab = mid(a, b), bc = mid(b, c), ca = mid(c, a); nf.push([a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]); }
+    f = nf;
+  }
+  const NV = v.length, NF = f.length;
+  const V = new Float32Array(NV * 3), F = new Uint32Array(NF * 3);
+  // 規則的な模様をくずすため、頂点を少しだけずらす（毎回同じずらし方）
+  const jr = mulberry(12345);
+  for (let i = 0; i < NV; i++) {
+    let [x, y, z] = v[i];
+    x += (jr() - .5) * .016; y += (jr() - .5) * .016; z += (jr() - .5) * .016;
+    const l = Math.hypot(x, y, z); V[i * 3] = x / l; V[i * 3 + 1] = y / l; V[i * 3 + 2] = z / l;
+  }
+  for (let i = 0; i < NF; i++) { F[i * 3] = f[i][0]; F[i * 3 + 1] = f[i][1]; F[i * 3 + 2] = f[i][2]; }
+  const vfL = Array.from({ length: NV }, () => []), nbS = Array.from({ length: NV }, () => new Set());
+  for (let i = 0; i < NF; i++) { const a = F[i*3], b = F[i*3+1], c = F[i*3+2]; vfL[a].push(i); vfL[b].push(i); vfL[c].push(i); nbS[a].add(b).add(c); nbS[b].add(a).add(c); nbS[c].add(a).add(b); }
+  const VF = vfL.map(a => Int32Array.from(a)), NB = nbS.map(s => Int32Array.from(s));
+
+  // 立方体の面ごとの格子で、近い頂点探しの出発点を決める
+  const BN = 20, bucket = new Int32Array(6 * BN * BN).fill(-1);
+  function cell(x, y, z) {
+    const ax = Math.abs(x), ay = Math.abs(y), az = Math.abs(z); let fc, u, w;
+    if (ax >= ay && ax >= az) { fc = x > 0 ? 0 : 1; u = y / ax; w = z / ax; } else if (ay >= az) { fc = y > 0 ? 2 : 3; u = x / ay; w = z / ay; } else { fc = z > 0 ? 4 : 5; u = x / az; w = y / az; }
+    const i = Math.min(BN - 1, Math.floor((u + 1) * .5 * BN)), j = Math.min(BN - 1, Math.floor((w + 1) * .5 * BN));
+    return (fc * BN + i) * BN + j;
+  }
+  for (let i = 0; i < NV; i++) { const c = cell(V[i*3], V[i*3+1], V[i*3+2]); if (bucket[c] < 0) bucket[c] = i; }
+  for (let c = 0; c < bucket.length; c++) if (bucket[c] < 0) bucket[c] = 0;
+
+  const H = new Float32Array(NV), P = new Uint8Array(NV), W = new Int16Array(NV);
+
+  // 描画用（面ごとに頂点を持つ = 面ごとに色が平らなローポリ）
+  const pos = new Float32Array(NF * 9), cols = new Float32Array(NF * 9);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage));
+  geo.setAttribute('color', new THREE.BufferAttribute(cols, 3).setUsage(THREE.DynamicDrawUsage));
+  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), R + 5);
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.receiveShadow = true; mesh.castShadow = true;
+  scene.add(mesh);
+
+  let snow = 0, lakeLevelOf = () => 0;
+  const tc = new THREE.Color();
+  function writeFace(fi) {
+    const o = fi * 9;
+    let r = 0, g = 0, b = 0, hs = 0, wet = 0;
+    for (let k = 0; k < 3; k++) {
+      const vi = F[fi * 3 + k], rad = R + H[vi];
+      pos[o + k*3] = V[vi*3] * rad; pos[o + k*3 + 1] = V[vi*3+1] * rad; pos[o + k*3 + 2] = V[vi*3+2] * rad;
+      const c = TCOL[P[vi]]; r += c.r; g += c.g; b += c.b; hs += H[vi];
+      if (W[vi] > 0 && lakeLevelOf(W[vi]) > rad + .02) wet++;
+    }
+    tc.setRGB(r / 3, g / 3, b / 3);
+    // 面の向き（急な斜面は崖の色に）
+    const ax = pos[o+3]-pos[o], ay = pos[o+4]-pos[o+1], az = pos[o+5]-pos[o+2], bx = pos[o+6]-pos[o], by = pos[o+7]-pos[o+1], bz = pos[o+8]-pos[o+2];
+    let nx = ay*bz-az*by, ny = az*bx-ax*bz, nz = ax*by-ay*bx; const nl = Math.hypot(nx, ny, nz) || 1; nx /= nl; ny /= nl; nz /= nl;
+    const cx = pos[o]+pos[o+3]+pos[o+6], cy = pos[o+1]+pos[o+4]+pos[o+7], cz = pos[o+2]+pos[o+5]+pos[o+8], cl = Math.hypot(cx, cy, cz);
+    const up = (nx*cx + ny*cy + nz*cz) / cl;
+    const steep = sstep(.93, .7, up);
+    const pa = P[F[fi*3]];
+    if (steep > 0 && pa !== 7) tc.lerp(pa === 6 ? CLIFF_R : CLIFF, steep * .62);
+    const ha = hs / 3;
+    if (wet >= 2) tc.lerp(BED, .55).multiplyScalar(.92 - clamp(-ha, 0, 1.2) * .08);
+    const sh = .9 + clamp(ha, -1.5, 3) * .045 + (hash1(fi) - .5) * .07;
+    tc.multiplyScalar(sh);
+    if (snow > 0) tc.lerp(SNOWC, snow * sstep(.55, .9, up) * (wet >= 2 ? .2 : .88));
+    cols[o] = cols[o+3] = cols[o+6] = tc.r; cols[o+1] = cols[o+4] = cols[o+7] = tc.g; cols[o+2] = cols[o+5] = cols[o+8] = tc.b;
+  }
+  const fmark = new Uint8Array(NF);
+  function updateVerts(list) {
+    const fl = [];
+    for (const vi of list) for (const fi of VF[vi]) if (!fmark[fi]) { fmark[fi] = 1; fl.push(fi); }
+    for (const fi of fl) { writeFace(fi); fmark[fi] = 0; }
+    geo.attributes.position.needsUpdate = true; geo.attributes.color.needsUpdate = true;
+  }
+  function updateAll() { for (let i = 0; i < NF; i++) writeFace(i); geo.attributes.position.needsUpdate = true; geo.attributes.color.needsUpdate = true; }
+
+  // ---- 表面の高さを調べる ----
+  function nearest(x, y, z, start = -1) {
+    let vi = start >= 0 ? start : bucket[cell(x, y, z)];
+    let best = V[vi*3]*x + V[vi*3+1]*y + V[vi*3+2]*z;
+    for (let it = 0; it < 200; it++) {
+      let imp = -1; const nb = NB[vi];
+      for (let k = 0; k < nb.length; k++) { const n = nb[k], d = V[n*3]*x + V[n*3+1]*y + V[n*3+2]*z; if (d > best) { best = d; imp = n; } }
+      if (imp < 0) break; vi = imp;
+    }
+    return vi;
+  }
+  function rayTri(fi, x, y, z) {
+    const a = F[fi*3], b = F[fi*3+1], c = F[fi*3+2];
+    const ra = R + H[a], rb = R + H[b], rc = R + H[c];
+    const ax = V[a*3]*ra, ay = V[a*3+1]*ra, az = V[a*3+2]*ra;
+    const e1x = V[b*3]*rb-ax, e1y = V[b*3+1]*rb-ay, e1z = V[b*3+2]*rb-az, e2x = V[c*3]*rc-ax, e2y = V[c*3+1]*rc-ay, e2z = V[c*3+2]*rc-az;
+    const px = y*e2z - z*e2y, py = z*e2x - x*e2z, pz = x*e2y - y*e2x;
+    const det = e1x*px + e1y*py + e1z*pz; if (Math.abs(det) < 1e-12) return -1;
+    const inv = 1 / det, sx = -ax, sy = -ay, sz = -az;
+    const u = (sx*px + sy*py + sz*pz) * inv; if (u < -1e-5 || u > 1.00001) return -1;
+    const qx = sy*e1z - sz*e1y, qy = sz*e1x - sx*e1z, qz = sx*e1y - sy*e1x;
+    const w = (x*qx + y*qy + z*qz) * inv; if (w < -1e-5 || u + w > 1.00001) return -1;
+    return (e2x*qx + e2y*qy + e2z*qz) * inv;
+  }
+  const Q = { v: 0, f: 0 };
+  function surfR(d) {
+    const x = d.x, y = d.y, z = d.z; const vi = nearest(x, y, z); Q.v = vi;
+    const vf = VF[vi];
+    for (let k = 0; k < vf.length; k++) { const t = rayTri(vf[k], x, y, z); if (t > 0) { Q.f = vf[k]; return t; } }
+    const nb = NB[vi];
+    for (let j = 0; j < nb.length; j++) { const vf2 = VF[nb[j]]; for (let k = 0; k < vf2.length; k++) { const t = rayTri(vf2[k], x, y, z); if (t > 0) { Q.f = vf2[k]; return t; } } }
+    return R + H[vi];
+  }
+  const angDist = (i, x, y, z) => Math.acos(clamp(V[i*3]*x + V[i*3+1]*y + V[i*3+2]*z, -1, 1)) * R;
+  function vertsNear(d, rad) {
+    const out = [], c = Math.cos(rad / R);
+    for (let i = 0; i < NV; i++) if (V[i*3]*d.x + V[i*3+1]*d.y + V[i*3+2]*d.z > c) out.push(i);
+    return out;
+  }
+
+  // ---- ブラシ ----
+  const tmp = new Float32Array(NV);
+  function brush(kind, d, rad, str, dt, paint = 0) {
+    const vs = vertsNear(d, rad);
+    if (kind === 'smooth') for (const i of vs) { const nb = NB[i]; let s = 0; for (let k = 0; k < nb.length; k++) s += H[nb[k]]; tmp[i] = s / nb.length; }
+    for (const i of vs) {
+      const fall = sstep(0, 1, 1 - angDist(i, d.x, d.y, d.z) / rad);
+      if (kind === 'raise' || kind === 'lower') {
+        const s = kind === 'raise' ? 1 : -1;
+        const lim = s > 0 ? 3.4 - H[i] : H[i] + 2.6;
+        H[i] += s * Math.min(lim * .5, str * 2.2 * dt * fall);
+      } else if (kind === 'smooth') {
+        H[i] += (tmp[i] - H[i]) * Math.min(1, fall * str * dt * 9);
+      } else if (kind === 'paint') {
+        const edge = fall * (1.2 + str * 1.6);
+        if (edge > .55 || (edge > .2 && rnd() < edge)) P[i] = paint;
+      }
+    }
+    if (kind === 'raise' || kind === 'lower') { // とがりを防ぐための、ごく軽いならし
+      for (const i of vs) { const nb = NB[i]; let s = 0; for (let k = 0; k < nb.length; k++) s += H[nb[k]]; tmp[i] = s / nb.length; }
+      for (const i of vs) { const fall = 1 - angDist(i, d.x, d.y, d.z) / rad; H[i] += (tmp[i] - H[i]) * .12 * fall; H[i] = clamp(H[i], -2.6, 3.4); }
+    }
+    return vs;
+  }
+  function relax(vs, k = .3, n = 1) {
+    for (let it = 0; it < n; it++) {
+      for (const i of vs) { const nb = NB[i]; let s = 0; for (let j = 0; j < nb.length; j++) s += H[nb[j]]; tmp[i] = s / nb.length; }
+      for (const i of vs) H[i] += (tmp[i] - H[i]) * k;
+    }
+  }
+
+  // ---- 地形の生成 ----
+  function generate(seed, blank) {
+    Noise.seed(seed);
+    const fr = mulberry(seed * 7 + 1);
+    const front = new THREE.Vector3(0, .35, 1).normalize();
+    const mtn = new THREE.Vector3(-.75, .55, .35).normalize(), mtn2 = new THREE.Vector3(.55, -.2, -.8).normalize();
+    for (let i = 0; i < NV; i++) {
+      const x = V[i*3], y = V[i*3+1], z = V[i*3+2];
+      if (blank) { H[i] = Noise.fbm(x * 1.6 + 3, y * 1.6, z * 1.6, 3) * .6 + Noise.fbm(x * 4, y * 4 + 1, z * 4, 2) * .12; P[i] = 0; continue; }
+      let h = Noise.fbm(x * 1.25 + 5, y * 1.25, z * 1.25, 4) * 2.1 + Noise.fbm(x * 3.4, y * 3.4 + 2, z * 3.4, 3) * .45;
+      const dm = x*mtn.x + y*mtn.y + z*mtn.z, dm2 = x*mtn2.x + y*mtn2.y + z*mtn2.z;
+      h += sstep(.86, 1, dm) * 2.1 + sstep(.9, 1, dm2) * 1.5;
+      const df = x*front.x + y*front.y + z*front.z;
+      h = lerp(h, .15, sstep(.82, .97, df) * .85); // 手前はゆるやかに
+      H[i] = clamp(h, -1.6, 3.2);
+      const m = Noise.fbm(x * 2.6 + 9, y * 2.6, z * 2.6, 3);
+      let p = m > .16 ? 1 : m < -.28 ? 2 : 0;
+      if (Noise.fbm(x * 3 + 1, y * 3, z * 3 - 3, 2) > .42 && h < 1) p = 3;
+      if (h > 1.9) p = 6; if (h > 2.6) p = 7; if (h < -.7) p = 4;
+      P[i] = p;
+    }
+    W.fill(0);
+    return fr;
+  }
+
+  return { NV, NF, V, F, NB, VF, H, P, W, mesh, geo, updateVerts, updateAll, surfR, nearest, vertsNear, angDist, brush, relax, generate, Q,
+    set snow(s) { snow = s; }, get snow() { return snow; }, setLakeLevelFn(fn) { lakeLevelOf = fn; } };
+})();
+
+const _sd = new THREE.Vector3();
+function surfaceAt(d) { return PL.surfR(d); }
+function dirOf(i, out = new THREE.Vector3()) { return out.set(PL.V[i*3], PL.V[i*3+1], PL.V[i*3+2]); }
+// 球面上を、向き d から接線方向 t に距離 s だけ進む
+function moveOnSphere(d, t, s) { d.addScaledVector(t, s / R).normalize(); t.addScaledVector(d, -t.dot(d)).normalize(); }
+function randomNear(d, maxDist, out = new THREE.Vector3()) {
+  _v1.set(rnd() - .5, rnd() - .5, rnd() - .5); _v1.addScaledVector(d, -_v1.dot(d)).normalize();
+  out.copy(d).addScaledVector(_v1, Math.tan(rr(.15, 1) * maxDist / R)).normalize();
+  return out;
+}
+
+// ================= 水（湖と川） =================
+const WATER_U = { uTime: { value: 0 }, uColor: { value: col('#6fd3e8') }, uDeep: { value: col('#3a9fc4') }, uSky: { value: col('#e8f4ff') }, uSun: { value: new THREE.Vector3(0, 1, 0) }, uLight: { value: 1 }, uRain: { value: 0 } };
+const waterMat = new THREE.ShaderMaterial({
+  uniforms: WATER_U, transparent: true, depthWrite: false,
+  vertexShader: `uniform float uTime;attribute float aDepth;attribute vec2 aUV;attribute float aFlow;
+  varying vec3 vW;varying vec3 vN;varying float vD;varying vec2 vUV;varying float vF;
+  void main(){vec3 p=position;vec3 n=normalize(position);
+   float w=sin(dot(p,vec3(2.3,1.7,1.9))+uTime*1.6)*.5+sin(dot(p,vec3(-1.9,2.6,-1.3))*1.4+uTime*1.15)*.5;
+   p+=n*w*.022*clamp(aDepth*4.,0.,1.);
+   vec4 wp=modelMatrix*vec4(p,1.);vW=wp.xyz;vN=normalize(mat3(modelMatrix)*n);vD=aDepth;vUV=aUV;vF=aFlow;
+   gl_Position=projectionMatrix*viewMatrix*wp;}`,
+  fragmentShader: `uniform float uTime;uniform vec3 uColor;uniform vec3 uDeep;uniform vec3 uSky;uniform vec3 uSun;uniform float uLight;uniform float uRain;
+  varying vec3 vW;varying vec3 vN;varying float vD;varying vec2 vUV;varying float vF;
+  float h(vec3 p){return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453);}
+  void main(){vec3 V=normalize(cameraPosition-vW);vec3 N=vN;
+   vec3 q=vW*3.1;float t=uTime;
+   vec3 pert=vec3(sin(q.y*1.3+t*1.7)+sin(q.z*2.1-t*1.3),sin(q.z*1.1+t*1.2)+sin(q.x*1.9+t*1.6),sin(q.x*1.2-t*1.4)+sin(q.y*2.3+t))*.05;
+   N=normalize(N+pert-N*dot(pert,N));
+   float fres=pow(1.-max(dot(N,V),0.),2.5);
+   float d=clamp(vD/.7,0.,1.);
+   vec3 c=mix(uColor*1.08,uDeep,d*.75);
+   c=mix(c,uSky,fres*.45);
+   vec3 H=normalize(uSun+V);float sp=pow(max(dot(N,H),0.),90.)*.9+pow(max(dot(N,H),0.),12.)*.06;
+   float fl=0.;
+   if(vF>.5){float s=sin((vUV.y*1.6-t*.9)*6.2831+sin(vUV.x*9.+vUV.y*2.)*1.2);fl=smoothstep(.75,1.,s)*.16*(1.-abs(vUV.x-.5)*1.6);}
+   float foam=smoothstep(.1,0.,vD+sin(vW.x*7.+vW.y*5.+t*1.8)*.018+sin(vW.z*9.-t*1.3)*.012);
+   c=c*uLight+vec3(sp)*uLight+fl+foam*.55*uLight;
+   float a=mix(.62,.9,d)+foam*.3+fres*.08;
+   gl_FragColor=vec4(c,clamp(a,0.,.96));
+   #include <colorspace_fragment>
+  }`,
+});
+const lakeMesh = new THREE.Mesh(new THREE.BufferGeometry(), waterMat);
+const riverMesh = new THREE.Mesh(new THREE.BufferGeometry(), waterMat);
+lakeMesh.renderOrder = 2; riverMesh.renderOrder = 2; lakeMesh.frustumCulled = false; riverMesh.frustumCulled = false;
+scene.add(lakeMesh, riverMesh);
+
+const WT = {
+  lakes: [], rivers: [], nextId: 1,
+  levelOf(id) { const L = this.lakeById.get(id); return L ? L.level : 0; },
+  lakeById: new Map(),
+};
+PL.setLakeLevelFn(id => WT.levelOf(id));
+
+function lakeFill(L) {
+  const { H, NB, W, V } = PL; const lim = L.rad * 1.6;
+  const s = L.seed, sx = V[s*3], sy = V[s*3+1], sz = V[s*3+2];
+  // 出発点が水面より上なら、近くでいちばん低い頂点からはじめる
+  let start = s;
+  if (R + H[s] >= L.level) { let best = 1e9; for (const i of PL.vertsNear(_v1.set(sx, sy, sz), L.rad)) if (H[i] < best) { best = H[i]; start = i; } if (R + H[start] >= L.level) return { verts: [], spill: false }; }
+  const seen = new Set([start]), q = [start], verts = []; let spill = false;
+  while (q.length) {
+    const i = q.pop(); verts.push(i);
+    const nb = NB[i];
+    for (let k = 0; k < nb.length; k++) {
+      const n = nb[k]; if (seen.has(n)) continue; seen.add(n);
+      if (R + H[n] < L.level) { if (PL.angDist(n, sx, sy, sz) > lim) { spill = true; continue; } q.push(n); }
+    }
+  }
+  return { verts, spill };
+}
+function lakeRecompute() {
+  PL.W.fill(0); WT.lakeById.clear();
+  WT.lakes.sort((a, b) => a.level - b.level);
+  for (const L of WT.lakes) {
+    let r = lakeFill(L), n = 0;
+    while (r.spill && n++ < 25) { L.level -= .04; r = lakeFill(L); }
+    L.verts = r.verts;
+    for (const i of r.verts) PL.W[i] = L.id;
+    WT.lakeById.set(L.id, L);
+  }
+  WT.lakes = WT.lakes.filter(L => L.verts.length > 0 || L.keep);
+}
+function buildLakeMesh() {
+  const { F, V, W, H, NF } = PL; const P = [], D = [];
+  for (let fi = 0; fi < NF; fi++) {
+    const a = F[fi*3], b = F[fi*3+1], c = F[fi*3+2];
+    if (!(W[a] || W[b] || W[c])) continue;
+    let lv = 0; for (const vi of [a, b, c]) if (W[vi]) lv = Math.max(lv, WT.levelOf(W[vi]));
+    for (const vi of [a, b, c]) { P.push(V[vi*3]*lv, V[vi*3+1]*lv, V[vi*3+2]*lv); D.push(lv - (R + H[vi])); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+  g.setAttribute('aDepth', new THREE.Float32BufferAttribute(D, 1));
+  g.setAttribute('aUV', new THREE.Float32BufferAttribute(new Float32Array(D.length * 2), 2));
+  g.setAttribute('aFlow', new THREE.Float32BufferAttribute(new Float32Array(D.length), 1));
+  lakeMesh.geometry.dispose(); lakeMesh.geometry = g;
+}
+
+// 湖をつくる：まわりの平均の高さに水面をきめ、底を掘って、低い側には土手をつくる
+function addLake(d, rad) {
+  const { H, V } = PL;
+  const inside = WT.lakes.find(L => PL.W[PL.nearest(d.x, d.y, d.z)] === L.id);
+  const vs = PL.vertsNear(d, rad * 1.5);
+  let sw = 0, sh = 0;
+  for (const i of vs) { const dist = PL.angDist(i, d.x, d.y, d.z); if (dist < rad) { const w = 1 - dist / rad; sw += w; sh += H[i] * w; } }
+  let target = inside ? inside.level - R + .03 : sh / (sw || 1);
+  target = clamp(target, -1.4, 2.6);
+  for (const i of vs) {
+    const dist = PL.angDist(i, d.x, d.y, d.z);
+    if (dist < rad * 1.05) { const bowl = target - .06 - .62 * Math.pow(sstep(0, 1, 1 - dist / (rad * 1.05)), .7); H[i] = Math.min(H[i], bowl); }
+    else { const k = sstep(0, 1, 1 - Math.abs(dist - rad * 1.2) / (rad * .3)); H[i] = Math.max(H[i], target + .1 * k - (1 - k) * 2); }
+  }
+  PL.relax(vs, .25, 2);
+  const seed = PL.nearest(d.x, d.y, d.z);
+  const L = { id: WT.nextId++, seed, level: R + target - .03, rad, verts: [] };
+  if (inside) { L.level = inside.level; }
+  WT.lakes.push(L);
+  lakeRecompute(); buildLakeMesh();
+  return { L, vs };
+}
+function removeLakeAt(d) {
+  const id = PL.W[PL.nearest(d.x, d.y, d.z)]; if (!id) return false;
+  const L = WT.lakeById.get(id); if (!L || L.level < surfaceAt(d) - .01) { /* 岸ぎわでも見つける */ }
+  WT.lakes = WT.lakes.filter(l => l.id !== id);
+  lakeRecompute(); buildLakeMesh(); return true;
+}
+
+// ---- 川 ----
+function segDist(px, py, pz, a, b) { // 単位ベクトル上の近似距離（R 倍）
+  const abx = b.x - a.x, aby = b.y - a.y, abz = b.z - a.z, l2 = abx*abx + aby*aby + abz*abz || 1e-9;
+  const t = clamp(((px - a.x)*abx + (py - a.y)*aby + (pz - a.z)*abz) / l2, 0, 1);
+  const dx = a.x + abx*t - px, dy = a.y + aby*t - py, dz = a.z + abz*t - pz;
+  return { d: Math.sqrt(dx*dx + dy*dy + dz*dz) * R, t };
+}
+function resamplePath(pts, step) {
+  if (pts.length < 2) return pts.map(p => p.clone());
+  // 角を丸めてから等間隔に並べなおす
+  let p = pts.map(v => v.clone());
+  for (let it = 0; it < 2; it++) { const q = [p[0]]; for (let i = 0; i < p.length - 1; i++) { q.push(p[i].clone().lerp(p[i+1], .25).normalize(), p[i].clone().lerp(p[i+1], .75).normalize()); } q.push(p[p.length - 1]); p = q; }
+  const out = [p[0].clone()]; let acc = 0;
+  for (let i = 1; i < p.length; i++) {
+    let a = p[i-1].clone(); const b = p[i]; let seg = a.distanceTo(b) * R;
+    while (acc + seg >= step) { const t = (step - acc) / seg; a = a.lerp(b, t).normalize(); out.push(a.clone()); seg = a.distanceTo(b) * R; acc = 0; }
+    acc += seg;
+  }
+  if (out[out.length - 1].distanceTo(p[p.length - 1]) * R > step * .4) out.push(p[p.length - 1].clone());
+  return out;
+}
+function riverWidthAt(rv, i) { const n = rv.pts.length; return rv.w * clamp(Math.min(i + .6, n - 1 - i + .6) / 3, .35, 1); }
+function riverLevels(rv) {
+  const lv = rv.pts.map(p => surfaceAt(p) + .07);
+  for (let it = 0; it < 3; it++) for (let i = 1; i < lv.length - 1; i++) lv[i] = (lv[i-1] + lv[i] * 2 + lv[i+1]) / 4;
+  rv.lv = lv;
+  // 範囲（ざっくりとした囲み）
+  const c = new THREE.Vector3(); rv.pts.forEach(p => c.add(p)); c.normalize(); let m = 1; rv.pts.forEach(p => m = Math.min(m, p.dot(c)));
+  rv.c = c; rv.cos = Math.cos(Math.acos(m) + rv.w / R);
+}
+function carveRiver(rv) {
+  const { H, V, NV } = PL; const touched = [];
+  for (let i = 0; i < NV; i++) {
+    const x = V[i*3], y = V[i*3+1], z = V[i*3+2]; if (x*rv.c.x + y*rv.c.y + z*rv.c.z < rv.cos - .02) continue;
+    let best = 1e9, bi = 0;
+    for (let k = 0; k < rv.pts.length - 1; k++) { const s = segDist(x, y, z, rv.pts[k], rv.pts[k+1]); if (s.d < best) { best = s.d; bi = k; } }
+    const w = riverWidthAt(rv, bi) * .95;
+    if (best < w) { H[i] -= .34 * sstep(0, 1, 1 - best / w); H[i] = Math.max(H[i], -2.6); touched.push(i); }
+  }
+  PL.relax(touched, .2, 1);
+  return touched;
+}
+function addRiver(rawPts, w) {
+  const pts = resamplePath(rawPts, .32);
+  if (pts.length < 3) return null;
+  const rv = { pts, w };
+  riverLevels(rv); const vs = carveRiver(rv); riverLevels(rv);
+  WT.rivers.push(rv); buildRiverMesh();
+  return { rv, vs };
+}
+function buildRiverMesh() {
+  const P = [], D = [], U = [], Fl = [], I = []; let base = 0;
+  for (const rv of WT.rivers) {
+    if (!rv.lv) riverLevels(rv);
+    const n = rv.pts.length; let len = 0;
+    for (let i = 0; i < n; i++) {
+      const p = rv.pts[i], nx = rv.pts[Math.min(n - 1, i + 1)], pv = rv.pts[Math.max(0, i - 1)];
+      const t = _v1.copy(nx).sub(pv); t.addScaledVector(p, -t.dot(p)).normalize();
+      const side = _v2.crossVectors(p, t).normalize();
+      const w = riverWidthAt(rv, i) * .5, lv = rv.lv[i];
+      if (i > 0) len += p.distanceTo(rv.pts[i-1]) * R;
+      for (let s = -1; s <= 1; s++) {
+        const q = _v3.copy(p).addScaledVector(side, s * w / R).normalize().multiplyScalar(lv);
+        P.push(q.x, q.y, q.z); D.push(s === 0 ? .32 : -.03); U.push((s + 1) / 2, len / (rv.w * 2)); Fl.push(1);
+      }
+      if (i < n - 1) { const a = base + i * 3; I.push(a, a + 3, a + 1, a + 1, a + 3, a + 4, a + 1, a + 4, a + 2, a + 2, a + 4, a + 5); }
+    }
+    base += n * 3;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+  g.setAttribute('aDepth', new THREE.Float32BufferAttribute(D, 1));
+  g.setAttribute('aUV', new THREE.Float32BufferAttribute(U, 2));
+  g.setAttribute('aFlow', new THREE.Float32BufferAttribute(Fl, 1));
+  g.setIndex(I);
+  riverMesh.geometry.dispose(); riverMesh.geometry = g;
+}
+function riverAt(d) {
+  for (const rv of WT.rivers) {
+    if (d.dot(rv.c) < rv.cos) continue;
+    for (let k = 0; k < rv.pts.length - 1; k++) { const s = segDist(d.x, d.y, d.z, rv.pts[k], rv.pts[k+1]); if (s.d < riverWidthAt(rv, k) * .5) return { rv, k, level: lerp(rv.lv[k], rv.lv[k+1], s.t) }; }
+  }
+  return null;
+}
+function eraseRiverNear(d, rad) {
+  let changed = false; const out = [];
+  for (const rv of WT.rivers) {
+    let cur = [];
+    const flush = () => { if (cur.length >= 3) out.push({ pts: cur, w: rv.w }); cur = []; };
+    for (const p of rv.pts) { if (p.distanceTo(d) * R < rad) { changed = true; flush(); } else cur.push(p); }
+    flush();
+  }
+  if (changed) { WT.rivers = out; WT.rivers.forEach(riverLevels); buildRiverMesh(); }
+  return changed;
+}
+// d の場所の水面（なければ null）
+function waterAt(d) {
+  const sr = surfaceAt(d);
+  const vi = PL.Q.v; const id = PL.W[vi];
+  let best = null;
+  if (id) { const L = WT.lakeById.get(id); if (L && L.level > sr + .01) best = { level: L.level, lake: L, depth: L.level - sr }; }
+  if (!best) { const fa = PL.Q.f; for (let k = 0; k < 3; k++) { const v2 = PL.F[fa*3+k], id2 = PL.W[v2]; if (id2) { const L = WT.lakeById.get(id2); if (L && L.level > sr + .01) { best = { level: L.level, lake: L, depth: L.level - sr }; break; } } } }
+  if (!best) { const r = riverAt(d); if (r && r.level > sr) best = { level: r.level, river: r.rv, depth: r.level - sr }; }
+  return best;
+}
+function waterRefresh() { lakeRecompute(); buildLakeMesh(); WT.rivers.forEach(riverLevels); buildRiverMesh(); }
+function setWaterColor(hex) {
+  const c = col(hex); WATER_U.uColor.value.copy(c);
+  const hsl = {}; c.getHSL(hsl); WATER_U.uDeep.value.setHSL(hsl.h, Math.min(1, hsl.s * 1.05), hsl.l * .62);
+}
+
+// ================= ローポリのモデル（すべてコードで組み立て） =================
+MAT.wing = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
+let MR = mulberry(1);
+const mr = (a, b) => a + (b - a) * MR();
+const _mt = new THREE.Matrix4(), _mq = new THREE.Quaternion(), _me = new THREE.Euler(), _mp = new THREE.Vector3(), _ms = new THREE.Vector3();
+function tfm(p, r, s) {
+  p = p || [0, 0, 0]; r = r || [0, 0, 0]; if (s === undefined || s === 0) s = 1;
+  _me.set(r[0], r[1], r[2]); _mq.setFromEuler(_me);
+  return _mt.compose(_mp.set(...p), _mq, typeof s === 'number' ? _ms.set(s, s, s) : _ms.set(...s));
+}
+// 形に色をぬって置く。c は色か色の配列（面ごとに選ぶ）、j は頂点のゆらぎ
+function pt(g, c, p, r, s, o = {}) {
+  g = g.index ? g.toNonIndexed() : g;
+  if (g.attributes.uv) g.deleteAttribute('uv'); if (g.attributes.normal) g.deleteAttribute('normal');
+  const pa = g.attributes.position;
+  if (o.j) for (let i = 0; i < pa.count; i++) {
+    const x = pa.getX(i), y = pa.getY(i), z = pa.getZ(i);
+    const h = Math.floor(x * 997 + 13) * 73856093 ^ Math.floor(y * 997 + 7) * 19349663 ^ Math.floor(z * 997 + 3) * 83492791;
+    pa.setXYZ(i, x + (hash1(h) - .5) * o.j, y + (hash1(h + 1) - .5) * o.j, z + (hash1(h + 2) - .5) * o.j);
+  }
+  g.applyMatrix4(tfm(p, r, s));
+  const cs = Array.isArray(c) ? c.map(x => col(x)) : [col(c)], v = o.v ?? .06;
+  const ca = new Float32Array(pa.count * 3), tc = new THREE.Color();
+  for (let f = 0; f < pa.count; f += 3) {
+    tc.copy(cs[Math.floor(MR() * cs.length)]).multiplyScalar(1 + (MR() - .5) * v * 2);
+    for (let k = 0; k < 3; k++) { ca[(f + k) * 3] = tc.r; ca[(f + k) * 3 + 1] = tc.g; ca[(f + k) * 3 + 2] = tc.b; }
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(ca, 3));
+  g.computeVertexNormals();
+  return g;
+}
+const merge = gs => mergeGeometries(gs.filter(Boolean));
+const ico = (r, d = 0) => new THREE.IcosahedronGeometry(r, d);
+const cyl = (a, b, h, s = 6) => new THREE.CylinderGeometry(a, b, h, s, 1);
+const cone = (r, h, s = 6) => new THREE.ConeGeometry(r, h, s, 1);
+const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+const dome = (r, s = 7) => new THREE.SphereGeometry(r, s, 3, 0, TAU, 0, Math.PI / 2);
+function tri(pts) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts.flat(), 3)); return g; }
+
+const GREENS = ['#7cc75e', '#8fd468', '#a6df78'];
+const FOL = ['#6cc56c', '#7dd174', '#5db866', '#8ad97c'];
+const FLC = ['#ff9ec7', '#ffd45c', '#ffffff', '#b8a6ff', '#ff8a80'];
+const FLCC = ['#ffcf4a', '#ff9f43', '#ffcf4a', '#fff2a8', '#ffe07a'];
+
+function stemWithLeaves(h, out) {
+  out.push(pt(cyl(.011, .014, h, 4), '#6dbb5a', [0, h / 2, 0]));
+  out.push(pt(ico(.05, 0), '#7fca62', [.035, h * .25, 0], [0, 0, -.5], [1, .22, .5]));
+  out.push(pt(ico(.045, 0), '#8fd468', [-.03, h * .45, .01], [0, .4, .55], [1, .22, .5]));
+}
+function canopy(out, r, p, colors, j = .12) { out.push(pt(ico(r, 1), colors, p, [mr(0, 3), mr(0, 3), 0], [1, mr(.85, 1), 1], { j: r * j * 2 })); }
+
+const MB = {
+  grass(v, st) {
+    const out = [], n = [4, 7, 10][st], h = [.12, .2, .28][st];
+    for (let i = 0; i < n; i++) {
+      const a = i / n * TAU + mr(-.3, .3), rr2 = mr(.02, .08), hh = h * mr(.7, 1.15), tx = mr(-.38, .38), tz = mr(-.38, .38);
+      out.push(pt(cone(.03, hh, 3), GREENS, [Math.cos(a) * rr2, hh / 2, Math.sin(a) * rr2], [tx, a, tz]));
+      if (st === 2 && i % 4 === 0) { const tip = new THREE.Vector3(0, hh / 2, 0).applyMatrix4(tfm([Math.cos(a) * rr2, hh / 2, Math.sin(a) * rr2], [tx, a, tz])); out.push(pt(ico(.022, 0), '#f6eba5', [tip.x, tip.y, tip.z])); }
+    }
+    return { parts: [{ g: merge(out), m: 'plant' }], h: h, r: .12 };
+  },
+  flower(v, st) {
+    const out = [], c = FLC[v % 5];
+    if (st === 0) { stemWithLeaves(.08, out); out.push(pt(ico(.03, 0), '#9be07a', [0, .09, 0])); }
+    else if (st === 1) { stemWithLeaves(.19, out); out.push(pt(cone(.038, .08, 5), c, [0, .23, 0])); out.push(pt(cone(.042, .04, 5), '#7fca62', [0, .195, 0], [Math.PI, 0, 0])); }
+    else {
+      stemWithLeaves(.25, out);
+      for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; out.push(pt(ico(.05, 0), c, [Math.cos(a) * .052, .262, Math.sin(a) * .052], [0, -a, .35], [1, .32, .62])); }
+      out.push(pt(ico(.03, 0), FLCC[v % 5], [0, .272, 0]));
+    }
+    return { parts: [{ g: merge(out), m: 'plant' }], h: [.1, .25, .28][st], r: .08 };
+  },
+  oak(v, st) {
+    const out = [], th = [.22, .42, .62, .64][st], tr = [.025, .05, .085, .09][st];
+    out.push(pt(cyl(tr * .7, tr, th, 6), ['#b07a52', '#a66f49'], [0, th / 2, 0]));
+    if (st === 0) canopy(out, .14, [0, th + .08, 0], FOL);
+    else if (st === 1) { canopy(out, .3, [0, th + .2, 0], FOL); canopy(out, .2, [.16, th + .06, .05], FOL); }
+    else {
+      canopy(out, .5, [0, th + .34, 0], FOL); canopy(out, .34, [.36, th + .12, .1], FOL); canopy(out, .3, [-.32, th + .16, -.14], FOL); canopy(out, .28, [.05, th + .62, -.1], FOL);
+      if (st === 3) for (let i = 0; i < 9; i++) { const a = i * 2.39, y = mr(-.2, .45); const rr2 = Math.sqrt(Math.max(.02, .25 - y * y * .6)) + .06; out.push(pt(ico(.055, 0), '#ff6f73', [Math.cos(a) * rr2, th + .34 + y, Math.sin(a) * rr2])); }
+    }
+    return { parts: [{ g: merge(out), m: 'plant' }], h: [.42, .82, 1.5, 1.5][st], r: [.12, .3, .6, .6][st] };
+  },
+  pine(v, st) {
+    const out = [], tiers = [1, 2, 3, 4][st], k = [.38, .62, .85, 1.05][st];
+    out.push(pt(cyl(.05 * k, .08 * k, .3 * k, 6), ['#a16d4c'], [0, .15 * k, 0]));
+    for (let i = 0; i < tiers; i++) { const t = i / Math.max(1, tiers - 1 || 1); const r = (.48 - i * .09) * k, hh = (.55 - i * .04) * k, y = (.28 + i * .34) * k + hh / 2; out.push(pt(cone(r, hh, 7), ['#4fae74', '#5cbf80', '#45a06a'], [0, y, 0], [0, i * .7, 0], 1, { j: .03 * k })); }
+    return { parts: [{ g: merge(out), m: 'plant' }], h: (.28 + (tiers - 1) * .34 + .55) * k, r: .45 * k };
+  },
+  sakura(v, st) {
+    const out = [], th = [.22, .4, .58, .6][st], tr = [.025, .045, .075, .08][st];
+    out.push(pt(cyl(tr * .7, tr, th * .6, 6), '#8f604c', [0, th * .3, 0], [0, 0, .12]));
+    out.push(pt(cyl(tr * .55, tr * .72, th * .5, 6), '#8f604c', [.035, th * .78, 0], [0, 0, -.18]));
+    const C = st === 3 ? ['#ffb7d0', '#ffc8dc', '#ffa2c2', '#ffd6e5'] : st === 2 ? ['#9dd68a', '#b4dd8c', '#f2c4d2', '#8ccf80'] : FOL;
+    if (st === 0) canopy(out, .14, [0, th + .07, 0], C);
+    else if (st === 1) { canopy(out, .28, [.03, th + .16, 0], C); }
+    else {
+      canopy(out, .44, [.04, th + .3, 0], C); canopy(out, .32, [.4, th + .14, .08], C); canopy(out, .3, [-.3, th + .2, -.1], C); canopy(out, .26, [.1, th + .52, .18], C);
+      if (st === 3) for (let i = 0; i < 12; i++) { const a = i * 2.39, y = mr(-.1, .5); out.push(pt(ico(.028, 0), '#fff2f7', [.04 + Math.cos(a) * .4, th + .3 + y * .5, Math.sin(a) * .4])); }
+    }
+    return { parts: [{ g: merge(out), m: 'plant' }], h: [.4, .74, 1.3, 1.3][st], r: [.12, .28, .6, .6][st] };
+  },
+  bush(v, st) {
+    const out = [], C = ['#5fba6c', '#72c777', '#66c070'];
+    if (st === 0) canopy(out, .11, [0, .08, 0], C, .1);
+    else if (st === 1) { canopy(out, .17, [0, .13, 0], C, .1); canopy(out, .12, [.14, .08, .04], C, .1); }
+    else {
+      canopy(out, .2, [0, .16, 0], C, .1); canopy(out, .15, [.17, .1, .05], C, .1); canopy(out, .14, [-.15, .1, -.06], C, .1);
+      for (let i = 0; i < 8; i++) { const a = i * 2.2; out.push(pt(ico(.03, 0), v ? '#8b93ff' : '#ff6b81', [Math.cos(a) * .2, .1 + (i % 3) * .07, Math.sin(a) * .2])); }
+    }
+    return { parts: [{ g: merge(out), m: 'plant' }], h: [.18, .3, .36][st], r: [.1, .2, .3][st] };
+  },
+  mush(v, st) {
+    const out = [], cap = v ? '#d99c6c' : '#ff6b6b';
+    const one = (x, z, s, rot = 0) => {
+      out.push(pt(cyl(.025 * s, .032 * s, .1 * s, 6), '#f6e6c8', [x, .05 * s, z]));
+      out.push(pt(dome(.075 * s, 7), cap, [x, .095 * s, z], [0, rot, 0], [1, .75, 1]));
+      if (!v) for (let i = 0; i < 4; i++) { const a = i * 1.7 + rot; out.push(pt(ico(.013 * s, 0), '#ffffff', [x + Math.cos(a) * .045 * s, .095 * s + .035 * s, z + Math.sin(a) * .045 * s])); }
+    };
+    if (st === 0) one(0, 0, .55); else if (st === 1) one(0, 0, 1.05); else { one(0, 0, 1.2); one(.11, .05, .7, 1); one(-.07, .1, .55, 2); }
+    return { parts: [{ g: merge(out), m: 'plant' }], h: [.08, .16, .2][st], r: .12 };
+  },
+  lily(v, st) {
+    const out = [], C = ['#6cc47a', '#7fcf84', '#5fb872'];
+    const pad = (x, z, r) => out.push(pt(cyl(r, r, .012, 9), C, [x, .006, z], [0, mr(0, 6), 0]));
+    if (st === 0) pad(0, 0, .09); else { pad(0, 0, .15); pad(.2, .08, .1); pad(-.12, .17, .085); }
+    if (st === 2) { for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; out.push(pt(cone(.03, .08, 4), '#ffb3cf', [Math.cos(a) * .035, .05, Math.sin(a) * .035], [Math.sin(a) * .5, 0, -Math.cos(a) * .5])); } out.push(pt(ico(.025, 0), '#ffe07a', [0, .045, 0])); }
+    return { parts: [{ g: merge(out), m: 'plant' }], h: .06, r: .2 };
+  },
+  reed(v, st) {
+    const out = [], n = [3, 6, 7][st], h = [.2, .45, .55][st];
+    for (let i = 0; i < n; i++) { const a = i / n * TAU + mr(-.3, .3), rr2 = mr(.02, .07), hh = h * mr(.75, 1.1), tx = mr(-.15, .15); out.push(pt(cone(.022, hh, 3), ['#7ab865', '#8fc970'], [Math.cos(a) * rr2, hh / 2, Math.sin(a) * rr2], [tx, a, 0]));
+      if (st === 2 && i < 3) out.push(pt(cyl(.026, .026, .11, 6), '#8a5a3c', [Math.cos(a) * rr2, hh * .82, Math.sin(a) * rr2], [tx, 0, 0])); }
+    return { parts: [{ g: merge(out), m: 'plant' }], h, r: .1 };
+  },
+  // ---- もの ----
+  rock(v) {
+    const out = [], C = ['#bcb7cc', '#aca6c0', '#c8c3d6'];
+    const one = (x, z, s, sy = .75) => out.push(pt(ico(.2 * s, 0), C, [x, .1 * s * sy, z], [mr(0, 3), mr(0, 3), mr(0, 3)], [1.2, sy, 1], { j: .09 * s }));
+    if (v === 0) one(0, 0, 1.1); else if (v === 1) { one(0, 0, 1); one(.24, .1, .6); } else { one(0, 0, 1.5, .5); one(.3, -.15, .7); one(-.25, .2, .55); one(.1, .3, .4); }
+    return { parts: [{ g: merge(out), m: 'obj' }], h: .3, r: [.25, .35, .5][v] };
+  },
+  bridge() {
+    const out = [], L = 2.4, n = 12, W1 = ['#c58f5f', '#ba8455', '#cf9a6a'];
+    const arc = x => .3 * Math.cos(x / (L / 2) * Math.PI / 2);
+    for (let i = 0; i < n; i++) { const x = -L / 2 + (i + .5) * L / n, s = -.3 * Math.PI / L * Math.sin(x / (L / 2) * Math.PI / 2) * 2; out.push(pt(box(L / n * .9, .05, .58), W1, [x, arc(x) + .03, 0], [0, 0, Math.atan(s)])); }
+    for (const z of [-.27, .27]) {
+      for (const x of [-1.1, -.37, .37, 1.1]) out.push(pt(box(.06, .26, .06), '#a9744a', [x, arc(x) + .16, z]));
+      for (let i = 0; i < 8; i++) { const x0 = -1.1 + i * 2.2 / 8, x1 = x0 + 2.2 / 8, y0 = arc(x0) + .27, y1 = arc(x1) + .27; out.push(pt(box(Math.hypot(x1 - x0, y1 - y0) + .01, .04, .045), '#b37c50', [(x0 + x1) / 2, (y0 + y1) / 2, z], [0, 0, Math.atan2(y1 - y0, x1 - x0)])); }
+    }
+    return { parts: [{ g: merge(out), m: 'obj' }], h: .55, r: 1.2 };
+  },
+  bench() {
+    const out = [], Wd = ['#cf935e', '#c48857'];
+    out.push(pt(box(.66, .035, .09), Wd, [0, .2, .05]), pt(box(.66, .035, .09), Wd, [0, .2, -.05]));
+    out.push(pt(box(.66, .06, .03), Wd, [0, .33, -.12], [-.15, 0, 0]), pt(box(.66, .06, .03), Wd, [0, .42, -.135], [-.15, 0, 0]));
+    for (const x of [-.27, .27]) { out.push(pt(box(.04, .2, .04), '#8a6a55', [x, .1, .07]), pt(box(.04, .44, .04), '#8a6a55', [x, .22, -.11], [-.15, 0, 0])); }
+    return { parts: [{ g: merge(out), m: 'obj' }], h: .45, r: .36 };
+  },
+  cottage(v) {
+    const out = [], gl = [], roof = ['#f28b82', '#7fc8c4', '#b9a3e8'][v % 3];
+    out.push(pt(box(.8, .55, .64), ['#fff0d6', '#fbe8cc'], [0, .275, 0]));
+    out.push(pt(cyl(.56, .56, .8, 3), [roof], [0, .55 + .28 * .7, 0], [-Math.PI / 2, 0, 0], [1, 1, .7]));
+    out.push(pt(box(.1, .26, .1), '#d98e7a', [.22, .86, -.08]), pt(box(.13, .04, .13), '#c77c69', [.22, .99, -.08]));
+    out.push(pt(box(.17, .3, .03), '#a8754f', [-.16, .15, .325]), pt(ico(.015, 0), '#ffd36b', [-.1, .15, .345]));
+    out.push(pt(box(.28, .04, .14), '#d8cfc4', [-.16, .02, .38]));
+    out.push(pt(box(.22, .06, .07), '#a8754f', [.18, .2, .345]));
+    for (let i = 0; i < 4; i++) out.push(pt(ico(.03, 0), ['#ff9ec7', '#ffd45c', '#b8a6ff'][i % 3], [.1 + i * .053, .245, .35]));
+    gl.push(pt(box(.17, .15, .02), '#ffe7a3', [.18, .34, .325], 0, 1, { v: 0 }));
+    gl.push(pt(box(.02, .15, .17), '#ffe7a3', [.405, .32, 0], 0, 1, { v: 0 }), pt(box(.02, .15, .17), '#ffe7a3', [-.405, .32, 0], 0, 1, { v: 0 }));
+    out.push(pt(box(.21, .02, .02), '#fff8ec', [.18, .34, .338]), pt(box(.02, .19, .02), '#fff8ec', [.18, .34, .338]));
+    return { parts: [{ g: merge(out), m: 'obj' }, { g: merge(gl), m: 'glow' }], h: 1.0, r: .55, smoke: [.22, 1.04, -.08] };
+  },
+  fence() {
+    const out = [], C = ['#f5e2c8', '#efd8bb'];
+    for (const x of [-.45, 0, .45]) { out.push(pt(box(.06, .32, .06), C, [x, .16, 0]), pt(cone(.045, .06, 4), C, [x, .35, 0], [0, Math.PI / 4, 0])); }
+    out.push(pt(box(.96, .045, .03), C, [0, .12, 0]), pt(box(.96, .045, .03), C, [0, .24, 0]));
+    return { parts: [{ g: merge(out), m: 'obj' }], h: .36, r: .5 };
+  },
+  stones() {
+    const out = [];
+    for (let i = 0; i < 5; i++) { const x = -.6 + i * .3, z = Math.sin(i * 1.3) * .1, r = mr(.1, .14); out.push(pt(cyl(r, r * 1.08, .06, 7), ['#c4c0d2', '#b5b0c6'], [x, .02, z], [0, mr(0, 3), 0], 1, { j: .02 })); }
+    return { parts: [{ g: merge(out), m: 'obj' }], h: .06, r: .7 };
+  },
+};
+
+// ---- 動物（部品ごとに分けて、羽やしっぽを動かす） ----
+const AM = {
+  butterfly() {
+    const body = merge([pt(cyl(.011, .009, .1, 5), '#5b5573', [0, 0, 0], [Math.PI / 2, 0, 0]), pt(ico(.016, 0), '#5b5573', [0, .004, .055])]);
+    const wing = s => merge([pt(tri([[0, 0, .03], [s * .11, .0, .075], [s * .1, 0, -.01]]), '#ffffff'), pt(tri([[0, 0, -.005], [s * .085, 0, -.03], [s * .05, 0, -.075]]), '#ffffff'), pt(tri([[s * .03, .001, .03], [s * .07, .001, .05], [s * .065, .001, .015]]), '#ffffff', 0, 0, 1, { v: 0 })]);
+    const wl = wing(1), wr = wing(-1);
+    // 翅の中の模様（すこし濃く）
+    const c = wl.attributes.color; for (let i = 18; i < 27; i++) c.setXYZ(i, .85, .8, .9);
+    const c2 = wr.attributes.color; for (let i = 18; i < 27; i++) c2.setXYZ(i, .85, .8, .9);
+    return { parts: [{ g: body, m: 'animal' }, { g: wl, m: 'wing', tint: 1, pivot: [.006, .004, .01] }, { g: wr, m: 'wing', tint: 1, pivot: [-.006, .004, .01] }], h: .05 };
+  },
+  bird() {
+    const body = merge([pt(ico(.075, 1), '#ffffff', [0, .075, 0], 0, [.9, .85, 1.25], { j: .01 }), pt(ico(.055, 1), '#ffffff', [0, .14, .07], 0, 1, { j: .006 }), pt(box(.07, .014, .08), '#ffffff', [0, .09, -.11], [.35, 0, 0]),
+      pt(ico(.011, 0), '#2d2a3a', [.04, .155, .1]), pt(ico(.011, 0), '#2d2a3a', [-.04, .155, .1]), pt(ico(.03, 0), '#fff6e8', [0, .05, .03], 0, [1.2, .8, 1.4], { v: 0 })]);
+    const beak = pt(cone(.019, .05, 4), '#ffa94d', [0, .13, .135], [Math.PI / 2, 0, 0]);
+    const wing = s => pt(tri([[0, 0, .05], [s * .17, 0, -.01], [0, 0, -.07], [0, 0, .05], [s * .08, 0, .04], [s * .17, 0, -.01]]), '#ffffff');
+    const legs = merge([pt(cyl(.006, .006, .05, 3), '#e08a4a', [.025, .02, 0]), pt(cyl(.006, .006, .05, 3), '#e08a4a', [-.025, .02, 0])]);
+    return { parts: [{ g: body, m: 'animal', tint: 1 }, { g: beak, m: 'animal' }, { g: legs, m: 'animal' }, { g: wing(1), m: 'wing', tint: 1, pivot: [.055, .1, 0] }, { g: wing(-1), m: 'wing', tint: 1, pivot: [-.055, .1, 0] }], h: .2 };
+  },
+  rabbit() {
+    const body = merge([
+      pt(ico(.11, 1), '#ffffff', [0, .1, -.01], 0, [.85, .82, 1.05], { j: .012 }),
+      pt(ico(.075, 1), '#ffffff', [0, .18, .1], 0, 1, { j: .01 }),
+      pt(box(.032, .14, .018), '#ffffff', [.03, .3, .085], [.12, 0, -.18]), pt(box(.032, .14, .018), '#ffffff', [-.03, .3, .085], [.12, 0, .18]),
+      pt(box(.016, .1, .004), '#ffc2cf', [.031, .3, .096], [.12, 0, -.18], 1, { v: 0 }), pt(box(.016, .1, .004), '#ffc2cf', [-.031, .3, .096], [.12, 0, .18], 1, { v: 0 }),
+      pt(ico(.038, 0), '#ffffff', [0, .1, -.12]),
+      pt(ico(.012, 0), '#2d2a3a', [.042, .2, .15]), pt(ico(.012, 0), '#2d2a3a', [-.042, .2, .15]), pt(ico(.011, 0), '#ff9fb4', [0, .17, .172]),
+      pt(ico(.03, 0), '#ffffff', [.05, .025, .07], 0, [1, .6, 1.4]), pt(ico(.03, 0), '#ffffff', [-.05, .025, .07], 0, [1, .6, 1.4]),
+    ]);
+    return { parts: [{ g: body, m: 'animal', tint: 1 }], h: .3 };
+  },
+  fish() {
+    const body = merge([pt(ico(.075, 1), '#ffffff', [0, 0, 0], 0, [.5, .68, 1.3], { j: .01 }), pt(ico(.01, 0), '#2d2a3a', [.03, .015, .065]), pt(ico(.01, 0), '#2d2a3a', [-.03, .015, .065]), pt(tri([[0, .05, .02], [0, .085, -.04], [0, .04, -.05]]), '#ffffff')]);
+    const tail = pt(tri([[0, 0, 0], [0, .06, -.08], [0, -.06, -.08]]), '#ffffff');
+    return { parts: [{ g: body, m: 'wing', tint: 1 }, { g: tail, m: 'wing', tint: 1, pivot: [0, 0, -.085] }], h: .1 };
+  },
+};
+
+const mcache = new Map();
+function model(type, v = 0, st = 0) {
+  const key = type + '.' + v + '.' + st; let m = mcache.get(key);
+  if (!m) { MR = mulberry(key.split('').reduce((a, c) => a * 31 + c.charCodeAt(0) | 0, 7)); m = (MB[type] || AM[type])(v, st); m.key = key; mcache.set(key, m); }
+  return m;
+}
+
+// ---- 道具の絵（モデルを小さく描いて画像にする） ----
+const Thumbs = (() => {
+  const S = 96, rt = new THREE.WebGLRenderTarget(S, S, { samples: 4 }); rt.texture.colorSpace = THREE.SRGBColorSpace;
+  const sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(30, 1, .01, 50);
+  sc.add(new THREE.HemisphereLight(0xffffff, 0xcab8e8, 2.6)); const dl = new THREE.DirectionalLight(0xffffff, 2.4); dl.position.set(2, 4, 3); sc.add(dl);
+  const buf = new Uint8Array(S * S * 4), cv = document.createElement('canvas'); cv.width = cv.height = S; const cx = cv.getContext('2d'); const id = cx.createImageData(S, S);
+  const cache = new Map();
+  const LUT = new Uint8Array(256); for (let i = 0; i < 256; i++) { const c = i / 255; LUT[i] = Math.round(255 * (c <= .0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - .055)); }
+  return function (type, v = 0, st = 2, tint) {
+    const k = type + v + st + (tint || ''); if (cache.has(k)) return cache.get(k);
+    const m = model(type, v, st), grp = new THREE.Group();
+    for (const p of m.parts) {
+      const mt = (MAT[p.m] || MAT.obj).clone(); if (p.m === 'plant') mt.onBeforeCompile = () => {};
+      if (p.tint && tint) mt.color = col(tint);
+      grp.add(new THREE.Mesh(p.g, mt));
+    }
+    const bb = new THREE.Box3().setFromObject(grp), c = bb.getCenter(new THREE.Vector3()), sz = bb.getSize(new THREE.Vector3()).length();
+    sc.add(grp);
+    const dist = sz / (2 * Math.tan(15 * Math.PI / 180)) * .92;
+    cam.position.copy(c).add(new THREE.Vector3(.55, .55, 1).normalize().multiplyScalar(dist)); cam.lookAt(c);
+    const prev = renderer.getRenderTarget(), pc = new THREE.Color(); renderer.getClearColor(pc); const pa = renderer.getClearAlpha();
+    renderer.setRenderTarget(rt); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(sc, cam);
+    renderer.readRenderTargetPixels(rt, 0, 0, S, S, buf); renderer.setRenderTarget(prev); renderer.setClearColor(pc, pa);
+    sc.remove(grp); grp.traverse(o => o.material && o.material.dispose());
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const i = ((S - 1 - y) * S + x) * 4, o = (y * S + x) * 4, a = buf[i + 3];
+      id.data[o + 3] = a; if (!a) continue;
+      for (let k = 0; k < 3; k++) id.data[o + k] = LUT[Math.min(255, Math.round(buf[i + k] * 255 / a))];
+    }
+    cx.putImageData(id, 0, 0); const url = cv.toDataURL(); cache.set(k, url); return url;
+  };
+})();
+
+// ================= 置いたもの（植物・もの） =================
+const DEFS = {
+  grass:   { cat: 'plant', name: '草', stages: 3, scatter: .26, rnd: .25 },
+  flower:  { cat: 'plant', name: '花', stages: 3, variants: 5, scatter: .3, rnd: .2, vnames: ['もも', 'きいろ', 'しろ', 'すみれ', 'あか'] },
+  oak:     { cat: 'plant', name: 'まるい木', stages: 4, scatter: 1.1, rnd: .15, tree: 1 },
+  pine:    { cat: 'plant', name: 'もみの木', stages: 4, scatter: 1, rnd: .15, tree: 1 },
+  sakura:  { cat: 'plant', name: 'さくら', stages: 4, scatter: 1.1, rnd: .15, tree: 1 },
+  bush:    { cat: 'plant', name: 'しげみ', stages: 3, variants: 2, scatter: .5, rnd: .2, vnames: ['赤い実', '青い実'] },
+  mush:    { cat: 'plant', name: 'きのこ', stages: 3, variants: 2, scatter: .3, rnd: .2, vnames: ['あか', 'ちゃいろ'] },
+  lily:    { cat: 'plant', name: 'スイレン', stages: 3, scatter: .45, rnd: .15, water: 'on' },
+  reed:    { cat: 'plant', name: 'ガマ', stages: 3, scatter: .3, rnd: .15, water: 'any' },
+  rock:    { cat: 'obj', name: '岩', variants: 3, rnd: .2, vnames: ['ひとつ', 'ふたつ', 'ごろごろ'] },
+  bridge:  { cat: 'obj', name: '木の橋', water: 'over', align: 1 },
+  bench:   { cat: 'obj', name: 'ベンチ', align: 1 },
+  cottage: { cat: 'obj', name: 'ちいさな家', variants: 3, align: 1, vnames: ['さんご', 'みずいろ', 'すみれ'] },
+  fence:   { cat: 'obj', name: 'さく', align: 1, dup: .9 },
+  stones:  { cat: 'obj', name: '飛び石', water: 'over', align: 1, dup: 1.5 },
+};
+const MAXST = t => (DEFS[t].stages || 1) - 1;
+
+class Batch {
+  constructor(m) {
+    this.m = m; this.items = []; this.cap = 0; this.meshes = [];
+    this.grow(16);
+  }
+  grow(cap) {
+    const old = this.meshes;
+    this.meshes = this.m.parts.map((p, i) => {
+      const mesh = new THREE.InstancedMesh(p.g, MAT[p.m], cap);
+      mesh.castShadow = p.m !== 'glow' && !this.m.key.startsWith('grass') && !this.m.key.startsWith('lily');
+      mesh.receiveShadow = p.m !== 'glow';
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.count = 0; mesh.frustumCulled = false; mesh.userData.batch = this;
+      if (old[i]) { mesh.instanceMatrix.array.set(old[i].instanceMatrix.array.subarray(0, this.cap * 16)); scene.remove(old[i]); old[i].dispose(); }
+      scene.add(mesh); return mesh;
+    });
+    this.cap = cap;
+  }
+  add(it) { if (this.items.length >= this.cap) this.grow(this.cap * 2); it._b = this; it._i = this.items.length; this.items.push(it); this.write(it); this.sync(); }
+  remove(it) {
+    const i = it._i, last = this.items.pop();
+    if (last !== it) { this.items[i] = last; last._i = i; for (const m of this.meshes) { m.instanceMatrix.array.copyWithin(i * 16, this.items.length * 16, this.items.length * 16 + 16); } }
+    it._b = null; this.sync();
+  }
+  write(it) { for (const m of this.meshes) m.setMatrixAt(it._i, it._mx); this.dirty = true; }
+  sync() { for (const m of this.meshes) { m.count = this.items.length; m.visible = m.count > 0; m.instanceMatrix.needsUpdate = true; } this.dirty = false; }
+}
+const BATCH = new Map();
+function batchFor(m) { let b = BATCH.get(m.key); if (!b) { b = new Batch(m); BATCH.set(m.key, b); } return b; }
+
+const ITEMS = []; let nextItemId = 1;
+function itemModel(it) { return model(it.t, it.v || 0, it.st || 0); }
+// 置く高さ（水に浮かぶもの・水をまたぐものも）
+function itemBaseR(it) {
+  const sr = surfaceAt(it.d), def = DEFS[it.t];
+  if (def.water) { const w = waterAt(it.d); if (w) { it._wet = 1; if (def.water === 'on') return w.level + .004; if (def.water === 'over') return it.t === 'stones' ? w.level - .015 : Math.max(sr, w.level - .06); return Math.max(sr, w.level - .12); } }
+  it._wet = 0;
+  return sr - (def.tree ? .05 : .02) * (it.s || 1);
+}
+const _iq = new THREE.Quaternion(), _iq2 = new THREE.Quaternion(), _ip = new THREE.Vector3(), _is = new THREE.Vector3();
+function itemMatrix(it) {
+  if (!it._mx) it._mx = new THREE.Matrix4();
+  const r = itemBaseR(it); it._r = r;
+  _ip.copy(it.d).multiplyScalar(r);
+  _iq.setFromUnitVectors(Y_AXIS, it.d); _iq2.setFromAxisAngle(Y_AXIS, it.rot || 0); _iq.multiply(_iq2);
+  let s = it.s || 1;
+  if (it._pop) { const t = clamp(it._pop.t / it._pop.dur, 0, 1); const e = 1 + 2.2 * Math.pow(t - 1, 3) + 1.2 * Math.pow(t - 1, 2); s *= lerp(it._pop.from, 1, e); }
+  it._mx.compose(_ip, _iq, _is.set(s, s, s));
+  return it._mx;
+}
+function addItem(o, silent) {
+  const it = { id: nextItemId++, t: o.t, v: o.v || 0, st: o.st ?? MAXST(o.t), d: o.d.clone().normalize(), rot: o.rot ?? rr(0, TAU), s: o.s ?? 1 };
+  ITEMS.push(it); itemMatrix(it); batchFor(itemModel(it)).add(it);
+  if (!silent) { it._pop = { t: 0, dur: .55, from: .2 }; POPS.add(it); }
+  return it;
+}
+function removeItem(it) { if (it._b) it._b.remove(it); const i = ITEMS.indexOf(it); if (i >= 0) ITEMS.splice(i, 1); POPS.delete(it); }
+function refreshItem(it) { // 段階や種類が変わったとき
+  const b = batchFor(itemModel(it));
+  itemMatrix(it);
+  if (it._b !== b) { if (it._b) it._b.remove(it); b.add(it); } else { b.write(it); b.sync(); }
+}
+function clearItems() { for (const b of BATCH.values()) { b.items.length = 0; b.sync(); } ITEMS.length = 0; POPS.clear(); }
+function updateItemsNear(d, rad) {
+  const c = Math.cos((rad + 1.2) / R); const bs = new Set();
+  for (const it of ITEMS) if (it.d.dot(d) > c) { itemMatrix(it); it._b.write(it); bs.add(it._b); }
+  for (const b of bs) b.sync();
+}
+function updateAllItems() { for (const it of ITEMS) { itemMatrix(it); it._b.write(it); } for (const b of BATCH.values()) b.sync(); }
+// ぽんっと大きくなる動き
+const POPS = new Set();
+function tickPops(dt) {
+  const bs = new Set();
+  for (const it of POPS) { if (it._delay > 0) { it._delay -= dt; continue; } it._pop.t += dt; if (it._pop.t >= it._pop.dur) { it._pop = null; POPS.delete(it); } itemMatrix(it); if (it._b) { it._b.write(it); bs.add(it._b); } }
+  for (const b of bs) b.sync();
+}
+function itemTop(it) { const m = itemModel(it); return (it._r || surfaceAt(it.d)) + m.h * (it.s || 1); }
+
+// 置けるかどうか
+function canPlace(t, d) {
+  const def = DEFS[t]; const w = waterAt(d);
+  if (def.water === 'on') return !!w && w.depth > .06;
+  if (def.water === 'any' || def.water === 'over') return true;
+  return !w || w.depth < .05;
+}
+function nearCount(d, rad, filter) { const c = Math.cos(rad / R); let n = 0; for (const it of ITEMS) if (it.d.dot(d) > c && (!filter || filter(it))) n++; return n; }
+function itemsNear(d, rad, filter) { const c = Math.cos(rad / R); return ITEMS.filter(it => it.d.dot(d) > c && (!filter || filter(it))); }
+
+// 画面の左右に合わせた向き（橋やさくを置くとき）
+function alignedRot(d) {
+  _iq.setFromUnitVectors(Y_AXIS, d);
+  const lx = _v1.set(1, 0, 0).applyQuaternion(_iq);
+  const cr = _v2.set(1, 0, 0).applyQuaternion(camera.quaternion); cr.addScaledVector(d, -cr.dot(d)).normalize();
+  let a = Math.atan2(_v3.crossVectors(lx, cr).dot(d), lx.dot(cr));
+  return a;
+}
+
+// ================= 動物 =================
+const ADEF = {
+  butterfly: { name: 'ちょうちょ', cap: 48, colors: ['#ffb3d1', '#ffd66b', '#a9c8ff', '#c7b3ff', '#ffffff', '#ffb07a'], s: 1.25 },
+  bird:      { name: 'ことり', cap: 32, colors: ['#7cc0ff', '#ffd25e', '#ff9e9e', '#9fe0a0', '#c9b6ff'], s: 1 },
+  rabbit:    { name: 'うさぎ', cap: 32, colors: ['#ffffff', '#fff1dc', '#e0bf9e', '#d6d2e0'], s: 1 },
+  fish:      { name: 'さかな', cap: 48, colors: ['#ff9a5c', '#ff7d7d', '#ffd166', '#9ad0ff', '#ffffff'], s: 1.1 },
+};
+const ANIMALS = []; let nextAnimalId = 1;
+class AKind {
+  constructor(t) {
+    this.t = t; this.m = model(t); this.list = [];
+    this.meshes = this.m.parts.map(p => {
+      const mesh = new THREE.InstancedMesh(p.g, MAT[p.m], ADEF[t].cap); mesh.count = 0; mesh.castShadow = t !== 'fish'; mesh.frustumCulled = false;
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.userData.kind = this; mesh.userData.part = p;
+      if (p.tint) { for (let i = 0; i < ADEF[t].cap; i++) mesh.setColorAt(i, WHITE); }
+      scene.add(mesh); return mesh;
+    });
+  }
+}
+const WHITE = new THREE.Color(1, 1, 1);
+const AK = {}; for (const t in ADEF) AK[t] = new AKind(t);
+
+function addAnimal(t, d, o = {}) {
+  const k = AK[t]; if (k.list.length >= ADEF[t].cap) return null;
+  const f = new THREE.Vector3(rnd() - .5, rnd() - .5, rnd() - .5); f.addScaledVector(d, -f.dot(d)).normalize();
+  const a = { id: nextAnimalId++, t, v: o.v ?? Math.floor(rnd() * ADEF[t].colors.length), d: d.clone().normalize(), f, alt: o.alt ?? 0, st: 'idle', tm: rr(.5, 2), tg: null, tgAlt: 0, ph: rr(0, 100), sc: o.instant ? 1 : 0, mx: new THREE.Matrix4(), pitch: 0, roll: 0, flap: 0, acc: 0, lake: o.lake || 0, hop: null };
+  if (t === 'bird') { a.st = 'fly'; a.alt = o.alt ?? 2.2; }
+  if (t === 'butterfly') { a.st = 'fly'; a.alt = o.alt ?? .7; }
+  if (t === 'fish') { const w = waterAt(a.d); a.lake = w && w.lake ? w.lake.id : 0; a.st = 'swim'; }
+  a.col = col(ADEF[t].colors[a.v % ADEF[t].colors.length]);
+  k.list.push(a); ANIMALS.push(a);
+  return a;
+}
+function removeAnimal(a) { const k = AK[a.t]; k.list.splice(k.list.indexOf(a), 1); ANIMALS.splice(ANIMALS.indexOf(a), 1); if (SEL.a === a) select(null); }
+function clearAnimals() { for (const t in AK) AK[t].list.length = 0; ANIMALS.length = 0; }
+
+const angTo = (a, p) => Math.acos(clamp(a.d.dot(p), -1, 1)) * R;
+const _st1 = new THREE.Vector3(), _st2 = new THREE.Vector3();
+function steer(a, target, turn, dt) {
+  const des = _st1.copy(target).addScaledVector(a.d, -target.dot(a.d)); if (des.lengthSq() < 1e-12) return 0; des.normalize();
+  const ang = Math.atan2(_st2.crossVectors(a.f, des).dot(a.d), a.f.dot(des));
+  a.f.applyAxisAngle(a.d, clamp(ang, -turn * dt, turn * dt)); return ang;
+}
+function fwd(a, s) { moveOnSphere(a.d, a.f, s); }
+function nearestOf(d, list, max = 1e9) { let b = null, bd = max; for (const it of list) { const x = Math.acos(clamp(d.dot(it.d), -1, 1)) * R; if (x < bd) { bd = x; b = it; } } return b; }
+function randomOfNear(d, list, k = 6, max = 9) {
+  const c = list.map(it => [Math.acos(clamp(d.dot(it.d), -1, 1)) * R, it]).filter(x => x[0] < max && x[0] > .05).sort((x, y) => x[0] - y[0]).slice(0, k);
+  return c.length ? pick(c)[1] : null;
+}
+const blooming = () => ITEMS.filter(it => it.t === 'flower' && it.st === 2);
+const matureTrees = () => ITEMS.filter(it => DEFS[it.t].tree && it.st >= 2);
+const grassy = () => ITEMS.filter(it => it.t === 'grass' || it.t === 'bush' || (it.t === 'flower' && it.st < 2));
+
+const AI = {
+  butterfly(a, dt) {
+    if (a.st === 'rest') {
+      a.flap = (Math.sin(TIME * 2.4 + a.ph) * .5 + .5) * 1.25; a.tm -= dt;
+      if (!a.tgItem || !ITEMS.includes(a.tgItem)) a.tm = 0; else a.alt = itemTop(a.tgItem) - surfaceAt(a.d) + .015;
+      if (a.tm <= 0) { a.st = 'fly'; a.tg = null; a.tgItem = null; }
+      return;
+    }
+    a.flap = (Math.sin(TIME * 24 + a.ph) * .5 + .5) * 1.35;
+    if (!a.tg) {
+      const fl = randomOfNear(a.d, blooming(), 6, 8);
+      if (fl && rnd() < .85) { a.tgItem = fl; a.tg = fl.d.clone(); } else { a.tgItem = null; a.tg = randomNear(a.d, 3); }
+    }
+    if (a.tgItem && !ITEMS.includes(a.tgItem)) { a.tgItem = null; a.tg = null; return; }
+    const dist = angTo(a, a.tg);
+    steer(a, a.tg, dist < .5 ? 7 : 3.5, dt);
+    a.f.applyAxisAngle(a.d, Math.sin(TIME * 6 + a.ph) * dt * 2.2);
+    fwd(a, Math.min(.85, dist * 2.2 + .1) * dt);
+    let want = .55 + Math.sin(TIME * 1.3 + a.ph) * .18;
+    if (a.tgItem && dist < .7) want = lerp(itemTop(a.tgItem) - surfaceAt(a.d) + .02, want, dist / .7);
+    a.alt = lerp(a.alt, want, Math.min(1, dt * 2.5)) + Math.sin(TIME * 9 + a.ph) * .004;
+    if (dist < .045) { if (a.tgItem) { a.st = 'rest'; a.tm = rr(2.5, 6); discover('butterfly_rest'); } else a.tg = null; }
+  },
+  bird(a, dt) {
+    if (a.st === 'perch') {
+      a.flap = .04; a.tm -= dt; a.f.applyAxisAngle(a.d, Math.sin(TIME * .9 + a.ph) * dt * .7);
+      if (a.tgItem && ITEMS.includes(a.tgItem)) a.alt = itemTop(a.tgItem) - surfaceAt(a.d) - .04; else a.tm = 0;
+      a.pitch = lerp(a.pitch, 0, dt * 4);
+      if (a.tm <= 0) { a.st = 'fly'; a.tg = null; a.tgItem = null; }
+      return;
+    }
+    if (a.st === 'ground') {
+      a.tm -= dt; a.flap = .04; a.hopT = (a.hopT || 0) - dt;
+      if (a.hopT <= 0) { a.hopT = rr(.4, 1); a.f.applyAxisAngle(a.d, rr(-1, 1)); fwd(a, .08); if (waterAt(a.d)) { a.f.negate(); fwd(a, .1); } }
+      const k = clamp(a.hopT / .25, 0, 1); a.alt = Math.sin(k * Math.PI) * .04; a.pitch = Math.sin(TIME * 5 + a.ph) > .6 ? .5 : 0;
+      if (a.tm <= 0) { a.st = 'fly'; a.tg = null; }
+      return;
+    }
+    if (a.st === 'circle') {
+      a.tm -= dt; a.f.applyAxisAngle(a.d, .7 * dt); fwd(a, 1.6 * dt);
+      a.alt = lerp(a.alt, 2.3 + Math.sin(TIME * .5 + a.ph) * .3, dt);
+      a.flap = Math.sin(TIME * 4 + a.ph) > .2 ? Math.sin(TIME * 15) * .9 : .25; a.roll = lerp(a.roll, -.35, dt * 2);
+      if (a.tm <= 0) { a.st = 'fly'; a.tg = null; }
+      return;
+    }
+    a.roll = lerp(a.roll, 0, dt * 2);
+    if (!a.tg) {
+      const tr = randomOfNear(a.d, matureTrees(), 6, 12), r = rnd();
+      if (tr && r < .6) { a.tgItem = tr; a.tg = tr.d.clone(); }
+      else if (r < .8) { a.tgItem = null; const g = randomNear(a.d, 3); if (!waterAt(g)) { a.tg = g; a.toGround = 1; } else { a.st = 'circle'; a.tm = rr(4, 8); return; } }
+      else { a.st = 'circle'; a.tm = rr(4, 9); return; }
+    }
+    if (a.tgItem && !ITEMS.includes(a.tgItem)) { a.tg = null; a.tgItem = null; return; }
+    const dist = angTo(a, a.tg);
+    const land = dist < 1.4;
+    const tgAlt = a.tgItem ? itemTop(a.tgItem) - surfaceAt(a.d) - .04 : 0;
+    steer(a, a.tg, land ? 5 : 2.2, dt);
+    fwd(a, Math.min(1.9, dist * 1.6 + .25) * dt);
+    const want = land ? lerp(tgAlt, 2.1, dist / 1.4) : 2.1 + Math.sin(TIME * .7 + a.ph) * .3;
+    const pAlt = a.alt; a.alt = lerp(a.alt, want, Math.min(1, dt * (land ? 3 : 1.2)));
+    a.pitch = lerp(a.pitch, clamp((pAlt - a.alt) / dt * .25, -.5, .5), dt * 4);
+    a.flap = land && dist < .5 ? Math.sin(TIME * 22) * 1.1 : (Math.sin(TIME * 3 + a.ph) > -.3 ? Math.sin(TIME * 15 + a.ph) * .9 : .3);
+    if (dist < .05) {
+      if (a.tgItem) { a.st = 'perch'; a.tm = rr(4, 10); discover('bird_perch'); }
+      else if (a.toGround) { a.st = 'ground'; a.tm = rr(3, 7); a.alt = 0; a.toGround = 0; }
+      a.tg = null;
+    }
+  },
+  rabbit(a, dt) {
+    if (a.st === 'hop') {
+      const h = a.hop; h.t += dt / h.dur;
+      const t = Math.min(1, h.t);
+      a.d.copy(h.from).lerp(h.to, t).normalize(); a.f.addScaledVector(a.d, -a.f.dot(a.d)).normalize();
+      a.alt = Math.sin(t * Math.PI) * h.hgt; a.pitch = lerp(-.35, .3, t);
+      if (h.t >= 1) { a.hop = null; a.alt = 0; a.pitch = 0; a.hops--; a.st = a.hops > 0 ? 'pause' : 'idle'; a.tm = a.hops > 0 ? rr(.06, .25) : rr(1.5, 5); a.nib = a.st === 'idle' && nearCount(a.d, .45, it => it.t === 'grass' || it.t === 'flower' || it.t === 'bush') > 0; if (a.nib) discover('rabbit_nibble'); a.look = !a.nib && rnd() < .35; }
+      return;
+    }
+    a.tm -= dt;
+    if (a.st === 'idle') {
+      a.pitch = a.nib ? .28 + Math.max(0, Math.sin(TIME * 7 + a.ph)) * .12 : a.look ? lerp(a.pitch, -.38, dt * 5) : lerp(a.pitch, 0, dt * 5);
+      if (a.tm <= 0) { a.st = 'pause'; a.hops = Math.floor(rr(2, 7)); a.tm = 0; }
+      return;
+    }
+    if (a.st === 'pause' && a.tm <= 0) {
+      a.f.applyAxisAngle(a.d, rr(-.75, .75));
+      if (rnd() < .4) { const g = nearestOf(a.d, grassy(), 4); if (g) steer(a, g.d, 99, 1); }
+      const to = a.d.clone(); const f2 = a.f.clone(); moveOnSphere(to, f2, rr(.32, .5));
+      const w = waterAt(to);
+      if (w) { if (rnd() < .3) { a.st = 'idle'; a.tm = rr(2, 4); a.nib = true; discover('rabbit_drink'); return; } a.f.negate(); return; }
+      if (Math.abs(surfaceAt(to) - surfaceAt(a.d)) > .45) { a.f.applyAxisAngle(a.d, 1.6); return; }
+      a.st = 'hop'; a.hop = { from: a.d.clone(), to, t: 0, dur: rr(.36, .46), hgt: rr(.13, .22) };
+    }
+  },
+  fish(a, dt) {
+    const L = WT.lakeById.get(a.lake);
+    if (!L || !L.verts.length) { const w = waterAt(a.d); if (w && w.lake) { a.lake = w.lake.id; return; } else { a.gone = 1; return; } }
+    const level = L ? L.level : surfaceAt(a.d) + .2;
+    a.tail = Math.sin(TIME * (a.st === 'jump' ? 22 : 9) + a.ph) * .55;
+    if (a.st === 'jump') {
+      a.jt += dt / .85; fwd(a, .75 * dt);
+      const t = a.jt; a.yAbs = level - .1 + Math.sin(Math.min(1, t) * Math.PI) * .52; a.pitch = lerp(-.95, .95, t);
+      if (!a.sp1 && t > .1) { a.sp1 = 1; FX.splash(a.d, level); }
+      if (t >= 1) { a.st = 'swim'; FX.splash(a.d, level); a.sp1 = 0; }
+      return;
+    }
+    if (!a.tg || angTo(a, a.tg) < .15) { const vs = L.verts; for (let k = 0; k < 6; k++) { const vi = vs[Math.floor(rnd() * vs.length)]; if (level - (R + PL.H[vi]) > .18 || k === 5) { a.tg = dirOf(vi); break; } } }
+    steer(a, a.tg, 2.2, dt); fwd(a, .55 * dt);
+    const sr = surfaceAt(a.d), dep = level - sr;
+    if (dep < .08) { a.f.negate(); fwd(a, .05); }
+    a.yAbs = level - clamp(dep * .5, .07, .26) + Math.sin(TIME * 1.5 + a.ph) * .015;
+    a.pitch = lerp(a.pitch, 0, dt * 3);
+    if (dep > .22 && rnd() < dt * .03) { a.st = 'jump'; a.jt = 0; discover('fish_jump'); }
+  },
+};
+
+const _am = new THREE.Matrix4(), _ax = new THREE.Vector3(), _aq = new THREE.Quaternion(), _ae = new THREE.Euler(), _ap = new THREE.Vector3(), _as = new THREE.Vector3(), _pm = new THREE.Matrix4(), _pq = new THREE.Quaternion();
+let frameNo = 0;
+function tickAnimals(dt, camU) {
+  frameNo++;
+  for (let i = ANIMALS.length - 1; i >= 0; i--) {
+    const a = ANIMALS[i];
+    const back = a.d.dot(camU) < -.15;
+    a.acc += dt;
+    if (back && (frameNo + a.id) % 4) continue;
+    const step = Math.min(a.acc, .12); a.acc = 0;
+    AI[a.t](a, step);
+    if (a.gone) { a.sc -= step * 2; if (a.sc <= 0) { removeAnimal(a); continue; } }
+    else if (a.sc < 1) a.sc = Math.min(1, a.sc + step * 2);
+    const r = a.t === 'fish' ? a.yAbs : surfaceAt(a.d) + a.alt;
+    _ap.copy(a.d).multiplyScalar(r);
+    _ax.crossVectors(a.d, a.f);
+    _am.makeBasis(_ax, a.d, a.f); _aq.setFromRotationMatrix(_am);
+    _ae.set(a.pitch, 0, a.roll); _pq.setFromEuler(_ae); _aq.multiply(_pq);
+    const s = ADEF[a.t].s * (a.sc < 1 ? sstep(0, 1, a.sc) : 1) * (SEL.a === a ? 1 + Math.sin(TIME * 6) * .04 : 1);
+    a.mx.compose(_ap, _aq, _as.set(s, s, s));
+  }
+  for (const t in AK) {
+    const k = AK[t];
+    k.meshes.forEach(mesh => {
+      const p = mesh.userData.part;
+      k.list.forEach((a, i) => {
+        if (p.pivot) {
+          if (t === 'fish') _pq.setFromAxisAngle(Y_AXIS, a.tail || 0);
+          else _pq.setFromAxisAngle(Z_AXIS, (p.pivot[0] > 0 ? 1 : -1) * a.flap);
+          _pm.compose(_ap.set(...p.pivot), _pq, _as.set(1, 1, 1)); _pm.premultiply(a.mx);
+          mesh.setMatrixAt(i, _pm);
+        } else mesh.setMatrixAt(i, a.mx);
+        if (p.tint && mesh.instanceColor) mesh.setColorAt(i, a.col);
+      });
+      mesh.count = k.list.length; mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    });
+  }
+}
+
+// ---- 生き物がやってくる（GROW のたび） ----
+function visitorTargets() {
+  const flowers = blooming().length, trees = matureTrees().length, green = ITEMS.filter(it => it.t === 'grass' || it.t === 'bush').length;
+  return {
+    butterfly: Math.min(20, Math.floor(flowers / 3)),
+    bird: Math.min(12, Math.floor(trees / 2)),
+    rabbit: Math.min(10, Math.floor(green / 9)),
+    fish: WT.lakes.reduce((s, L) => s + Math.min(6, Math.floor(L.verts.length / 14)), 0),
+  };
+}
+function spawnVisitors(maxEach = 1) {
+  const tg = visitorTargets(), out = [];
+  for (const t in tg) {
+    let n = AK[t].list.length;
+    for (let k = 0; k < maxEach && n < tg[t]; k++, n++) {
+      let d = null;
+      if (t === 'butterfly') { const f = pick(blooming()); d = randomNear(f.d, 1.5); }
+      else if (t === 'bird') { const tr = pick(matureTrees()); d = randomNear(tr.d, 3); }
+      else if (t === 'rabbit') { const g = pick(ITEMS.filter(it => it.t === 'grass' || it.t === 'bush')); d = randomNear(g.d, .6); if (waterAt(d)) d = null; }
+      else if (t === 'fish') { const lakes = WT.lakes.filter(L => L.verts.length > 14 && ANIMALS.filter(a => a.lake === L.id).length < Math.min(6, Math.floor(L.verts.length / 14))); const L = pick(lakes); if (L) { for (let j = 0; j < 8; j++) { const vi = pick(L.verts); if (L.level - (R + PL.H[vi]) > .18) { d = dirOf(vi); break; } } } }
+      if (!d) continue;
+      const a = addAnimal(t, d, { alt: t === 'bird' ? 6 : t === 'butterfly' ? 2.4 : undefined });
+      if (a) { out.push(a); if (t === 'fish') FX.splash(a.d, WT.levelOf(a.lake)); if (t === 'rabbit') FX.puff(a.d, surfaceAt(a.d), '#ffffff', 6); }
+    }
+  }
+  return out;
+}
+
+// ================= 空・光・雲・天気・小さな演出 =================
+const SKIES = {
+  pastel:   { name: 'パステル', top: '#9ed6ff', bot: '#ffe3f0' },
+  mint:     { name: 'ミント', top: '#97e3d1', bot: '#fff5d6' },
+  lavender: { name: 'ラベンダー', top: '#b6adff', bot: '#ffd8ea' },
+  peach:    { name: 'ピーチ', top: '#ffb9a3', bot: '#fff0c4' },
+  blue:     { name: 'あお', top: '#6f9cf0', bot: '#cfe6ff' },
+};
+// 時間帯：朝・昼・夕・夜
+const TIMES = [
+  { name: '朝', top: '#ffc6d6', bot: '#fff0cc', mix: .5, sun: '#ffe0c2', si: .85, hs: '#ffe6ef', hg: '#c9b3d9', hi: .95, night: 0 },
+  { name: '昼', top: '#000000', bot: '#000000', mix: 0, sun: '#fff7ec', si: 1, hs: '#eaf4ff', hg: '#c6b8de', hi: 1, night: 0 },
+  { name: '夕', top: '#8c7fd8', bot: '#ffb08a', mix: .72, sun: '#ffae78', si: .78, hs: '#ffd0c0', hg: '#9c86c4', hi: .82, night: 0 },
+  { name: '夜', top: '#191e4d', bot: '#3f4385', mix: .93, sun: '#b3c2ff', si: .34, hs: '#6d78c9', hg: '#3b3770', hi: .55, night: 1 },
+];
+const WEATHER = {
+  sunny:  { name: 'はれ', clouds: .28, dark: 0, light: 1, rain: 0, snow: 0, fog: 0, wind: .3 },
+  cloudy: { name: 'くもり', clouds: .9, dark: .16, light: .8, rain: 0, snow: 0, fog: 0, wind: .55 },
+  rain:   { name: 'あめ', clouds: 1, dark: .42, light: .66, rain: 1, snow: 0, fog: .15, wind: .85 },
+  snow:   { name: 'ゆき', clouds: .75, dark: .08, light: .88, rain: 0, snow: 1, fog: .1, wind: .35 },
+  fog:    { name: 'きり', clouds: .4, dark: .04, light: .84, rain: 0, snow: 0, fog: 1, wind: .1 },
+};
+const ENV = { weather: 'sunny', time: 1, sky: 'pastel', clouds: .28, sun: 1, sunAz: 0, water: '#6fd3e8' };
+const WX = { clouds: .28, dark: 0, light: 1, rain: 0, snow: 0, fog: 0, wind: .3, snowCover: 0, night: 0, rainbow: 0, lastRain: 0 };
+
+// ---- 空 ----
+const SKY_U = { uTop: { value: col('#9ed6ff') }, uBot: { value: col('#ffe3f0') }, uNight: { value: 0 }, uH: { value: innerHeight }, uW: { value: innerWidth }, uT: { value: 0 }, uSun: { value: col('#fff') } };
+const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 32, 16), new THREE.ShaderMaterial({
+  uniforms: SKY_U, side: THREE.BackSide, depthWrite: false, fog: false,
+  vertexShader: `varying vec3 vD;void main(){vD=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*viewMatrix*modelMatrix*vec4(position,1.);}`,
+  fragmentShader: `uniform vec3 uTop;uniform vec3 uBot;uniform float uNight;uniform float uH;uniform float uW;uniform float uT;uniform vec3 uSun;varying vec3 vD;
+  float h3(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
+  void main(){vec2 uv=gl_FragCoord.xy/vec2(uW,uH);float y=uv.y;
+   vec3 c=mix(uBot,uTop,smoothstep(.0,1.,y));
+   vec2 a=vec2((uv.x-.5)*uW/uH,uv.y-.5);
+   c+=uSun*.14*(1.-uNight)*exp(-length(a-vec2(-.55,.42))*2.2);
+   if(uNight>.01){vec3 d=normalize(vD);vec3 p=d*150.;vec3 cl=floor(p);float hs=h3(cl);
+    if(hs>.982){vec3 o=vec3(h3(cl+1.),h3(cl+2.),h3(cl+3.));float s=1.-smoothstep(.0,.42,length(fract(p)-o*.6-.2));c+=vec3(1.,.97,.9)*s*uNight*(.55+.45*sin(uT*2.+hs*90.));}
+    vec2 m=a-vec2(.6*uW/uH*.62,.32);float md=length(m);float mo=smoothstep(.062,.056,md)-smoothstep(.06,.054,length(m-vec2(.022,.012)))*.85;
+    c=mix(c,vec3(1.,.97,.86),clamp(mo,0.,1.)*uNight);c+=vec3(.6,.65,1.)*exp(-md*9.)*.18*uNight;}
+   gl_FragColor=vec4(c,1.);
+   #include <colorspace_fragment>
+  }`,
+}));
+sky.renderOrder = -1; scene.add(sky);
+
+// ---- 星のふちの淡い光 ----
+const halo = new THREE.Mesh(new THREE.SphereGeometry(R * 1.16, 48, 24), new THREE.ShaderMaterial({
+  uniforms: { uC: { value: col('#ffffff') }, uA: { value: .5 } }, side: THREE.BackSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+  vertexShader: `varying vec3 vN;varying vec3 vV;void main(){vec4 mv=modelViewMatrix*vec4(position,1.);vN=normalize(normalMatrix*normal);vV=normalize(-mv.xyz);gl_Position=projectionMatrix*mv;}`,
+  fragmentShader: `uniform vec3 uC;uniform float uA;varying vec3 vN;varying vec3 vV;void main(){float f=1.-abs(dot(vN,vV));float g=pow(smoothstep(.0,1.,1.-f),1.)*0.;float k=pow(max(0.,-dot(vN,vV)),2.6);gl_FragColor=vec4(uC*k*uA,1.);
+  #include <colorspace_fragment>
+  }`,
+}));
+scene.add(halo);
+
+// ---- 光 ----
+const hemi = new THREE.HemisphereLight(0xeaf4ff, 0xc6b8de, 1.2);
+const sun = new THREE.DirectionalLight(0xfff7ec, 2.4);
+const fill = new THREE.DirectionalLight(0xd9d0ff, .55);
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -12.5, right: 12.5, top: 12.5, bottom: -12.5, near: 1, far: 60 });
+sun.shadow.bias = -.0006; sun.shadow.normalBias = .03; sun.shadow.radius = 3;
+scene.add(hemi, sun, sun.target, fill, fill.target);
+const SUNDIR = new THREE.Vector3();
+
+// ---- 雲 ----
+const CLOUD_N = 16, clouds = [];
+const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: .96, flatShading: true, emissive: 0x9c98b8, emissiveIntensity: .5, depthWrite: false });
+{
+  const geos = [0, 1, 2, 3].map(k => { MR = mulberry(50 + k); const g = []; const n = 3 + k % 2 * 2; for (let i = 0; i < n; i++) { const x = (i - (n - 1) / 2) * .42 + mr(-.08, .08), s = 1 - Math.abs(i - (n - 1) / 2) / n * .9; g.push(pt(ico(.42 * s + mr(0, .1), 1), '#ffffff', [x, mr(-.03, .12), mr(-.12, .12)], [mr(0, 3), mr(0, 3), 0], [1, .78, 1], { j: .08, v: 0 })); } return merge(g); });
+  const cr = mulberry(77);
+  for (let i = 0; i < CLOUD_N; i++) {
+    const m = new THREE.Mesh(geos[i % 4], cloudMat.clone()); m.castShadow = false; m.renderOrder = 4;
+    const ax = new THREE.Vector3(cr() - .5, cr() - .5, cr() - .5).normalize();
+    const start = new THREE.Vector3(cr() - .5, cr() - .5, cr() - .5); start.addScaledVector(ax, -start.dot(ax)).normalize();
+    clouds.push({ m, ax, start, a: cr() * TAU, sp: (.012 + cr() * .02) * (cr() < .5 ? -1 : 1), r: R + 4 + cr() * 1.8, s: .75 + cr() * .7, vis: 0, order: cr() });
+    scene.add(m);
+  }
+  clouds.sort((a, b) => a.order - b.order);
+}
+
+// ---- ちいさな粒（ぽんっ・きらきら・水しぶき・けむり） ----
+const FXN = 900;
+const fxGeo = new THREE.BufferGeometry();
+const fxPos = new Float32Array(FXN * 3), fxCol = new Float32Array(FXN * 4), fxSize = new Float32Array(FXN);
+fxGeo.setAttribute('position', new THREE.BufferAttribute(fxPos, 3).setUsage(THREE.DynamicDrawUsage));
+fxGeo.setAttribute('aC', new THREE.BufferAttribute(fxCol, 4).setUsage(THREE.DynamicDrawUsage));
+fxGeo.setAttribute('aS', new THREE.BufferAttribute(fxSize, 1).setUsage(THREE.DynamicDrawUsage));
+fxGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 100);
+const fxPts = new THREE.Points(fxGeo, new THREE.ShaderMaterial({
+  uniforms: { uPx: { value: renderer.getPixelRatio() * innerHeight / 2 } }, transparent: true, depthWrite: false,
+  vertexShader: `attribute vec4 aC;attribute float aS;uniform float uPx;varying vec4 vC;void main(){vC=aC;vec4 mv=modelViewMatrix*vec4(position,1.);gl_PointSize=aS*uPx/(-mv.z)*.55;gl_Position=projectionMatrix*mv;}`,
+  fragmentShader: `varying vec4 vC;void main(){vec2 p=gl_PointCoord-.5;float d=length(p);if(d>.5)discard;gl_FragColor=vec4(vC.rgb,vC.a*smoothstep(.5,.3,d));
+  #include <colorspace_fragment>
+  }`,
+}));
+fxPts.frustumCulled = false; fxPts.renderOrder = 3; scene.add(fxPts);
+const PARTS = [];
+const _fc = new THREE.Color();
+function emit(p, v, c, life, size, o = {}) {
+  if (PARTS.length >= FXN) PARTS.shift();
+  _fc.set(c); PARTS.push({ p: p.clone(), v: v.clone(), r: _fc.r, g: _fc.g, b: _fc.b, a: o.a ?? 1, life, t: 0, size, grav: o.grav ?? 0, drag: o.drag ?? 1.5, grow: o.grow ?? 0 });
+}
+const _fp = new THREE.Vector3(), _fv = new THREE.Vector3(), _fu = new THREE.Vector3();
+const FX = {
+  puff(d, r, c = '#ffffff', n = 8) { for (let i = 0; i < n; i++) { _fu.set(rnd() - .5, rnd() * .6, rnd() - .5); const q = _q1.setFromUnitVectors(Y_AXIS, d); _fu.applyQuaternion(q).multiplyScalar(1.4); emit(_fp.copy(d).multiplyScalar(r + .05), _fu, c, rr(.45, .8), rr(.08, .14), { grav: 1.5, a: .9 }); } },
+  sparkle(d, r, n = 6, cs = ['#fff3a6', '#ffffff', '#b8f5c9', '#ffc9e0']) { for (let i = 0; i < n; i++) { _fu.set(rnd() - .5, rnd() * .9 + .4, rnd() - .5); _fu.applyQuaternion(_q1.setFromUnitVectors(Y_AXIS, d)).multiplyScalar(.9); emit(_fp.copy(d).multiplyScalar(r + rr(.05, .4)), _fu, pick(cs), rr(.7, 1.3), rr(.05, .09), { grav: -.2, drag: 2.5 }); } },
+  splash(d, level) { for (let i = 0; i < 10; i++) { _fu.set(rnd() - .5, rnd() * .8 + .9, rnd() - .5); _fu.applyQuaternion(_q1.setFromUnitVectors(Y_AXIS, d)).multiplyScalar(1.2); emit(_fp.copy(d).multiplyScalar(level + .02), _fu, '#eafcff', rr(.45, .7), rr(.04, .07), { grav: 4.5, drag: .5 }); } FX.ripple(d, level, .5); SFX.splash(d); },
+  smoke(p, n = 1) { for (let i = 0; i < n; i++) { _fu.copy(p).normalize().multiplyScalar(.35); _fu.x += rr(-.05, .05); _fu.z += rr(-.05, .05); emit(p, _fu, WX.night > .5 ? '#c9cbe6' : '#f4f1fb', rr(2.4, 3.4), rr(.12, .16), { a: .55, drag: .3, grow: .18 }); } },
+  ripple(d, level, size = .4) { const r = RIPPLES.find(x => x.t >= 1); if (!r) return; r.t = 0; r.size = size; r.m.position.copy(d).multiplyScalar(level + .012); r.m.quaternion.setFromUnitVectors(Z_AXIS, d); r.m.visible = true; },
+};
+const RIPPLES = [];
+{ const g = new THREE.RingGeometry(.82, 1, 28); for (let i = 0; i < 28; i++) { const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false })); m.visible = false; m.renderOrder = 3; scene.add(m); RIPPLES.push({ m, t: 1, size: .4 }); } }
+function tickFX(dt) {
+  let n = 0;
+  for (let i = PARTS.length - 1; i >= 0; i--) {
+    const q = PARTS[i]; q.t += dt; if (q.t >= q.life) { PARTS.splice(i, 1); continue; }
+    if (q.grav) { _fv.copy(q.p).normalize().multiplyScalar(-q.grav * dt); q.v.add(_fv); }
+    q.v.multiplyScalar(Math.exp(-q.drag * dt)); q.p.addScaledVector(q.v, dt);
+    if (q.grav > 2 && q.p.length() < R - 2) q.t = q.life;
+  }
+  for (const q of PARTS) {
+    const k = q.t / q.life, fade = Math.min(1, (1 - k) * 3) * Math.min(1, q.t * 12);
+    fxPos[n * 3] = q.p.x; fxPos[n * 3 + 1] = q.p.y; fxPos[n * 3 + 2] = q.p.z;
+    fxCol[n * 4] = q.r; fxCol[n * 4 + 1] = q.g; fxCol[n * 4 + 2] = q.b; fxCol[n * 4 + 3] = q.a * fade;
+    fxSize[n] = q.size * (1 + q.grow * q.t * 8); n++;
+  }
+  fxGeo.setDrawRange(0, n);
+  fxGeo.attributes.position.needsUpdate = fxGeo.attributes.aC.needsUpdate = fxGeo.attributes.aS.needsUpdate = true;
+  for (const r of RIPPLES) { if (r.t >= 1) { r.m.visible = false; continue; } r.t += dt / 1.3; const s = r.size * (.25 + r.t * 1.2); r.m.scale.set(s, s, s); r.m.material.opacity = (1 - r.t) * .7; }
+}
+
+// ---- 雨と雪 ----
+const RAIN_N = 700, rainPos = new Float32Array(RAIN_N * 6), drops = [];
+const rainGeo = new THREE.BufferGeometry(); rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3).setUsage(THREE.DynamicDrawUsage)); rainGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 100);
+const rain = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: 0x9fb4dc, transparent: true, opacity: .7 })); rain.frustumCulled = false; scene.add(rain);
+const SNOW_N = 600, snowPos = new Float32Array(SNOW_N * 3), flakes = [];
+const snowGeo = new THREE.BufferGeometry(); snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3).setUsage(THREE.DynamicDrawUsage)); snowGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 100);
+const dotTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'); const g = x.createRadialGradient(16, 16, 0, 16, 16, 16); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.5, 'rgba(255,255,255,.9)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 32, 32); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+const snowPts = new THREE.Points(snowGeo, new THREE.PointsMaterial({ map: dotTex, size: .12, transparent: true, depthWrite: false, color: 0xffffff })); snowPts.frustumCulled = false; scene.add(snowPts);
+function capDir(u, cosMin, out) { for (;;) { out.set(rnd() * 2 - 1, rnd() * 2 - 1, rnd() * 2 - 1); const l = out.length(); if (l > 1 || l < .01) continue; out.divideScalar(l); if (out.dot(u) > cosMin) return out; } }
+function tickWeather(dt, camU) {
+  const nr = Math.floor(RAIN_N * WX.rain), ns = Math.floor(SNOW_N * WX.snow);
+  const wind = _v4.set(1, -.35, 0).applyQuaternion(camera.quaternion);
+  while (drops.length < nr) { const d = capDir(camU, .25, new THREE.Vector3()); drops.push({ d, r: R + rr(1, 8), fl: surfaceAt(d), sp: rr(9, 12) }); }
+  if (drops.length > nr) drops.length = nr;
+  for (let i = 0; i < drops.length; i++) {
+    const q = drops[i]; q.r -= q.sp * dt;
+    if (q.r < q.fl) { const w = rnd() < .25 && waterAt(q.d); if (w) FX.ripple(q.d, w.level, .22); capDir(camU, .25, q.d); q.fl = surfaceAt(q.d); q.r = R + rr(5, 8); }
+    const o = i * 6; rainPos[o] = q.d.x * q.r; rainPos[o + 1] = q.d.y * q.r; rainPos[o + 2] = q.d.z * q.r; const r2 = q.r + .38; rainPos[o + 3] = q.d.x * r2 + wind.x * .22; rainPos[o + 4] = q.d.y * r2 + wind.y * .22; rainPos[o + 5] = q.d.z * r2 + wind.z * .22;
+  }
+  rainGeo.setDrawRange(0, drops.length * 2); rainGeo.attributes.position.needsUpdate = true;
+  while (flakes.length < ns) { const d = capDir(camU, .2, new THREE.Vector3()); flakes.push({ d, r: R + rr(.5, 7), fl: surfaceAt(d), sp: rr(.8, 1.3), ph: rr(0, 9) }); }
+  if (flakes.length > ns) flakes.length = ns;
+  for (let i = 0; i < flakes.length; i++) {
+    const q = flakes[i]; q.r -= q.sp * dt;
+    _fu.set(Math.sin(TIME * 1.3 + q.ph), Math.cos(TIME * 1.1 + q.ph * 1.3), Math.sin(TIME * .9 + q.ph * .7)); q.d.addScaledVector(_fu, dt * .012).normalize();
+    if (q.r < q.fl) { capDir(camU, .2, q.d); q.fl = surfaceAt(q.d); q.r = R + rr(5, 7.5); }
+    snowPos[i * 3] = q.d.x * q.r; snowPos[i * 3 + 1] = q.d.y * q.r; snowPos[i * 3 + 2] = q.d.z * q.r;
+  }
+  snowGeo.setDrawRange(0, flakes.length); snowGeo.attributes.position.needsUpdate = true;
+}
+
+// ---- 虹 ----
+const rainbow = new THREE.Mesh(new THREE.RingGeometry(R + 1.6, R + 2.9, 96, 1, .12, Math.PI - .24), new THREE.ShaderMaterial({
+  uniforms: { uA: { value: 0 }, uIn: { value: R + 1.6 }, uOut: { value: R + 2.9 } }, transparent: true, depthWrite: false, fog: false,
+  vertexShader: `varying vec2 vP;void main(){vP=position.xy;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader: `uniform float uA;uniform float uIn;uniform float uOut;varying vec2 vP;
+  vec3 hsv(float h){vec3 k=clamp(abs(mod(h*6.+vec3(0.,4.,2.),6.)-3.)-1.,0.,1.);return k*k*(3.-2.*k);}
+  void main(){float t=(length(vP)-uIn)/(uOut-uIn);float ang=atan(vP.y,vP.x);float e=smoothstep(.12,.6,ang)*smoothstep(3.02,2.54,ang);
+   vec3 c=mix(vec3(1.),hsv(.83-t*.83),.55);float a=smoothstep(0.,.18,t)*smoothstep(1.,.82,t)*e*uA*.75;gl_FragColor=vec4(c,a);
+   #include <colorspace_fragment>
+  }`,
+}));
+rainbow.renderOrder = 1; rainbow.visible = false; scene.add(rainbow);
+
+// ---- ほたる（夜） ----
+const FF_N = 60, ffPos = new Float32Array(FF_N * 3), ffs = [];
+const ffGeo = new THREE.BufferGeometry(); ffGeo.setAttribute('position', new THREE.BufferAttribute(ffPos, 3).setUsage(THREE.DynamicDrawUsage)); ffGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 100);
+const ffMat = new THREE.PointsMaterial({ map: dotTex, size: .16, transparent: true, depthWrite: false, color: 0xe9ff8a, blending: THREE.AdditiveBlending, opacity: 0 });
+const ffPts = new THREE.Points(ffGeo, ffMat); ffPts.frustumCulled = false; scene.add(ffPts);
+function tickFireflies(dt, camU) {
+  ffMat.opacity = sstep(.45, .9, WX.night) * (1 - WX.rain);
+  if (ffMat.opacity <= 0) { ffGeo.setDrawRange(0, 0); return; }
+  const homes = ITEMS.filter(it => (it.t === 'grass' || it.t === 'bush' || it.t === 'reed' || it.t === 'flower') && it.d.dot(camU) > .2);
+  if (!homes.length) { ffGeo.setDrawRange(0, 0); return; }
+  while (ffs.length < Math.min(FF_N, homes.length * 2)) { const h = pick(homes); ffs.push({ d: randomNear(h.d, .5), h: rr(.15, .6), ph: rr(0, 9), sp: rr(.3, .7) }); }
+  ffs.forEach((f, i) => { _fu.set(Math.sin(TIME * f.sp + f.ph), Math.cos(TIME * f.sp * 1.3 + f.ph), Math.sin(TIME * f.sp * .8 - f.ph)); f.d.addScaledVector(_fu, dt * .01).normalize(); const r = surfaceAt(f.d) + f.h + Math.sin(TIME * 1.7 + f.ph) * .08; const on = Math.sin(TIME * 2.3 + f.ph * 3) > -.2 ? 1 : 0; ffPos[i * 3] = f.d.x * r * on; ffPos[i * 3 + 1] = f.d.y * r * on; ffPos[i * 3 + 2] = f.d.z * r * on; });
+  ffGeo.setDrawRange(0, ffs.length); ffGeo.attributes.position.needsUpdate = true;
+}
+
+// ---- 毎フレームの空と光 ----
+const _ec = new THREE.Color(), _ec2 = new THREE.Color(), _ec3 = new THREE.Color();
+function timeMix(key) { const t = clamp(ENV.time, 0, 3), i = Math.min(2, Math.floor(t)), f = t - i; return [TIMES[i], TIMES[i + 1], f]; }
+const fogC = new THREE.Color();
+scene.fog = new THREE.Fog(0xffffff, 100, 200);
+let snowRepaint = 0, prevWeather = 'sunny';
+function tickEnv(dt, camU, camDist) {
+  const W0 = WEATHER[ENV.weather], k = 1 - Math.exp(-dt * .8);
+  for (const p of ['dark', 'light', 'rain', 'snow', 'fog', 'wind']) WX[p] = lerp(WX[p], W0[p], k);
+  WX.clouds = lerp(WX.clouds, ENV.clouds, k);
+  // 雪がつもる・とける
+  const tgt = ENV.weather === 'snow' ? .9 : 0;
+  const before = WX.snowCover;
+  WX.snowCover = clamp(WX.snowCover + (tgt > WX.snowCover ? dt * .045 : -dt * .03), 0, .9);
+  if (WX.snowCover > tgt && ENV.weather === 'snow') WX.snowCover = tgt;
+  snowRepaint -= dt;
+  if (Math.abs(WX.snowCover - PL.snow) > .02 && snowRepaint <= 0 || (WX.snowCover === 0 && PL.snow > 0)) { PL.snow = WX.snowCover; PL.updateAll(); snowRepaint = .35; }
+  WIND.snow.value = WX.snowCover; WIND.amp.value = .25 + WX.wind * .9; WIND.t.value = TIME;
+  // 雨のあとに晴れると虹
+  if (WX.rain > .5) WX.lastRain = TIME;
+  if (prevWeather === 'rain' && ENV.weather === 'sunny') { WX.rainbow = 1; WX.rbT = TIME; discover('rainbow'); }
+  prevWeather = ENV.weather;
+  const rbk = WX.rainbow ? sstep(0, 3, TIME - WX.rbT) * sstep(16, 11, TIME - WX.rbT) : 0;
+  if (WX.rainbow && TIME - WX.rbT > 16) WX.rainbow = 0;
+  rainbow.visible = rbk > .001; rainbow.material.uniforms.uA.value = rbk * (1 - WX.night * .7); rainbow.quaternion.copy(camera.quaternion);
+
+  const [ta, tb, f] = timeMix(); const S = SKIES[ENV.sky] || SKIES.pastel;
+  const mixK = lerp(ta.mix, tb.mix, f);
+  const top = _ec.set(S.top).lerp(_ec2.set(ta.top).lerp(_ec3.set(tb.top), f), mixK);
+  const bot = _ec2.set(S.bot).lerp(_ec3.set(ta.bot).lerp(new THREE.Color(tb.bot), f), mixK);
+  // 天気で空をくすませる
+  const grey = new THREE.Color('#c9c8d8'), dk = WX.dark * (1 - WX.night * .5);
+  top.lerp(grey, dk * .7).multiplyScalar(1 - dk * .25); bot.lerp(grey, dk * .6 + WX.fog * .45);
+  SKY_U.uTop.value.copy(top); SKY_U.uBot.value.copy(bot);
+  WX.night = lerp(ta.night, tb.night, f); SKY_U.uNight.value = WX.night * (1 - WX.dark * .8) * (1 - WX.fog * .6); SKY_U.uT.value = TIME;
+  const sunC = _ec3.set(ta.sun).lerp(new THREE.Color(tb.sun), f);
+  sun.color.copy(sunC); SKY_U.uSun.value.copy(sunC);
+  sun.intensity = 2.5 * ENV.sun * lerp(ta.si, tb.si, f) * WX.light;
+  hemi.color.set(ta.hs).lerp(new THREE.Color(tb.hs), f).lerp(grey, dk * .5);
+  hemi.groundColor.set(ta.hg).lerp(new THREE.Color(tb.hg), f);
+  hemi.intensity = 1.35 * lerp(ta.hi, tb.hi, f) * (.75 + .25 * ENV.sun) * (1 - WX.dark * .3);
+  fill.intensity = .5 * (1 - WX.night * .4);
+  // 太陽の向きはカメラについてくる（どこを見ても明るい）
+  const az = ENV.sunAz * 1.4;
+  SUNDIR.set(-.55 * Math.cos(az) + Math.sin(az) * .9, .62, .58 * Math.cos(az)).normalize().applyQuaternion(camera.quaternion);
+  sun.position.copy(SUNDIR).multiplyScalar(30); sun.target.position.set(0, 0, 0);
+  fill.position.copy(_v4.set(.8, -.2, -.6).applyQuaternion(camera.quaternion).multiplyScalar(30));
+  // 水
+  WATER_U.uSun.value.copy(SUNDIR); WATER_U.uSky.value.copy(top).lerp(bot, .5).lerp(new THREE.Color(1, 1, 1), .3); WATER_U.uLight.value = clamp(.55 + sun.intensity * .22 + hemi.intensity * .12, .45, 1.15); WATER_U.uTime.value = TIME;
+  // 霧
+  fogC.copy(bot).lerp(new THREE.Color('#f2f0f8'), .4);
+  scene.fog.color.copy(fogC);
+  const fg = WX.fog;
+  scene.fog.near = camDist - R * .9 + (1 - fg) * 60 - fg * 2.5; scene.fog.far = scene.fog.near + lerp(70, 7.5, fg);
+  halo.material.uniforms.uC.value.copy(bot).lerp(new THREE.Color('#ffffff'), .4); halo.material.uniforms.uA.value = .3 - WX.night * .12;
+  // 雲
+  cloudMat.color.set('#ffffff').lerp(new THREE.Color('#b9b6cc'), WX.dark * 1.2).lerp(new THREE.Color('#8f93c9'), WX.night * .55); cloudMat.emissive.set('#9c98b8').multiplyScalar(1 - WX.night * .7 - WX.dark * .4);
+  clouds.forEach((c, i) => {
+    const want = i < WX.clouds * CLOUD_N + .5 ? 1 : 0; c.vis = lerp(c.vis, want, Math.min(1, dt * .6)); c.a += c.sp * dt * (1 + WX.wind);
+    const p = _v4.copy(c.start).applyAxisAngle(c.ax, c.a); const r = c.r - WX.fog * 1.6;
+    c.m.position.copy(p).multiplyScalar(r); c.m.quaternion.setFromUnitVectors(Y_AXIS, p); c.m.rotateY(i);
+    const s = c.s * sstep(0, 1, c.vis) * (1 + WX.rain * .2); c.m.scale.set(s * 1.3, s * .72, s * 1.05);
+    const cd = c.m.position.distanceTo(camera.position), fr = c.m.position.dot(camera.position) / (c.m.position.length() * camera.position.length());
+    c.m.material.opacity = .94 * sstep(2.5, 7, cd) * (fr > .55 ? sstep(1, .82, fr) * .7 + .3 : 1);
+    c.m.material.color.copy(cloudMat.color); c.m.material.emissive.copy(cloudMat.emissive);
+    c.m.visible = s > .01 && c.m.material.opacity > .02;
+  });
+  rain.material.opacity = .7 * Math.min(1, WX.rain * 2);
+  snowPts.material.opacity = Math.min(1, WX.snow * 2);
+  tickWeather(dt, camU); tickFireflies(dt, camU);
+  // 家の窓は夜に明るく
+  MAT.glow.color.setScalar(lerp(.82, 1.35, WX.night));
+}
+
+// ---- GROW の光の波 ----
+const WAVE_U = { uO: { value: new THREE.Vector3(0, 0, 1) }, uA: { value: 0 }, uK: { value: 0 } };
+const growWave = new THREE.Mesh(new THREE.SphereGeometry(R + .5, 64, 32), new THREE.ShaderMaterial({
+  uniforms: WAVE_U, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending, fog: false,
+  vertexShader: `varying vec3 vP;void main(){vP=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader: `uniform vec3 uO;uniform float uA;uniform float uK;varying vec3 vP;void main(){float a=acos(clamp(dot(vP,uO),-1.,1.));float d=(a-uA)/.13;float b=exp(-d*d)+exp(-(a-uA+.22)*(a-uA+.22)/.03)*.35;
+   vec3 c=mix(vec3(.75,1.,.82),vec3(1.,.93,.6),.5+.5*sin(a*6.));gl_FragColor=vec4(c*b*uK*.42,1.);
+   #include <colorspace_fragment>
+  }`,
+}));
+growWave.visible = false; growWave.renderOrder = 7; scene.add(growWave);
+let waveT = -1;
+function startWave(o) { WAVE_U.uO.value.copy(o); waveT = 0; growWave.visible = true; }
+function tickWave(dt) { if (waveT < 0) return; waveT += dt; const a = waveT / .45 * .9; WAVE_U.uA.value = a; WAVE_U.uK.value = sstep(0, .15, waveT) * sstep(Math.PI * .85, Math.PI * .45, a); if (a > Math.PI * .9) { waveT = -1; growWave.visible = false; } }
+
+// ================= カメラ（ゆっくり追いかける軌道カメラ） =================
+const CAM = {
+  q: new THREE.Quaternion(), qT: new THREE.Quaternion(), dist: 36, distT: 36, vel: new THREE.Vector2(), u: new THREE.Vector3(0, 0, 1),
+  min: R + 2.6, max: R * 5.2, follow: null, idle: 0, auto: true,
+};
+const DEFAULT_VIEW = (() => { const q = new THREE.Quaternion().setFromUnitVectors(Z_AXIS, new THREE.Vector3(0, .35, 1).normalize()); return { q, dist: 37 }; })();
+function camReset(instant) { CAM.qT.copy(DEFAULT_VIEW.q); CAM.distT = DEFAULT_VIEW.dist; CAM.follow = null; CAM.vel.set(0, 0); if (instant) { CAM.q.copy(CAM.qT); CAM.dist = CAM.distT; } }
+camReset(true);
+function camRotate(dx, dy) { // 画面上のドラッグ量（ピクセル）で回す
+  const k = .0042 * clamp((CAM.dist - R) / 26, .12, 1.4);
+  _q1.setFromAxisAngle(_v1.set(0, 1, 0).applyQuaternion(CAM.qT), -dx * k);
+  _q2.setFromAxisAngle(_v2.set(1, 0, 0).applyQuaternion(CAM.qT), -dy * k);
+  CAM.qT.premultiply(_q1).premultiply(_q2).normalize();
+  CAM.follow = null;
+}
+function camZoom(f) { CAM.distT = clamp(CAM.distT * f, CAM.min, CAM.max); }
+function camFocus(d, dist = R + 6.5) {
+  const cur = _v1.set(0, 0, 1).applyQuaternion(CAM.qT);
+  _q1.setFromUnitVectors(cur, d.clone().normalize()); CAM.qT.premultiply(_q1).normalize(); CAM.distT = Math.min(CAM.distT, dist);
+}
+function tiltOf(dist) { return sstep(R * 2.4, R + 3, dist); }
+function camUpdate(dt) {
+  if (CAM.vel.lengthSq() > .01 && !DRAG.mode) { camRotate(CAM.vel.x * dt * 60, CAM.vel.y * dt * 60); CAM.vel.multiplyScalar(Math.exp(-dt * 7)); }
+  if (CAM.follow) { const d = CAM.follow.d || CAM.follow; const cur = _v1.set(0, 0, 1).applyQuaternion(CAM.qT); if (cur.dot(d) < .99995) { _q1.setFromUnitVectors(cur, d); _q2.identity().slerp(_q1, Math.min(1, dt * 3)); CAM.qT.premultiply(_q2).normalize(); } }
+  CAM.idle += dt;
+  if (CAM.auto && CAM.idle > 40 && !CAM.follow) { _q1.setFromAxisAngle(_v1.set(0, 1, 0).applyQuaternion(CAM.qT), -dt * .035 * sstep(40, 46, CAM.idle)); CAM.qT.premultiply(_q1); }
+  const k = 1 - Math.exp(-dt * 7.5);
+  CAM.q.slerp(CAM.qT, k); CAM.dist = lerp(CAM.dist, CAM.distT, 1 - Math.exp(-dt * 6));
+  const u = CAM.u.set(0, 0, 1).applyQuaternion(CAM.q), up = _v2.set(0, 1, 0).applyQuaternion(CAM.q);
+  const t = tiltOf(CAM.dist), tilt = t * .95;
+  const ground = surfaceAt(u);
+  const pivotR = ground * t * .98;
+  const pivot = _v3.copy(u).multiplyScalar(pivotR);
+  const off = _v4.copy(u).multiplyScalar(Math.cos(tilt)).addScaledVector(up, -Math.sin(tilt));
+  camera.position.copy(pivot).addScaledVector(off, CAM.dist - pivotR * (1 - t * .25));
+  // 地面にもぐらない
+  const cl = camera.position.length(), cd = _v1.copy(camera.position).divideScalar(cl), gr = surfaceAt(cd) + .7;
+  if (cl < gr) camera.position.copy(cd).multiplyScalar(gr);
+  camera.up.copy(up).multiplyScalar(Math.cos(tilt)).addScaledVector(u, Math.sin(tilt));
+  camera.lookAt(pivot);
+}
+
+// ================= 音（すべて WebAudio で合成） =================
+const AU = { ctx: null, on: false, vol: { master: .8, music: .6, amb: .6, sfx: .7 } };
+function auInit() {
+  if (AU.ctx) { if (AU.ctx.state === 'suspended') AU.ctx.resume(); return; }
+  try { AU.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+  const c = AU.ctx;
+  AU.master = c.createGain(); const comp = c.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4;
+  AU.master.connect(comp); comp.connect(c.destination);
+  AU.music = c.createGain(); AU.amb = c.createGain(); AU.sfx = c.createGain();
+  for (const g of [AU.music, AU.amb, AU.sfx]) g.connect(AU.master);
+  // 生成した残響
+  const len = c.sampleRate * 3.2, ir = c.createBuffer(2, len, c.sampleRate);
+  for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+  AU.rev = c.createConvolver(); AU.rev.buffer = ir; AU.revIn = c.createGain(); AU.revIn.gain.value = .9; AU.revIn.connect(AU.rev); AU.rev.connect(AU.master);
+  // 環境音：風・水・雨
+  const nb = c.createBuffer(1, c.sampleRate * 4, c.sampleRate), nd = nb.getChannelData(0); let last = 0;
+  for (let i = 0; i < nd.length; i++) { const w = Math.random() * 2 - 1; last = (last + .02 * w) / 1.02; nd[i] = last * 3.5; }
+  const wb = c.createBuffer(1, c.sampleRate * 4, c.sampleRate), wd = wb.getChannelData(0); for (let i = 0; i < wd.length; i++) wd[i] = Math.random() * 2 - 1;
+  const loop = (buf, f, q, type = 'bandpass') => { const s = c.createBufferSource(); s.buffer = buf; s.loop = true; const fl = c.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; const g = c.createGain(); g.gain.value = 0; s.connect(fl); fl.connect(g); g.connect(AU.amb); s.start(); return { g, fl }; };
+  AU.wind = loop(nb, 420, .6); AU.water = loop(wb, 900, .5, 'lowpass'); AU.rainS = loop(wb, 2600, .3, 'highpass');
+  AU.on = true; auApplyVol();
+  musicStart();
+}
+function auApplyVol() { if (!AU.ctx) return; const t = AU.ctx.currentTime; AU.master.gain.setTargetAtTime(AU.vol.master, t, .1); AU.music.gain.setTargetAtTime(AU.vol.music * .55, t, .3); AU.amb.gain.setTargetAtTime(AU.vol.amb, t, .3); AU.sfx.gain.setTargetAtTime(AU.vol.sfx * .8, t, .1); }
+function tone(o) {
+  if (!AU.on) return; const c = AU.ctx, t = c.currentTime + (o.at || 0);
+  const g = c.createGain(), osc = c.createOscillator(); osc.type = o.type || 'sine'; osc.frequency.setValueAtTime(o.f, t);
+  if (o.f2) osc.frequency.exponentialRampToValueAtTime(o.f2, t + (o.sweep || o.d * .8));
+  if (o.det) osc.detune.value = o.det;
+  const a = o.a ?? .005, peak = o.v ?? .2;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(.0001, t + a + o.d);
+  let node = osc;
+  if (o.lp) { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.lp; osc.connect(f); node = f; }
+  if (o.fm) { const m = c.createOscillator(), mg = c.createGain(); m.frequency.value = o.f * o.fm; mg.gain.setValueAtTime(o.f * (o.fmi || 2), t); mg.gain.exponentialRampToValueAtTime(1, t + o.d); m.connect(mg); mg.connect(osc.frequency); m.start(t); m.stop(t + a + o.d + .05); }
+  node.connect(g); g.connect(o.bus || AU.sfx); if (o.rev) { const rg = c.createGain(); rg.gain.value = o.rev; g.connect(rg); rg.connect(AU.revIn); }
+  if (o.pan !== undefined && c.createStereoPanner) { /* 定位は使わない（まとまった音にする） */ }
+  osc.start(t); osc.stop(t + a + o.d + .05);
+}
+function noise(o) {
+  if (!AU.on) return; const c = AU.ctx, t = c.currentTime + (o.at || 0);
+  const len = Math.ceil(c.sampleRate * (o.d + .05)), b = c.createBuffer(1, len, c.sampleRate), d = b.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const s = c.createBufferSource(); s.buffer = b; const f = c.createBiquadFilter(); f.type = o.type || 'bandpass'; f.frequency.setValueAtTime(o.f, t); if (o.f2) f.frequency.exponentialRampToValueAtTime(o.f2, t + o.d); f.Q.value = o.q || 1;
+  const g = c.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(o.v || .1, t + (o.a || .01)); g.gain.exponentialRampToValueAtTime(.0001, t + o.d);
+  s.connect(f); f.connect(g); g.connect(o.bus || AU.sfx); if (o.rev) { const rg = c.createGain(); rg.gain.value = o.rev; g.connect(rg); rg.connect(AU.revIn); }
+  s.start(t); s.stop(t + o.d + .05);
+}
+const SCALE = [0, 2, 4, 7, 9];
+const midi = m => 440 * Math.pow(2, (m - 69) / 12);
+let sfxGate = {};
+function gate(k, ms) { const n = performance.now(); if (sfxGate[k] && n - sfxGate[k] < ms) return false; sfxGate[k] = n; return true; }
+const SFX = {
+  click() { tone({ f: 1400, d: .05, v: .04, type: 'sine' }); },
+  pop(p = 1) { if (!gate('pop', 40)) return; tone({ f: 620 * p, f2: 300 * p, d: .14, v: .16, sweep: .1, rev: .15 }); noise({ f: 2200, d: .04, v: .03, q: 2 }); },
+  plant() { if (!gate('plant', 60)) return; const m = 72 + pick(SCALE) + (rnd() < .5 ? 12 : 0); tone({ f: midi(m), d: .35, v: .07, type: 'triangle', rev: .3 }); },
+  brush(kind) { if (!gate('brush', 110)) return; if (kind === 'paint') noise({ f: 1800, d: .12, v: .022, q: .7 }); else noise({ f: kind === 'raise' ? 260 : kind === 'lower' ? 150 : 420, d: .16, v: .05, q: .8 }); },
+  water() { for (let i = 0; i < 5; i++) tone({ f: rr(500, 1100), f2: rr(1200, 1900), d: .09, v: .05, at: i * .06, rev: .3 }); noise({ f: 700, d: .5, v: .05, type: 'lowpass', rev: .2 }); },
+  splash() { if (!gate('splash', 160)) return; for (let i = 0; i < 3; i++) tone({ f: rr(700, 1300), f2: rr(1400, 2200), d: .07, v: .025, at: i * .04 }); noise({ f: 1500, d: .25, v: .03, rev: .2 }); },
+  grow() { const base = 67 + pick([0, 2, 5]); [0, 4, 7, 12, 16].forEach((s, i) => tone({ f: midi(base + s), d: 1.4, v: .07, at: i * .085, fm: 3.5, fmi: .6, rev: .5 })); noise({ f: 5000, f2: 9000, d: .9, v: .02, q: .5, rev: .4 }); },
+  growTick() { if (!gate('gt', 70)) return; tone({ f: midi(84 + pick(SCALE)), d: .5, v: .035, fm: 3.5, fmi: .5, rev: .5 }); },
+  select() { tone({ f: 880, d: .08, v: .06 }); tone({ f: 1320, d: .1, v: .04, at: .05 }); },
+  del() { tone({ f: 500, f2: 220, d: .18, v: .1, sweep: .15 }); },
+  undo() { tone({ f: 660, f2: 440, d: .12, v: .06 }); },
+  discover() { [76, 81, 88].forEach((m, i) => tone({ f: midi(m), d: 1.6, v: .07, at: i * .12, fm: 3.5, fmi: .8, rev: .6 })); },
+  arrive() { [79, 84].forEach((m, i) => tone({ f: midi(m), d: .9, v: .05, at: i * .1, fm: 2, fmi: .6, rev: .5 })); },
+  chirp() { if (!AU.on) return; const b = rr(2200, 3200); const n = Math.floor(rr(2, 5)); for (let i = 0; i < n; i++) tone({ f: b, f2: b * rr(1.2, 1.6), d: .06, v: .018, at: i * rr(.08, .12), sweep: .05, bus: AU.amb, rev: .3 }); },
+  hop() { if (!gate('hop', 120)) return; tone({ f: 300, f2: 180, d: .06, v: .015, bus: AU.amb }); },
+};
+
+// ---- 音楽：ゆったりしたピアノとパッド、ときどき鈴 ----
+const MUSIC = { next: 0, step: 0, chord: 0 };
+const CHORDS = [[60, 64, 67, 71], [57, 60, 64, 67], [53, 57, 60, 64], [55, 59, 62, 67]];
+function piano(m, at, v = .06) { tone({ f: midi(m), d: 2.4, v, at, type: 'triangle', lp: 2400, rev: .55, bus: AU.music }); tone({ f: midi(m) * 2, d: 1.2, v: v * .18, at, type: 'sine', rev: .5, bus: AU.music }); }
+function pad(ch, at, d) { for (const m of ch) { tone({ f: midi(m - 12), d, a: 2.2, v: .022, at, type: 'sawtooth', lp: 700, det: rr(-7, 7), rev: .5, bus: AU.music }); } }
+function musicStart() { MUSIC.next = AU.ctx.currentTime + .5; setInterval(musicTick, 120); }
+function musicTick() {
+  if (!AU.on || AU.vol.music <= 0) return;
+  const c = AU.ctx, beat = 0.72;
+  while (MUSIC.next < c.currentTime + .4) {
+    const at = MUSIC.next - c.currentTime, s = MUSIC.step % 16;
+    if (s === 0) { MUSIC.chord = (MUSIC.chord + (rnd() < .7 ? 1 : 2)) % 4; pad(CHORDS[MUSIC.chord], at, beat * 15); piano(CHORDS[MUSIC.chord][0] - 12, at, .05); }
+    const ch = CHORDS[MUSIC.chord];
+    if (s % 2 === 0 && rnd() < .55) { const m = rnd() < .65 ? ch[Math.floor(rnd() * 4)] + 12 : 72 + SCALE[Math.floor(rnd() * 5)]; piano(m, at + (rnd() < .3 ? beat * .5 : 0), rr(.035, .06)); }
+    if (rnd() < .03) tone({ f: midi(ch[0] + 24 + pick([0, 7, 12])), d: 2.6, v: .03, at, fm: 3.5, fmi: .7, rev: .7, bus: AU.music });
+    MUSIC.step++; MUSIC.next += beat;
+  }
+}
+function tickAudio(dt, camU) {
+  if (!AU.on) return; const t = AU.ctx.currentTime;
+  const near = clamp((R * 3.4 - CAM.dist) / (R * 2), 0, 1);
+  let wet = 0; if (WT.lakes.length || WT.rivers.length) { const w = waterAt(camU); wet = w ? 1 : .35; }
+  AU.wind.g.gain.setTargetAtTime(.05 + WX.wind * .09 + (1 - near) * .03, t, .5);
+  AU.wind.fl.frequency.setTargetAtTime(300 + Math.sin(TIME * .3) * 120 + WX.wind * 200, t, .5);
+  AU.water.g.gain.setTargetAtTime(wet * near * .045, t, .5);
+  AU.rainS.g.gain.setTargetAtTime(WX.rain * .07, t, .5);
+  if (AK.bird.list.length && WX.night < .5 && rnd() < dt * Math.min(.5, AK.bird.list.length * .1)) SFX.chirp();
+}
+
+// ================= 操作・UI =================
+const IC = {
+  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
+  redo: '<path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/>',
+  save: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+  load: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  reset: '<circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="2.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
+  book: '<path d="M4 5a2 2 0 0 1 2-2h13v15H6a2 2 0 0 0-2 2z"/><path d="M4 20a2 2 0 0 0 2 1h13v-3"/><path d="M9 8h6"/>',
+  settings: '<path d="M4 6h9M18 6h2M4 12h3M12 12h8M4 18h11M20 18h0"/><circle cx="15.5" cy="6" r="2.2"/><circle cx="9.5" cy="12" r="2.2"/><circle cx="17.5" cy="18" r="2.2"/>',
+  select: '<path d="M6 3l13 7.5-6 1.5-2.5 6z"/>',
+  terrain: '<path d="m2.5 19 6.5-11 4 6 2.5-3.5 6 8.5z"/>',
+  water: '<path d="M12 3c4 5 6.5 8 6.5 11.2a6.5 6.5 0 0 1-13 0C5.5 11 8 8 12 3z"/>',
+  plant: '<path d="M12 21v-9"/><path d="M12 12c0-4.5 3-7.5 8-7.5 0 5-3 7.5-8 7.5z"/><path d="M12 14.5c0-3-2.2-5.2-7-5.2 0 3.8 2.2 5.2 7 5.2z"/>',
+  animal: '<circle cx="6.5" cy="10.5" r="1.8"/><circle cx="10.5" cy="6.5" r="1.8"/><circle cx="15.5" cy="6.8" r="1.8"/><circle cx="18.8" cy="11" r="1.7"/><path d="M8 17.2c0-3 2.2-5.2 4.8-5.2s4.6 2.6 3.6 5.2c-.6 1.6-2.4 1.6-4 1.6s-4.4.4-4.4-1.6z"/>',
+  obj: '<path d="M3.5 11 12 4l8.5 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/>',
+  env: '<circle cx="9" cy="9" r="3.3"/><path d="M9 2.5v1.3M2.5 9h1.3M4.4 4.4l.9.9M13.6 4.4l-.9.9"/><path d="M8.5 20h8.6a3.4 3.4 0 0 0 .2-6.8 5 5 0 0 0-9.4 1.5A2.7 2.7 0 0 0 8.5 20z"/>',
+  focus: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><circle cx="12" cy="12" r="2.5"/>',
+  rotL: '<path d="M4.5 12a7.5 7.5 0 1 0 2.6-5.7"/><path d="M4.5 3.5v4h4"/>',
+  rotR: '<path d="M19.5 12a7.5 7.5 0 1 1-2.6-5.7"/><path d="M19.5 3.5v4h-4"/>',
+  dup: '<rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/>',
+  trash: '<path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/>',
+  leaf: '<path d="M5 19.5C5 10.5 11 5 20 5c0 9-5.5 14.8-14.5 14.8"/><path d="M5 19.5c3-4.2 6.2-7 10.2-9"/>',
+  raise: '<path d="M12 3.5v10"/><path d="m7.5 8 4.5-4.5L16.5 8"/><path d="M3 20c3-3 6-3.4 9-3.4s6 .4 9 3.4"/>',
+  lower: '<path d="M12 3.5v10"/><path d="m7.5 9 4.5 4.5L16.5 9"/><path d="M3 20c3-3 6-3.4 9-3.4s6 .4 9 3.4"/>',
+  smooth: '<path d="M3 14.5c3-4 6 0 9-2s6-4 9-1"/><path d="M3 19h18"/>',
+  paint: '<path d="M14 4l6 6-8 8H6v-6z"/><path d="M4 20.5c1.2-1 1.2-3 2.2-4.2"/>',
+  lake: '<ellipse cx="12" cy="14" rx="9" ry="5.2"/><path d="M7 14c2-1 3 1 5 0s3-1 5 0"/>',
+  river: '<path d="M5.5 3c0 5 8 4 8 9s-6 5-6 9"/><path d="M11.5 3c0 5 8 4 8 9s-6 5-6 9"/>',
+  erase: '<path d="M15.5 4.5l4.5 4.5-9 9H6.5L3 14.5z"/><path d="M9.5 9l5 5"/><path d="M7 20.5h13"/>',
+  follow: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
+  copy: '<rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/>',
+  x: '<path d="M6 6l12 12M18 6 6 18"/>',
+};
+const svg = (k, cls = 'i') => `<svg class="${cls}" viewBox="0 0 24 24">${IC[k]}</svg>`;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const IS_TOUCH = matchMedia('(pointer:coarse)').matches;
+
+// ---- 設定 ----
+const SET = { music: .6, amb: .6, sfx: .7, master: .8, shadows: true, hiRes: !IS_TOUCH, autoRotate: true, autoGrow: false, autoSave: true, hints: true };
+try { Object.assign(SET, JSON.parse(localStorage.getItem('lb_settings') || '{}')); } catch (e) {}
+function saveSet() { try { localStorage.setItem('lb_settings', JSON.stringify(SET)); } catch (e) {} applySet(); }
+function applySet() {
+  Object.assign(AU.vol, { master: SET.master, music: SET.music, amb: SET.amb, sfx: SET.sfx }); auApplyVol();
+  if (renderer.shadowMap.enabled !== SET.shadows) { renderer.shadowMap.enabled = SET.shadows; scene.traverse(o => { if (o.material) o.material.needsUpdate = true; }); }
+  renderer.setPixelRatio(Math.min(devicePixelRatio, SET.hiRes ? 2 : 1.25)); onResize();
+  CAM.auto = SET.autoRotate; $('#hint').style.opacity = SET.hints ? 1 : 0;
+}
+
+// ---- 道具 ----
+const CATS = [
+  { id: 'terrain', name: '地形', ic: 'terrain' }, { id: 'water', name: '水', ic: 'water' }, { id: 'plant', name: '植物', ic: 'plant' },
+  { id: 'animal', name: '動物', ic: 'animal' }, { id: 'obj', name: 'もの', ic: 'obj' }, { id: 'env', name: '環境', ic: 'env' },
+];
+const TOOLS = {
+  terrain: [{ id: 'raise', name: 'もりあげる', ic: 'raise' }, { id: 'lower', name: 'さげる', ic: 'lower' }, { id: 'smooth', name: 'ならす', ic: 'smooth' }, { id: 'paint', name: 'ぬる', ic: 'paint' }],
+  water: [{ id: 'lake', name: '湖', ic: 'lake' }, { id: 'river', name: '川', ic: 'river' }, { id: 'werase', name: '水をけす', ic: 'erase' }],
+  plant: ['grass', 'flower', 'oak', 'pine', 'sakura', 'bush', 'mush', 'lily', 'reed'].map(t => ({ id: t, name: DEFS[t].name, item: t })),
+  animal: ['butterfly', 'bird', 'rabbit', 'fish'].map(t => ({ id: t, name: ADEF[t].name, animal: t })),
+  obj: ['rock', 'bridge', 'bench', 'cottage', 'fence', 'stones'].map(t => ({ id: t, name: DEFS[t].name, item: t })),
+  env: [],
+};
+const T = { cat: null, id: null, size: { terrain: 1.6, water: 1.8, river: .75, werase: 1 }, str: .5, paint: 0, stage: 1, vars: {}, avar: {}, rotOff: 0 };
+const toolDef = () => T.cat && (TOOLS[T.cat] || []).find(t => t.id === T.id);
+const isBrush = () => T.cat === 'terrain' || T.id === 'werase' || (T.cat === 'plant' && T.id);
+const isPlace = () => T.cat === 'obj' || T.cat === 'animal' || T.id === 'lake';
+
+function setCat(c) {
+  if (T.cat === c) c = null;
+  T.cat = c; T.id = c && TOOLS[c].length ? TOOLS[c][0].id : null;
+  if (c) select(null);
+  renderCats(); renderTray(); updateGhost(); updateHint(); SFX.click();
+}
+function setTool(id) { T.id = id; renderTray(); updateGhost(); updateHint(); SFX.click(); }
+function renderCats() {
+  $('#cats').innerHTML = `<button class="cat selc ${T.cat ? '' : 'on'}" data-c="">${svg('select')}えらぶ</button>` + CATS.map(c => `<button class="cat ${T.cat === c.id ? 'on' : ''}" data-c="${c.id}">${svg(c.ic)}${c.name}</button>`).join('');
+}
+$('#cats').addEventListener('click', e => { const b = e.target.closest('.cat'); if (!b) return; auInit(); if (!b.dataset.c) { T.cat = null; T.id = null; renderCats(); renderTray(); updateGhost(); updateHint(); SFX.click(); } else setCat(b.dataset.c); });
+
+function sld(id, label, min, max, step, val, fmt = v => Math.round(v * 100)) {
+  const p = (val - min) / (max - min) * 100;
+  return `<label class="sld"><span class="lbl">${label}</span><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}" style="--p:${p}%"><output>${fmt(+val)}</output></label>`;
+}
+function bindSld(id, fn, fmt = v => Math.round(v * 100)) {
+  const el = document.getElementById(id); if (!el) return;
+  const upd = () => { const v = +el.value; el.style.setProperty('--p', (v - el.min) / (el.max - el.min) * 100 + '%'); el.nextElementSibling.textContent = fmt(v); fn(v, false); };
+  el.addEventListener('input', upd); el.addEventListener('change', () => fn(+el.value, true));
+  el.addEventListener('pointerdown', e => e.stopPropagation());
+}
+const thumbOf = tl => tl.item ? Thumbs(tl.item, T.vars[tl.item] || 0, MAXST(tl.item)) : tl.animal ? Thumbs(tl.animal, 0, 0, ADEF[tl.animal].colors[T.avar[tl.animal] || 0]) : null;
+function renderTray() {
+  const tr = $('#tray');
+  if (!T.cat) { tr.classList.add('hidden'); dockH(); return; }
+  tr.classList.remove('hidden');
+  let h = '';
+  const tools = TOOLS[T.cat];
+  if (tools.length) h += `<div class="row scroll">${tools.map(t => `<button class="tool ${T.id === t.id ? 'on' : ''}" data-t="${t.id}">${t.item || t.animal ? `<img alt="" src="${thumbOf(t)}">` : `<span class="ti">${svg(t.ic)}</span>`}${esc(t.name)}</button>`).join('')}</div>`;
+  if (T.cat === 'terrain') {
+    h += `<div class="row">${sld('s-size', 'おおきさ', .6, 4, .05, T.size.terrain, v => v.toFixed(1))}${sld('s-str', 'つよさ', .1, 1, .01, T.str)}</div>`;
+    if (T.id === 'paint') h += `<div class="row"><span class="lbl">いろ</span>${TERR.map((t, i) => `<button class="sw ${T.paint === i ? 'on' : ''}" data-paint="${i}" title="${t.name}" style="background:${t.c}"></button>`).join('')}<span class="lbl" style="min-width:0">${TERR[T.paint].name}</span></div>`;
+  }
+  if (T.cat === 'water') {
+    const key = T.id === 'river' ? 'river' : T.id === 'werase' ? 'werase' : 'water';
+    h += `<div class="row">${sld('s-wsize', T.id === 'river' ? '川のはば' : T.id === 'werase' ? 'けす大きさ' : '湖の大きさ', T.id === 'river' ? .4 : .6, T.id === 'river' ? 1.4 : 3.6, .05, T.size[key], v => v.toFixed(1))}</div>`;
+    h += `<div class="row"><span class="lbl">水の色</span>${['#6fd3e8', '#7fb8ff', '#8ee6c9', '#b8a8ff', '#ffb3c9', '#9fe3f0'].map(c => `<button class="sw ${ENV.water === c ? 'on' : ''}" data-water="${c}" style="background:${c}"></button>`).join('')}<input type="color" id="wcol" value="${ENV.water}" title="好きな色"></div>`;
+  }
+  if (T.cat === 'plant' && T.id) {
+    const d = DEFS[T.id];
+    h += `<div class="row"><span class="lbl">育ち</span><div class="seg">${['芽', '若い', '大人'].map((n, i) => `<button class="${T.stage === i ? 'on' : ''}" data-stage="${i}">${n}</button>`).join('')}</div>`;
+    if (d.variants) h += `<span class="lbl" style="margin-left:6px">種類</span><div class="seg">${d.vnames.map((n, i) => `<button class="${(T.vars[T.id] || 0) === i ? 'on' : ''}" data-var="${i}">${n}</button>`).join('')}</div>`;
+    h += `</div>`;
+  }
+  if (T.cat === 'obj' && T.id) {
+    const d = DEFS[T.id];
+    h += `<div class="row">${d.variants ? `<span class="lbl">種類</span><div class="seg">${d.vnames.map((n, i) => `<button class="${(T.vars[T.id] || 0) === i ? 'on' : ''}" data-var="${i}">${n}</button>`).join('')}</div>` : ''}<span class="lbl" style="margin-left:6px">向き</span><button class="ib" data-rot="-1" title="Q">${svg('rotL')}</button><button class="ib" data-rot="1" title="E">${svg('rotR')}</button></div>`;
+  }
+  if (T.cat === 'animal' && T.id) {
+    const cs = ADEF[T.id].colors;
+    h += `<div class="row"><span class="lbl">いろ</span>${cs.map((c, i) => `<button class="sw ${(T.avar[T.id] || 0) === i ? 'on' : ''}" data-avar="${i}" style="background:${c}"></button>`).join('')}</div>`;
+    h += `<div class="row" style="font-size:12px;color:var(--ink2);font-weight:700">${{ butterfly: '咲いた花がたくさんあると、GROW でちょうちょがやってきます。', bird: '大きな木がふえると、ことりがやってきて枝にとまります。', rabbit: '草やしげみが多い所に、うさぎがやってきます。', fish: 'さかなは湖の中にだけ置けます。湖が広いほど、たくさん来ます。' }[T.id]}</div>`;
+  }
+  if (T.cat === 'env') {
+    h += `<div class="row scroll">${Object.entries(WEATHER).map(([k, w]) => `<button class="tool ${ENV.weather === k ? 'on' : ''}" data-wx="${k}"><span class="ti">${wxIcon(k)}</span>${w.name}</button>`).join('')}</div>`;
+    h += `<div class="row">${sld('s-time', '時間', 0, 3, .01, ENV.time, v => TIMES[Math.round(v)].name)}${sld('s-cloud', '雲', 0, 1, .01, ENV.clouds)}</div>`;
+    h += `<div class="row">${sld('s-sun', '日ざし', .4, 1.6, .01, ENV.sun)}${sld('s-az', '光の向き', -1, 1, .01, ENV.sunAz, v => v < -.3 ? '左' : v > .3 ? '右' : 'まえ')}</div>`;
+    h += `<div class="row"><span class="lbl">空の色</span>${Object.entries(SKIES).map(([k, s]) => `<button class="sw ${ENV.sky === k ? 'on' : ''}" data-sky="${k}" title="${s.name}" style="background:linear-gradient(${s.top},${s.bot})"></button>`).join('')}</div>`;
+  }
+  tr.innerHTML = h;
+  bindSld('s-size', v => T.size.terrain = v, v => v.toFixed(1)); bindSld('s-str', v => T.str = v);
+  bindSld('s-wsize', v => { T.size[T.id === 'river' ? 'river' : T.id === 'werase' ? 'werase' : 'water'] = v; }, v => v.toFixed(1));
+  const envSet = (k, v, commit) => { if (commit) { pushUndo(); markDirty(); } ENV[k] = v; if (k === 'time') checkTimeDisc(); };
+  bindSld('s-time', (v, c) => envSet('time', v, c), v => TIMES[Math.round(v)].name); bindSld('s-cloud', (v, c) => envSet('clouds', v, c));
+  bindSld('s-sun', (v, c) => envSet('sun', v, c)); bindSld('s-az', (v, c) => envSet('sunAz', v, c), v => v < -.3 ? '左' : v > .3 ? '右' : 'まえ');
+  const wc = $('#wcol'); if (wc) { wc.addEventListener('input', () => { ENV.water = wc.value; setWaterColor(wc.value); }); wc.addEventListener('change', () => { pushUndo(); markDirty(); renderTray(); }); }
+  dockH();
+}
+function wxIcon(k) {
+  const p = { sunny: '<circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>', cloudy: '<path d="M7 18h10a4 4 0 0 0 .3-8 5.5 5.5 0 0 0-10.6 1.6A3.2 3.2 0 0 0 7 18z"/>', rain: '<path d="M7 14h10a4 4 0 0 0 .3-8 5.5 5.5 0 0 0-10.6 1.6A3.2 3.2 0 0 0 7 14z"/><path d="M8 17l-1 3M12 17l-1 3M16 17l-1 3"/>', snow: '<path d="M7 13h10a4 4 0 0 0 .3-8 5.5 5.5 0 0 0-10.6 1.6A3.2 3.2 0 0 0 7 13z"/><circle cx="8" cy="18" r=".8"/><circle cx="12" cy="20" r=".8"/><circle cx="16" cy="18" r=".8"/>', fog: '<path d="M4 9h16M3 13h18M5 17h14"/>' }[k];
+  return `<svg class="i" viewBox="0 0 24 24">${p}</svg>`;
+}
+$('#tray').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return; auInit();
+  const ds = b.dataset;
+  if (ds.t) setTool(ds.t);
+  else if (ds.paint) { T.paint = +ds.paint; renderTray(); SFX.click(); }
+  else if (ds.stage) { T.stage = +ds.stage; renderTray(); updateGhost(); SFX.click(); }
+  else if (ds.var) { T.vars[T.id] = +ds.var; renderTray(); updateGhost(); SFX.click(); }
+  else if (ds.avar) { T.avar[T.id] = +ds.avar; renderTray(); updateGhost(); SFX.click(); }
+  else if (ds.rot) { T.rotOff += +ds.rot * Math.PI / 8; SFX.click(); }
+  else if (ds.water) { pushUndo(); ENV.water = ds.water; setWaterColor(ENV.water); markDirty(); renderTray(); SFX.click(); }
+  else if (ds.wx) { pushUndo(); ENV.weather = ds.wx; if (WEATHER[ds.wx]) ENV.clouds = WEATHER[ds.wx].clouds; discover(ds.wx === 'sunny' || ds.wx === 'cloudy' ? null : ds.wx); markDirty(); renderTray(); SFX.click(); }
+  else if (ds.sky) { pushUndo(); ENV.sky = ds.sky; markDirty(); renderTray(); SFX.click(); }
+});
+$('#tray').addEventListener('pointerdown', e => e.stopPropagation());
+function dockH() { document.body.classList.toggle('tray', !!T.cat); document.body.classList.toggle('sel', !!(SEL.it || SEL.a)); requestAnimationFrame(() => document.documentElement.style.setProperty('--dockH', $('#dock').offsetHeight + 'px')); }
+function updateHint() {
+  const two = IS_TOUCH ? '2本指' : '右ドラッグ';
+  let s = `星をドラッグでまわす　・　${IS_TOUCH ? 'ピンチ' : 'ホイール'}でズーム　・　クリックでえらぶ`;
+  if (T.cat === 'terrain') s = `なぞって${toolDef().name}　｜　${two}でまわす`;
+  else if (T.id === 'lake') s = `クリックした所に湖をつくる　｜　湖の中をクリックすると広げられる`;
+  else if (T.id === 'river') s = `なぞって川の道をえがく　｜　${two}でまわす`;
+  else if (T.id === 'werase') s = `湖をクリック、川をなぞって水をけす`;
+  else if (T.cat === 'plant' && T.id) s = `クリックで植える・なぞってまとめて植える　｜　${two}でまわす`;
+  else if (T.cat === 'obj' && T.id) s = `クリックで置く　｜　Q・E で向き　｜　置いたあとに大きさを変えられる`;
+  else if (T.cat === 'animal' && T.id) s = `クリックで${ADEF[T.id].name}を放す`;
+  else if (T.cat === 'env') s = `天気・時間・空の色を変える　｜　星はドラッグでまわせる`;
+  $('#hint').textContent = s;
+}
+
+// ---- 選択 ----
+const SEL = { it: null, a: null };
+const selRing = new THREE.LineLoop(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(48 * 3), 3)), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: .9, depthTest: false }));
+selRing.renderOrder = 5; selRing.visible = false; selRing.frustumCulled = false; scene.add(selRing);
+const brushRing = new THREE.LineLoop(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(64 * 3), 3)), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: .85, depthTest: false }));
+brushRing.renderOrder = 5; brushRing.visible = false; brushRing.frustumCulled = false; scene.add(brushRing);
+function ringAt(line, d, rad, n, lift = .04, follow = true) {
+  const pa = line.geometry.attributes.position; _q1.setFromUnitVectors(Y_AXIS, d);
+  for (let i = 0; i < n; i++) { const a = i / n * TAU; const p = _v1.set(Math.cos(a) * rad / R, 1, Math.sin(a) * rad / R).applyQuaternion(_q1).normalize(); const r = follow ? surfaceAt(p) + lift : surfaceAt(d) + lift; pa.setXYZ(i, p.x * r, p.y * r, p.z * r); }
+  pa.needsUpdate = true; line.visible = true;
+}
+function select(x) {
+  SEL.it = x && x.t in DEFS ? x : null; SEL.a = x && x.t in ADEF ? x : null;
+  if (!x && CAM.follow && CAM.follow.t) CAM.follow = null;
+  renderSel();
+}
+function stageName(x) { if (x.st < 3) return ['芽', '若い', '大人'][x.st]; return { oak: '実り', pine: '大木', sakura: '満開' }[x.t] || '大人'; }
+function renderSel() {
+  const p = $('#sel'), x = SEL.it || SEL.a;
+  dockH();
+  if (!x) { p.classList.add('hidden'); selRing.visible = false; return; }
+  p.classList.remove('hidden');
+  if (SEL.it) {
+    const d = DEFS[x.t], ms = MAXST(x.t);
+    p.innerHTML = `<h3>${esc(d.name)}${d.vnames ? `<small>${esc(d.vnames[x.v || 0])}</small>` : ''}${d.stages ? `<small>${stageName(x)}</small>` : ''}</h3>
+      ${d.stages ? `<div class="stg">${Array.from({ length: ms + 1 }, (_, i) => `<i class="${i <= x.st ? 'on' : ''}"></i>`).join('')}</div>` : ''}
+      ${sld('s-scale', '大きさ', .4, 2.5, .01, x.s, v => v.toFixed(2))}
+      <div class="btns"><button class="ib" data-s="rotL" title="左にまわす（Q）">${svg('rotL')}</button><button class="ib" data-s="rotR" title="右にまわす（E）">${svg('rotR')}</button><button class="ib" data-s="dup" title="ふやす（Ctrl+D）">${svg('dup')}</button><button class="ib" data-s="focus" title="ちかくで見る（F）">${svg('focus')}</button><button class="ib del" data-s="del" title="けす（Delete）">${svg('trash')}</button></div>`;
+    let first = true;
+    bindSld('s-scale', (v, commit) => { if (first) { pushUndo(); first = false; } x.s = v; refreshItem(x); if (commit) { first = true; markDirty(); } }, v => v.toFixed(2));
+  } else {
+    const follow = CAM.follow === x;
+    p.innerHTML = `<h3>${esc(ADEF[x.t].name)}<small>${{ fly: 'とんでいる', rest: 'ひと休み', perch: '枝の上', circle: '空をまわる', ground: '地面をつつく', idle: x.nib ? 'もぐもぐ' : 'ひと休み', hop: 'ぴょんぴょん', pause: 'ぴょんぴょん', swim: 'およいでいる', jump: 'ジャンプ！' }[x.st] || ''}</small></h3>
+      <div class="btns" style="grid-template-columns:1fr 1fr 1fr"><button class="ib ${follow ? 'on' : ''}" data-s="follow" title="追いかける">${svg('follow')}</button><button class="ib" data-s="focus" title="ちかくで見る（F）">${svg('focus')}</button><button class="ib del" data-s="del" title="けす">${svg('trash')}</button></div>
+      <div style="font-size:12px;color:var(--ink2);font-weight:700">${follow ? 'カメラが追いかけています。星をドラッグするとやめます。' : '追いかけボタンで、ずっと見ていられます。'}</div>`;
+  }
+}
+$('#sel').addEventListener('pointerdown', e => e.stopPropagation());
+$('#sel').addEventListener('click', e => { const b = e.target.closest('[data-s]'); if (b) selAct(b.dataset.s); });
+function selAct(k) {
+  const x = SEL.it || SEL.a; if (!x) return;
+  if (k === 'rotL' || k === 'rotR') { pushUndo(); x.rot = (x.rot || 0) + (k === 'rotL' ? 1 : -1) * Math.PI / 8; refreshItem(x); markDirty(); SFX.click(); }
+  else if (k === 'dup' && SEL.it) {
+    pushUndo(); const d = DEFS[x.t];
+    let nd;
+    if (d.dup) { _q1.setFromUnitVectors(Y_AXIS, x.d); _q2.setFromAxisAngle(Y_AXIS, x.rot); _q1.multiply(_q2); const ax = _v1.set(1, 0, 0).applyQuaternion(_q1); nd = x.d.clone().addScaledVector(ax, d.dup * x.s / R).normalize(); }
+    else { const m = itemModel(x); const ax = _v1.set(1, 0, 0).applyQuaternion(camera.quaternion); ax.addScaledVector(x.d, -ax.dot(x.d)).normalize(); nd = x.d.clone().addScaledVector(ax, (m.r * 2 + .15) * x.s / R).normalize(); }
+    const it = addItem({ t: x.t, v: x.v, st: x.st, d: nd, rot: x.rot, s: x.s }); SFX.pop(); FX.puff(nd, it._r, '#ffffff', 6); select(it); markDirty(); checkItemDisc(it);
+  }
+  else if (k === 'focus') { camFocus(x.d, R + (SEL.a ? 4.2 : 5.5)); SFX.click(); }
+  else if (k === 'follow' && SEL.a) { CAM.follow = CAM.follow === x ? null : x; if (CAM.follow) camFocus(x.d, R + 4.5); renderSel(); SFX.click(); }
+  else if (k === 'del') { pushUndo(); if (SEL.it) { FX.puff(x.d, x._r || surfaceAt(x.d), '#ffffff', 8); removeItem(x); } else { removeAnimal(x); } select(null); SFX.del(); markDirty(); }
+}
+
+// ---- 下書き（置く前の半透明の形） ----
+const ghost = new THREE.Group(); ghost.visible = false; scene.add(ghost);
+const ghostMat = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: .55, depthWrite: false });
+const ghostBad = new THREE.MeshLambertMaterial({ color: 0xff7b8b, transparent: true, opacity: .45, depthWrite: false });
+let ghostKey = '';
+function updateGhost() {
+  const tl = toolDef(); let m = null;
+  if (tl && tl.item && T.cat === 'obj') m = model(tl.item, T.vars[tl.item] || 0, MAXST(tl.item));
+  else if (tl && tl.item) m = model(tl.item, T.vars[tl.item] || 0, Math.min(T.stage, MAXST(tl.item)));
+  else if (tl && tl.animal) m = model(tl.animal);
+  const key = m ? m.key : '';
+  if (key === ghostKey) return; ghostKey = key;
+  ghost.clear(); if (!m) { ghost.visible = false; return; }
+  for (const p of m.parts) { const mesh = new THREE.Mesh(p.g, ghostMat); mesh.userData.pivot = p.pivot; if (p.pivot) mesh.position.set(...p.pivot); ghost.add(mesh); }
+}
+let HOVER = null; // { d, point }
+const ray = new THREE.Raycaster(), _ndc = new THREE.Vector2();
+function rayFrom(x, y) { _ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(_ndc, camera); }
+function pickPlanet(x, y) { rayFrom(x, y); const h = ray.intersectObject(PL.mesh, false)[0]; return h ? { d: h.point.clone().normalize(), dist: h.distance } : null; }
+function pickThing(x, y) {
+  rayFrom(x, y);
+  const objs = []; for (const b of BATCH.values()) for (const m of b.meshes) if (m.count) objs.push(m); for (const t in AK) for (const m of AK[t].meshes) if (m.count) objs.push(m);
+  const pl = ray.intersectObject(PL.mesh, false)[0]; const lim = pl ? pl.distance + .25 : 1e9;
+  const hits = ray.intersectObjects(objs, false).filter(h => h.distance < lim && h.instanceId !== undefined);
+  for (const h of hits) {
+    const ud = h.object.userData;
+    if (ud.batch) { const it = ud.batch.items[h.instanceId]; if (it) return it; }
+    if (ud.kind) { const a = ud.kind.list[h.instanceId]; if (a) return a; }
+  }
+  // 小さい動物は近くをクリックしても選べるように
+  if (pl) { const d = pl.point.clone().normalize(); let best = null, bd = .35; for (const a of ANIMALS) { const x2 = Math.acos(clamp(d.dot(a.d), -1, 1)) * R; if (x2 < bd) { bd = x2; best = a; } } if (best) return best; }
+  return null;
+}
+function tickHover() {
+  brushRing.visible = false; ghost.visible = false;
+  if (!HOVER || DRAG.mode === 'cam' || DRAG.mode === 'pinch' || !T.id) return;
+  const d = HOVER.d;
+  if (T.cat === 'terrain') ringAt(brushRing, d, T.size.terrain, 64, .05);
+  else if (T.id === 'werase') ringAt(brushRing, d, T.size.werase, 64, .06);
+  else if (T.id === 'lake') ringAt(brushRing, d, T.size.water, 64, .06);
+  else if (T.id === 'river') ringAt(brushRing, d, T.size.river * .5, 32, .06);
+  const tl = toolDef();
+  if (tl && (tl.item || tl.animal) && DRAG.mode !== 'stroke') {
+    const t = tl.item || tl.animal;
+    const ok = tl.item ? canPlace(t, d) : t === 'fish' ? !!(waterAt(d) && waterAt(d).lake) : !waterAt(d) || t !== 'rabbit';
+    const fake = { t: tl.item || 'grass', d, s: 1, rot: tl.item && DEFS[t].align ? alignedRot(d) + T.rotOff : 0 };
+    const r = tl.item ? itemBaseR(fake) : t === 'fish' ? WT.levelOf(waterAt(d)?.lake?.id) - .12 : surfaceAt(d) + (t === 'bird' || t === 'butterfly' ? .5 : 0);
+    ghost.position.copy(d).multiplyScalar(r); ghost.quaternion.setFromUnitVectors(Y_AXIS, d); ghost.rotateY(fake.rot);
+    const s = tl.animal ? ADEF[t].s : 1; ghost.scale.set(s, s, s);
+    ghost.children.forEach(m => m.material = ok ? ghostMat : ghostBad);
+    ghost.visible = true;
+    HOVER.ok = ok;
+  }
+}
+
+// ---- 入力 ----
+const DRAG = { mode: null, id: -1, x: 0, y: 0, sx: 0, sy: 0, moved: 0, ptrs: new Map(), pinch: null, stroke: null, path: null, lastPlant: null, target: null, undoPushed: false, btn: 0 };
+let SPACE = false;
+const pathLine = new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(1200 * 3), 3)), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: .9, depthTest: false }));
+pathLine.renderOrder = 6; pathLine.visible = false; pathLine.frustumCulled = false; scene.add(pathLine);
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('pointerdown', e => {
+  auInit(); CAM.idle = 0; canvas.focus();
+  if (!STARTED) return;
+  DRAG.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  canvas.setPointerCapture(e.pointerId);
+  if (DRAG.ptrs.size === 2) { endStroke(); const [a, b] = [...DRAG.ptrs.values()]; DRAG.mode = 'pinch'; DRAG.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 }; return; }
+  if (DRAG.ptrs.size > 2) return;
+  Object.assign(DRAG, { id: e.pointerId, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: 0, btn: e.button, target: null, undoPushed: false });
+  CAM.vel.set(0, 0);
+  if (e.button === 1 || e.button === 2 || SPACE) { DRAG.mode = 'cam'; return; }
+  const hit = pickPlanet(e.clientX, e.clientY); HOVER = hit;
+  if (!T.id) {
+    const th = pickThing(e.clientX, e.clientY);
+    if (th) { select(th); SFX.select(); DRAG.mode = 'move'; DRAG.target = th; return; }
+    DRAG.mode = 'cam'; DRAG.clickEmpty = true; return;
+  }
+  if (!hit) { DRAG.mode = 'cam'; return; }
+  if (isBrush()) { beginStroke(hit); return; }
+  if (T.id === 'river') { DRAG.mode = 'river'; DRAG.path = [hit.d.clone()]; return; }
+  DRAG.mode = 'click';
+});
+canvas.addEventListener('pointermove', e => {
+  if (!STARTED) return;
+  const p = DRAG.ptrs.get(e.pointerId); if (p) { p.x = e.clientX; p.y = e.clientY; }
+  if (DRAG.mode === 'pinch' && DRAG.ptrs.size >= 2) {
+    const [a, b] = [...DRAG.ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+    camZoom(DRAG.pinch.d / Math.max(10, d)); camRotate(cx - DRAG.pinch.cx, cy - DRAG.pinch.cy);
+    DRAG.pinch = { d, cx, cy }; CAM.idle = 0; return;
+  }
+  PENDING_HOVER = { x: e.clientX, y: e.clientY };
+  if (e.pointerId !== DRAG.id || !DRAG.mode) return;
+  const dx = e.clientX - DRAG.x, dy = e.clientY - DRAG.y; DRAG.x = e.clientX; DRAG.y = e.clientY;
+  DRAG.moved = Math.max(DRAG.moved, Math.hypot(e.clientX - DRAG.sx, e.clientY - DRAG.sy));
+  CAM.idle = 0;
+  if (DRAG.mode === 'click' && DRAG.moved > 7) DRAG.mode = 'cam';
+  if (DRAG.mode === 'cam') { camRotate(dx, dy); CAM.vel.lerp(new THREE.Vector2(dx, dy), .5); DRAG.lastMove = performance.now(); return; }
+  if (DRAG.mode === 'move' && DRAG.moved > 5) {
+    const h = pickPlanet(e.clientX, e.clientY); if (!h) return;
+    const x = DRAG.target;
+    if (!DRAG.undoPushed) { pushUndo(); DRAG.undoPushed = true; }
+    if (x.t in DEFS) { x.d.copy(h.d); refreshItem(x); } else { x.d.copy(h.d); if (x.st === 'perch' || x.st === 'rest') { x.st = x.t === 'bird' ? 'fly' : 'fly'; x.tg = null; x.tgItem = null; } if (x.t === 'fish') { const w = waterAt(h.d); if (!w || !w.lake) { x.d.addScaledVector(h.d, -1).normalize(); } else x.lake = w.lake.id; } }
+    return;
+  }
+  if (DRAG.mode === 'stroke') { const h = pickPlanet(e.clientX, e.clientY); if (h) { DRAG.stroke.hit = h; HOVER = h; strokeMove(h); } return; }
+  if (DRAG.mode === 'river') {
+    const h = pickPlanet(e.clientX, e.clientY); if (!h) return; HOVER = h;
+    const last = DRAG.path[DRAG.path.length - 1];
+    if (last.distanceTo(h.d) * R > .22 && DRAG.path.length < 1100) { DRAG.path.push(h.d.clone()); drawPath(); }
+  }
+});
+function drawPath() { const pa = pathLine.geometry.attributes.position; DRAG.path.forEach((p, i) => { const r = surfaceAt(p) + .08; pa.setXYZ(i, p.x * r, p.y * r, p.z * r); }); pa.needsUpdate = true; pathLine.geometry.setDrawRange(0, DRAG.path.length); pathLine.visible = true; }
+function pointerEnd(e) {
+  DRAG.ptrs.delete(e.pointerId);
+  if (DRAG.mode === 'pinch') { if (DRAG.ptrs.size === 0) DRAG.mode = null; return; }
+  if (e.pointerId !== DRAG.id) return;
+  const m = DRAG.mode; DRAG.mode = null;
+  if (m === 'cam') { if (performance.now() - (DRAG.lastMove || 0) > 90) CAM.vel.set(0, 0); else CAM.vel.multiplyScalar(.55); }
+  if (m === 'cam' && DRAG.clickEmpty && DRAG.moved < 6) select(null);
+  DRAG.clickEmpty = false;
+  if (m === 'move' && DRAG.undoPushed) { markDirty(); SFX.pop(.9); const x = DRAG.target; if (x.t in DEFS) FX.puff(x.d, x._r, '#ffffff', 5); }
+  if (m === 'stroke') endStroke();
+  if (m === 'click') doPlace(HOVER || pickPlanet(e.clientX, e.clientY));
+  if (m === 'river') { pathLine.visible = false; if (DRAG.path.length >= 4) { pushUndo(); const r = addRiver(DRAG.path, T.size.river); if (r) { PL.updateVerts(r.vs); waterRefresh(); updateAllItems(); SFX.water(); discover('river'); markDirty(); } } DRAG.path = null; }
+}
+canvas.addEventListener('pointerup', pointerEnd); canvas.addEventListener('pointercancel', pointerEnd);
+canvas.addEventListener('pointerleave', () => { if (!DRAG.mode) HOVER = null; });
+canvas.addEventListener('wheel', e => { e.preventDefault(); if (!STARTED) return; camZoom(Math.exp(e.deltaY * (e.deltaMode ? .05 : .0012))); CAM.idle = 0; }, { passive: false });
+let PENDING_HOVER = null;
+
+function beginStroke(hit) {
+  pushUndo(); DRAG.mode = 'stroke'; DRAG.stroke = { hit, t: 0, refresh: 0, kind: T.id, placed: 0 }; DRAG.lastPlant = null;
+  strokeMove(hit, true);
+}
+function strokeMove(h, first) {
+  const s = DRAG.stroke; if (!s) return;
+  if (T.id === 'werase') { const a = removeLakeAt(h.d), b = eraseRiverNear(h.d, T.size.werase); if (a || b) { SFX.splash(); FX.splash(h.d, surfaceAt(h.d)); s.changed = 1; updateItemsNear(h.d, 3); } return; }
+  if (T.cat === 'plant') {
+    const def = DEFS[T.id]; const sp = def.scatter * rr(.85, 1.3);
+    if (!first && DRAG.lastPlant && DRAG.lastPlant.distanceTo(h.d) * R < sp) return;
+    const d = first ? h.d.clone() : randomNear(h.d, Math.min(.35, sp * .6));
+    if (!canPlace(T.id, d) || nearCount(d, def.scatter * .55, it => DEFS[it.t].cat === 'plant' && (T.id === 'grass' || it.t !== 'grass')) > (T.id === 'grass' ? 1 : 0)) return;
+    const st = Math.min(T.stage, MAXST(T.id));
+    const it = addItem({ t: T.id, v: T.vars[T.id] || 0, st, d, s: 1 + rr(-def.rnd, def.rnd) });
+    DRAG.lastPlant = h.d.clone(); s.placed++; SFX.plant(); FX.puff(d, it._r, '#e9ffd9', 3); checkItemDisc(it);
+  }
+}
+function tickStroke(dt) {
+  const s = DRAG.stroke; if (DRAG.mode !== 'stroke' || !s || T.cat !== 'terrain') return;
+  const vs = PL.brush(T.id, s.hit.d, T.size.terrain, T.str, dt, T.paint);
+  PL.updateVerts(vs); s.changed = 1; SFX.brush(T.id);
+  s.refresh -= dt; if (s.refresh <= 0) { s.refresh = .16; if (T.id !== 'paint') { if (WT.lakes.length || WT.rivers.length) waterRefresh(); updateItemsNear(s.hit.d, T.size.terrain); } }
+}
+function endStroke() {
+  const s = DRAG.stroke; if (!s) return; DRAG.stroke = null; if (DRAG.mode === 'stroke') DRAG.mode = null;
+  if (!s.changed && !s.placed) { UNDO.pop(); return; }
+  if (T.cat === 'terrain' && T.id !== 'paint') { waterRefresh(); PL.updateAll(); updateAllItems(); }
+  if (T.cat === 'terrain' && T.id === 'paint') PL.updateAll();
+  markDirty();
+}
+function doPlace(h) {
+  if (!h) return; const tl = toolDef(); if (!tl) return;
+  if (T.id === 'lake') {
+    pushUndo(); const { L, vs } = addLake(h.d, T.size.water); PL.updateVerts(PL.vertsNear(h.d, T.size.water * 1.7)); waterRefresh(); updateAllItems();
+    SFX.water(); FX.splash(h.d, L.level); discover('lake'); markDirty(); return;
+  }
+  if (tl.item) {
+    if (!canPlace(tl.item, h.d)) { SFX.del(); toast('ここには置けません', DEFS[tl.item].water === 'on' ? '水の上に置いてください' : '水のない所に置いてください'); return; }
+    pushUndo();
+    const def = DEFS[tl.item];
+    const it = addItem({ t: tl.item, v: T.vars[tl.item] || 0, st: def.cat === 'obj' ? 0 : Math.min(T.stage, MAXST(tl.item)), d: h.d, rot: def.align ? alignedRot(h.d) + T.rotOff : rr(0, TAU), s: def.cat === 'obj' ? 1 : 1 + rr(-def.rnd, def.rnd) });
+    SFX.pop(); FX.puff(h.d, it._r, '#ffffff', 8); checkItemDisc(it); markDirty();
+    if (def.cat === 'obj') select(it);
+    return;
+  }
+  if (tl.animal) {
+    const t = tl.animal;
+    if (t === 'fish') { const w = waterAt(h.d); if (!w || !w.lake) { SFX.del(); toast('さかなは湖に放してください', '水の中だけで暮らします'); return; } }
+    if (t === 'rabbit' && waterAt(h.d)) { SFX.del(); toast('うさぎは陸に放してください', ''); return; }
+    pushUndo();
+    const a = addAnimal(t, h.d, { v: T.avar[t] || 0, alt: t === 'bird' ? .6 : t === 'butterfly' ? .4 : undefined });
+    if (!a) { toast('もういっぱいです', ADEF[t].name + 'は ' + ADEF[t].cap + ' ひきまで'); return; }
+    if (t === 'fish') FX.splash(a.d, WT.levelOf(a.lake)); else FX.puff(h.d, surfaceAt(h.d), '#ffffff', 6);
+    SFX.arrive(); discover(t); markDirty();
+  }
+}
+addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('input,textarea')) return;
+  if (!STARTED) return;
+  const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
+  if (k === ' ') { SPACE = true; e.preventDefault(); }
+  if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if (mod && k === 'y') { e.preventDefault(); redo(); return; }
+  if (mod && k === 's') { e.preventDefault(); quickSave(); return; }
+  if (mod && k === 'd') { e.preventDefault(); selAct('dup'); return; }
+  if (!$('#modal').classList.contains('hidden')) { if (k === 'escape') closeModal(); return; }
+  if (k === 'escape') { if (SEL.it || SEL.a) select(null); else { T.cat = null; T.id = null; renderCats(); renderTray(); updateGhost(); updateHint(); } }
+  else if (k === 'delete' || k === 'backspace') selAct('del');
+  else if (k === 'q' || k === 'e') { const s = k === 'q' ? 1 : -1; if (SEL.it) selAct(s > 0 ? 'rotL' : 'rotR'); else if (T.cat === 'obj') T.rotOff += s * Math.PI / 8; }
+  else if (k === 'f') selAct('focus');
+  else if (k === 'g') grow();
+  else if (k === 'r' || k === 'home') { camReset(); SFX.click(); }
+  else if ((k === '+' || k === '=' || k === '-') && SEL.it) { pushUndo(); SEL.it.s = clamp(SEL.it.s * (k === '-' ? .9 : 1.1), .4, 2.5); refreshItem(SEL.it); renderSel(); markDirty(); }
+  else if (k >= '1' && k <= '6') setCat(CATS[+k - 1].id);
+  else if (k === '0') { T.cat = null; T.id = null; renderCats(); renderTray(); updateGhost(); updateHint(); }
+});
+addEventListener('keyup', e => { if (e.key === ' ') SPACE = false; });
+
+// ---- もとにもどす・やりなおす ----
+const UNDO = [], REDO = [];
+function pushUndo() { UNDO.push(serialize(true)); if (UNDO.length > 60) UNDO.shift(); REDO.length = 0; updUndoBtns(); }
+function undo() { if (!UNDO.length) return; REDO.push(serialize(true)); deserialize(UNDO.pop(), true); SFX.undo(); markDirty(); updUndoBtns(); }
+function redo() { if (!REDO.length) return; UNDO.push(serialize(true)); deserialize(REDO.pop(), true); SFX.undo(); markDirty(); updUndoBtns(); }
+function updUndoBtns() { $('[data-act=undo]').disabled = !UNDO.length; $('[data-act=redo]').disabled = !REDO.length; }
+
+// ---- 保存 ----
+function b64(u8) { let s = ''; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return btoa(s); }
+function unb64(s) { const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+const r5 = x => Math.round(x * 1e5) / 1e5;
+let GROWS = 0;
+function serialize(forUndo) {
+  const hq = new Int16Array(PL.NV); for (let i = 0; i < PL.NV; i++) hq[i] = Math.round(PL.H[i] * 1000);
+  const o = {
+    v: 1, h: b64(new Uint8Array(hq.buffer)), p: b64(PL.P),
+    lakes: WT.lakes.map(L => [L.seed, +L.level.toFixed(4), +L.rad.toFixed(3)]),
+    rivers: WT.rivers.map(rv => ({ w: rv.w, p: rv.pts.map(p => [r5(p.x), r5(p.y), r5(p.z)]) })),
+    items: ITEMS.map(it => [it.t, it.v || 0, it.st || 0, r5(it.d.x), r5(it.d.y), r5(it.d.z), +(it.rot || 0).toFixed(3), +(it.s || 1).toFixed(3)]),
+    animals: ANIMALS.filter(a => !a.gone).map(a => [a.t, a.v, r5(a.d.x), r5(a.d.y), r5(a.d.z)]),
+    env: { ...ENV }, grows: GROWS,
+  };
+  if (!forUndo) { o.cam = { q: CAM.qT.toArray().map(r5), d: +CAM.distT.toFixed(3) }; o.disc = [...DISC_GOT]; o.snow = +WX.snowCover.toFixed(3); }
+  return forUndo ? o : o;
+}
+function deserialize(o, forUndo) {
+  const hq = new Int16Array(unb64(o.h).buffer); for (let i = 0; i < PL.NV; i++) PL.H[i] = (hq[i] || 0) / 1000;
+  PL.P.set(unb64(o.p).subarray(0, PL.NV));
+  WT.lakes = (o.lakes || []).map(([seed, level, rad]) => ({ id: WT.nextId++, seed, level, rad, verts: [] }));
+  lakeRecompute(); buildLakeMesh();
+  WT.rivers = (o.rivers || []).map(r => ({ w: r.w, pts: r.p.map(a => new THREE.Vector3(...a).normalize()) }));
+  WT.rivers.forEach(riverLevels); buildRiverMesh();
+  Object.assign(ENV, o.env || {}); setWaterColor(ENV.water);
+  if (!forUndo && o.snow !== undefined) WX.snowCover = o.snow;
+  PL.snow = WX.snowCover; PL.updateAll();
+  const selId = SEL.it && SEL.it.id;
+  clearItems(); for (const a of o.items || []) { const it = addItem({ t: a[0], v: a[1], st: a[2], d: new THREE.Vector3(a[3], a[4], a[5]), rot: a[6], s: a[7] }, true); }
+  clearAnimals(); for (const a of o.animals || []) addAnimal(a[0], new THREE.Vector3(a[2], a[3], a[4]).normalize(), { v: a[1], instant: true });
+  GROWS = o.grows || 0;
+  select(null);
+  if (!forUndo) {
+    if (o.cam) { CAM.qT.fromArray(o.cam.q).normalize(); CAM.distT = o.cam.d; CAM.q.copy(CAM.qT); CAM.dist = CAM.distT; }
+    DISC_GOT.clear(); (o.disc || []).forEach(x => DISC_GOT.add(x));
+  }
+  if (T.cat === 'env') renderTray();
+  updStats();
+}
+const SLOTS = ['auto', '1', '2', '3'];
+function readSlot(k) { try { const s = localStorage.getItem('lb_slot_' + k); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+function thumbShot() {
+  try { renderer.render(scene, camera); const c = document.createElement('canvas'); c.width = 224; c.height = 140; const x = c.getContext('2d'); const src = renderer.domElement; const ar = src.width / src.height, w = Math.min(src.width, src.height * 1.6), h = w / 1.6; x.drawImage(src, (src.width - w) / 2, (src.height - h) / 2, w, h, 0, 0, 224, 140); return c.toDataURL('image/jpeg', .72); } catch (e) { return ''; }
+}
+function writeSlot(k) {
+  const data = serialize(false);
+  const meta = { date: Date.now(), plants: ITEMS.filter(it => DEFS[it.t].cat === 'plant').length, animals: ANIMALS.length, thumb: thumbShot() };
+  try { localStorage.setItem('lb_slot_' + k, JSON.stringify({ meta, data })); return true; } catch (e) { toast('保存できませんでした', 'ブラウザの保存領域がいっぱいかもしれません'); return false; }
+}
+let DIRTY = false, autoT = 0;
+function markDirty() { DIRTY = true; updStats(); }
+function autoSave() { if (!SET.autoSave || !DIRTY || !STARTED) return; if (writeSlot('auto')) DIRTY = false; }
+function quickSave() { if (writeSlot('auto')) { DIRTY = false; toast('保存しました', 'オートセーブに上書きしました'); SFX.select(); } }
+addEventListener('pagehide', autoSave); document.addEventListener('visibilitychange', () => { if (document.hidden) autoSave(); });
+const fmtDate = t => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+function openSlots(mode) {
+  const rows = SLOTS.map(k => {
+    const s = readSlot(k), nm = k === 'auto' ? 'オートセーブ' : 'スロット ' + k;
+    const info = s ? `${fmtDate(s.meta.date)}・植物 ${s.meta.plants}・動物 ${s.meta.animals}` : 'からっぽ';
+    const act = mode === 'save' ? (k === 'auto' ? '' : `<button class="sb pri" data-save="${k}">${s ? '上書き' : '保存'}</button>`) : `<button class="sb pri" data-loadk="${k}" ${s ? '' : 'disabled'}>ロード</button>`;
+    return `<div class="slot">${s && s.meta.thumb ? `<img alt="" src="${s.meta.thumb}">` : '<div class="ph"></div>'}<div><b>${nm}</b><small>${info}</small></div><div class="acts">${act}</div></div>`;
+  }).join('');
+  openModal(`<h2>${mode === 'save' ? 'セーブ' : 'ロード'}<button class="ib" data-close>${svg('x')}</button></h2><p class="sub">${mode === 'save' ? '星をスロットに保存します。オートセーブは数十秒ごとに自動で保存されます。' : '保存した星をよみこみます。いまの星はオートセーブに残ります。'}</p><div class="slots">${rows}</div>
+   <p class="sub" style="margin:16px 0 8px">${mode === 'save' ? '文字にして書き出す（別のブラウザに持っていけます）' : '書き出した文字からよみこむ'}</p>
+   ${mode === 'save' ? `<textarea id="exp" readonly></textarea><div class="row" style="margin-top:8px"><button class="sb" id="copyexp">${svg('copy')} コピー</button></div>` : `<textarea id="imp" placeholder="ここに貼りつけ"></textarea><div class="row" style="margin-top:8px"><button class="sb pri" id="doimp">よみこむ</button></div>`}`);
+  const card = $('#modal .card');
+  if (mode === 'save') { $('#exp').value = JSON.stringify(serialize(false)); $('#copyexp').onclick = async () => { try { await navigator.clipboard.writeText($('#exp').value); toast('コピーしました', ''); } catch (e) { $('#exp').select(); toast('選んだ文字をコピーしてください', ''); } }; }
+  else $('#doimp').onclick = () => { try { const o = JSON.parse($('#imp').value); if (!o.h || !o.p) throw 0; autoSave(); pushUndo(); deserialize(o); closeModal(); toast('よみこみました', ''); markDirty(); } catch (e) { toast('よみこめませんでした', '書き出した文字をそのまま貼りつけてください'); } };
+  card.onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.save) { if (writeSlot(b.dataset.save)) { toast('保存しました', 'スロット ' + b.dataset.save); SFX.select(); openSlots('save'); } }
+    if (b.dataset.loadk) { const s = readSlot(b.dataset.loadk); if (s) { if (b.dataset.loadk !== 'auto') autoSave(); pushUndo(); deserialize(s.data); closeModal(); toast('よみこみました', ''); SFX.select(); } }
+  };
+}
+function openModal(html) { $('#modal .card').innerHTML = html; $('#modal').classList.remove('hidden'); $('#modal [data-close]')?.addEventListener('click', closeModal); }
+function closeModal() { $('#modal').classList.add('hidden'); }
+$('#modal').addEventListener('pointerdown', e => { if (e.target.id === 'modal') closeModal(); });
+
+// ---- はっけん図鑑 ----
+const DISC = [
+  ['grass', '草が生えた', '星にはじめての緑。', '草を植えてみよう', '#8fd16c'],
+  ['flower_bloom', '花がさいた', 'つぼみがひらいて、色がこぼれた。', '花を育ててみよう', '#ff9ec7'],
+  ['oak_fruit', '木の実', 'まるい木に赤い実がなった。', 'まるい木を大きく育てよう', '#ff6f73'],
+  ['pine_big', '大きなもみの木', '四段の、りっぱなもみの木。', 'もみの木を育てよう', '#4fae74'],
+  ['sakura_bloom', 'さくら満開', 'ふわっと、桃色の雲のよう。', 'さくらを育てよう', '#ffb7d0'],
+  ['berry', 'しげみの実', 'しげみに小さな実がついた。', 'しげみを育てよう', '#ff6b81'],
+  ['mushroom', 'きのこ', '木かげに、ひょっこり。', 'きのこを植えるか、木を育てよう', '#ff6b6b'],
+  ['lily_bloom', 'スイレンの花', '水の上にひらく花。', 'スイレンを育てよう', '#ffb3cf'],
+  ['cattail', 'ガマの穂', '水辺に茶色い穂がゆれる。', 'ガマを育てよう', '#8a5a3c'],
+  ['lake', '湖', '星に水たまりができた。', '湖をつくろう', '#6fd3e8'],
+  ['river', '川', '水の道がつながった。', '川をえがこう', '#7fb8ff'],
+  ['bridge_over', '川にかかる橋', '水の上をわたれるように。', '水の上に橋を置こう', '#c58f5f'],
+  ['village', 'ちいさな村', '家が三軒あつまった。', '家をいくつか置こう', '#f28b82'],
+  ['butterfly', 'ちょうちょ', 'ひらひら、花のまわりに。', '花を咲かせて GROW', '#ffd66b'],
+  ['butterfly_rest', '花にとまる', 'ちょうちょが花でひと休み。', 'ちょうちょを見守ろう', '#ffb3d1'],
+  ['bird', 'ことり', '木のまわりを飛んでいる。', '大きな木をふやして GROW', '#7cc0ff'],
+  ['bird_perch', '枝にとまる', 'ことりが木のてっぺんでひと休み。', 'ことりを見守ろう', '#9fe0a0'],
+  ['rabbit', 'うさぎ', '草の中からぴょこっと。', '草やしげみをふやして GROW', '#e0bf9e'],
+  ['rabbit_nibble', 'もぐもぐ', 'うさぎが草を食べている。', 'うさぎを見守ろう', '#c0e27c'],
+  ['rabbit_drink', '水をのむ', '水辺でひと口。', '水辺にうさぎがいるかな', '#9fe3f0'],
+  ['fish', 'さかな', '湖の中を、すいすい。', '湖をつくって GROW', '#ff9a5c'],
+  ['fish_jump', 'ジャンプ', 'さかなが水面からはねた！', 'さかなを見守ろう', '#ffd166'],
+  ['rain', 'あめ', 'しとしと、星がうるおう。', '天気をあめに', '#9fb8e8'],
+  ['rainbow', '虹', '雨上がりに、空の橋。', 'あめのあとに、はれにしてみよう', '#c9a0e8'],
+  ['snow', 'ゆき', '星がまっしろに。', '天気をゆきに', '#dfe8ff'],
+  ['fog', 'きり', 'しずかな、白い朝。', '天気をきりに', '#d8d6e6'],
+  ['sunset', '夕焼け', '空があかね色に。', '時間を夕方に', '#ffb08a'],
+  ['night', '夜', '星空の下、窓に灯り。', '時間を夜に', '#3f4385'],
+];
+const DISC_GOT = new Set();
+function discover(id) {
+  if (!id || DISC_GOT.has(id) || !STARTED) return;
+  const d = DISC.find(x => x[0] === id); if (!d) return;
+  DISC_GOT.add(id); markDirty();
+  toast('あたらしい はっけん！', d[1] + '　—　' + d[2], d[4]); SFX.discover();
+}
+function checkItemDisc(it) {
+  const ms = MAXST(it.t), top = it.st >= ms;
+  if (it.t === 'grass') discover('grass');
+  if (it.t === 'flower' && top) discover('flower_bloom');
+  if (it.t === 'oak' && top) discover('oak_fruit');
+  if (it.t === 'pine' && top) discover('pine_big');
+  if (it.t === 'sakura' && top) discover('sakura_bloom');
+  if (it.t === 'bush' && top) discover('berry');
+  if (it.t === 'mush') discover('mushroom');
+  if (it.t === 'lily' && top) discover('lily_bloom');
+  if (it.t === 'reed' && top) discover('cattail');
+  if (it.t === 'bridge' && it._wet) discover('bridge_over');
+  if (it.t === 'cottage' && ITEMS.filter(x => x.t === 'cottage').length >= 3) discover('village');
+}
+function checkTimeDisc() { if (ENV.time > 1.6 && ENV.time < 2.4) discover('sunset'); if (ENV.time > 2.6) discover('night'); }
+function openBook() {
+  openModal(`<h2>はっけん図鑑<span style="font-size:14px;color:var(--ink2)">${DISC_GOT.size} / ${DISC.length}</span><button class="ib" data-close>${svg('x')}</button></h2><p class="sub">星で起きたできごとが、ここにたまっていきます。</p>
+  <div class="grid">${DISC.map(d => { const got = DISC_GOT.has(d[0]); return `<div class="disc ${got ? '' : 'lock'}"><span class="ic" style="background:${d[4]}">${got ? '✓' : '?'}</span><div><b>${got ? d[1] : '？？？'}</b><small>${got ? d[2] : 'ヒント：' + d[3]}</small></div></div>`; }).join('')}</div>`);
+}
+
+// ---- 設定画面 ----
+function openSettings(confirmNew) {
+  const tg = (k, label) => `<div class="r"><span class="lbl">${label}</span><button class="tg ${SET[k] ? 'on' : ''}" data-tg="${k}" aria-label="${label}"></button></div>`;
+  openModal(`<h2>設定<button class="ib" data-close>${svg('x')}</button></h2><p class="sub">音と表示、自動で動くもの。</p>
+  <div class="set">
+   <div class="r">${sld('v-master', '全体の音量', 0, 1, .01, SET.master)}</div>
+   <div class="r">${sld('v-music', '音楽', 0, 1, .01, SET.music)}</div>
+   <div class="r">${sld('v-amb', '風や水の音', 0, 1, .01, SET.amb)}</div>
+   <div class="r">${sld('v-sfx', '効果音', 0, 1, .01, SET.sfx)}</div>
+   ${tg('shadows', '影')}${tg('hiRes', '高い解像度')}${tg('autoRotate', '放っておくと回る')}${tg('autoGrow', 'ひとりでに育つ')}${tg('autoSave', 'オートセーブ')}${tg('hints', '操作のヒント')}
+   <div class="keys"><kbd>G</kbd> GROW　<kbd>R</kbd> カメラをもどす　<kbd>F</kbd> ちかくで見る　<kbd>Q</kbd><kbd>E</kbd> 向き　<kbd>Del</kbd> けす　<kbd>Ctrl</kbd>+<kbd>Z</kbd> もどす　<kbd>Ctrl</kbd>+<kbd>D</kbd> ふやす　<kbd>1</kbd>〜<kbd>6</kbd> カテゴリ　<kbd>Space</kbd>+ドラッグ まわす</div>
+   <div class="row" style="margin-top:4px">${confirmNew ? `<span style="font-weight:800;color:#d9596c">いまの星はオートセーブに残ります。よろしいですか？</span><button class="sb warn" data-new="${confirmNew}">はい、つくる</button><button class="sb" data-new="">やめる</button>` : `<button class="sb" data-ask="gen">あたらしい星をつくる</button><button class="sb" data-ask="blank">まっさらな星にする</button>`}</div>
+  </div>`);
+  for (const k of ['master', 'music', 'amb', 'sfx']) bindSld('v-' + k, (v, c) => { SET[k] = v; Object.assign(AU.vol, { [k]: v }); auApplyVol(); if (c) saveSet(); });
+  $('#modal .card').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.tg) { SET[b.dataset.tg] = !SET[b.dataset.tg]; b.classList.toggle('on', SET[b.dataset.tg]); saveSet(); SFX.click(); }
+    if (b.dataset.ask) openSettings(b.dataset.ask);
+    if (b.dataset.new !== undefined) { if (!b.dataset.new) openSettings(); else { autoSave(); pushUndo(); newWorld(b.dataset.new === 'blank'); closeModal(); markDirty(); toast(b.dataset.new === 'blank' ? 'まっさらな星' : 'あたらしい星', 'すきなように育ててください'); } }
+  };
+}
+
+// ---- トースト ----
+function toast(title, sub, color) {
+  const el = document.createElement('div'); el.className = 'toast panel';
+  el.innerHTML = `${color ? `<span class="dot" style="background:${color}">★</span>` : ''}<div>${esc(title)}${sub ? `<small>${esc(sub)}</small>` : ''}</div>`;
+  const box = $('#toasts'); box.appendChild(el); while (box.children.length > 3) box.firstChild.remove();
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 420); }, color ? 3800 : 2400);
+}
+
+// ---- 上のボタン ----
+document.querySelectorAll('#tr [data-act]').forEach(b => { b.innerHTML = svg(b.dataset.act); });
+$('#tr').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return; auInit(); SFX.click();
+  ({ undo, redo, save: () => openSlots('save'), load: () => openSlots('load'), reset: () => camReset(), book: openBook, settings: () => openSettings() })[b.dataset.act]();
+});
+$('#tr').addEventListener('pointerdown', e => e.stopPropagation());
+$('#grow .gi').outerHTML = svg('leaf');
+$('#grow').addEventListener('click', () => { auInit(); grow(); });
+
+// ---- 数の表示 ----
+let statT = 0;
+function updStats() {
+  const pl = ITEMS.filter(it => DEFS[it.t].cat === 'plant').length;
+  $('#stats').innerHTML = `<span class="chip"><i style="background:#8fd16c"></i>植物 ${pl}</span><span class="chip"><i style="background:#ffb3d1"></i>動物 ${ANIMALS.length}</span><span class="chip"><i style="background:#ffd36b"></i>はっけん ${DISC_GOT.size}/${DISC.length}</span>`;
+}
+
+// ================= GROW =================
+const GQ = []; // 時間差で起きること
+function later(t, fn) { GQ.push({ t, fn }); }
+function tickGQ(dt) { for (let i = GQ.length - 1; i >= 0; i--) { GQ[i].t -= dt; if (GQ[i].t <= 0) { const f = GQ[i].fn; GQ.splice(i, 1); f(); } } }
+const PLANT_CAP = 2400;
+function grow(auto) {
+  if (!STARTED) return;
+  if (!auto) { pushUndo(); SFX.grow(); const g = $('#grow'); g.classList.remove('pulse'); void g.offsetWidth; g.classList.add('pulse'); }
+  GROWS++;
+  const origin = CAM.u.clone();
+  if (!auto) startWave(origin);
+  const plants = ITEMS.filter(it => DEFS[it.t].cat === 'plant');
+  const delayOf = d => Math.acos(clamp(d.dot(origin), -1, 1)) * .45 + rnd() * .25;
+  // 1. 育つ
+  const can = plants.filter(it => it.st < MAXST(it.t)).sort(() => rnd() - .5);
+  let adv = 0; const want = auto ? .25 : .6;
+  for (const it of can) {
+    if (rnd() < want || adv < 3) {
+      adv++; const ns = it.st + 1;
+      later(delayOf(it.d), () => { if (!ITEMS.includes(it)) return; it.st = ns; it._pop = { t: 0, dur: .6, from: .72 }; refreshItem(it); POPS.add(it); if (it.d.dot(CAM.u) > .2) FX.sparkle(it.d, it._r, DEFS[it.t].tree ? 7 : 3); SFX.growTick(); checkItemDisc(it); });
+    }
+  }
+  // 2. ひろがる
+  let count = plants.length; const born = [];
+  const tryBorn = (t, d, v, near) => { if (count >= PLANT_CAP) return; if (!canPlace(t, d) || nearCount(d, DEFS[t].scatter * .6, x => DEFS[x.t].cat === 'plant' && x.t !== 'grass') > (t === 'grass' ? 2 : 0)) return; count++; born.push({ t, d, v, delay: delayOf(d) + .3 }); };
+  for (const it of plants) {
+    if (it.st < MAXST(it.t)) continue;
+    const p = { grass: .14, flower: .12, bush: .06, mush: .08, lily: .14, reed: .12 }[it.t] || 0;
+    if (rnd() < p * (auto ? .4 : 1)) tryBorn(it.t, randomNear(it.d, DEFS[it.t].scatter * 2.4), it.v);
+    if (DEFS[it.t].tree && rnd() < .1 * (auto ? .4 : 1) && !nearCount(it.d, 1, x => x.t === 'mush')) tryBorn('mush', randomNear(it.d, .7), rnd() < .5 ? 0 : 1);
+  }
+  for (const L of WT.lakes) if (L.verts.length > 10 && rnd() < (auto ? .15 : .4)) { const vi = pick(L.verts); const d = dirOf(vi); const dep = L.level - (R + PL.H[vi]); tryBorn(dep > .1 ? 'lily' : 'reed', d, 0); }
+  // 3. えらんでいる植物はまわりにふえる
+  if (SEL.it && DEFS[SEL.it.t].cat === 'plant' && !auto) for (let k = 0; k < 4; k++) tryBorn(SEL.it.t, randomNear(SEL.it.d, DEFS[SEL.it.t].scatter * 3), SEL.it.v);
+  for (const b of born) later(b.delay, () => { const it = addItem({ t: b.t, v: b.v, st: 0, d: b.d, s: 1 + rr(-DEFS[b.t].rnd, DEFS[b.t].rnd) }); if (b.d.dot(CAM.u) > .2) FX.sparkle(b.d, it._r, 2, ['#e9ffd9', '#ffffff']); });
+  // 4. 生き物がやってくる
+  later(1.3, () => {
+    const vis = spawnVisitors(auto ? 1 : 2);
+    if (vis.length) { SFX.arrive(); const names = [...new Set(vis.map(a => ADEF[a.t].name))]; if (!auto) toast(names.join('と') + 'がやってきた', ''); vis.forEach(a => discover(a.t)); }
+    markDirty(); renderSel();
+  });
+  if (!auto && !adv && !born.length) later(.4, () => toast('ぜんぶ育ちきっています', '植物をふやすと、また育ちます'));
+}
+
+// ================= 星をつくる =================
+function clearWorld() { clearItems(); clearAnimals(); WT.lakes = []; WT.rivers = []; WT.lakeById.clear(); PL.W.fill(0); buildLakeMesh(); buildRiverMesh(); select(null); }
+function newWorld(blank, seed = Math.floor(Math.random() * 1e6)) {
+  clearWorld(); rnd = mulberry(seed);
+  PL.generate(seed, blank);
+  Object.assign(ENV, { weather: 'sunny', time: 1, sky: 'pastel', clouds: .28, sun: 1, sunAz: 0, water: '#6fd3e8' }); setWaterColor(ENV.water);
+  WX.snowCover = 0; PL.snow = 0; GROWS = 0;
+  if (!blank) populate(seed);
+  PL.updateAll(); updateAllItems(); camReset(); updStats();
+  rnd = mulberry(Date.now() & 0xffffff);
+}
+function populate(seed) {
+  const front = new THREE.Vector3(.18, .36, 1).normalize();
+  // 湖と川
+  addLake(front.clone().applyAxisAngle(Y_AXIS, .14), 2.1);
+  const lk = WT.lakes[0];
+  const rs = new THREE.Vector3(-.62, .62, .48).normalize(), path = [];
+  for (let i = 0; i <= 24; i++) { const t = i / 24; const p = rs.clone().lerp(lk ? dirOf(lk.seed) : front, t).normalize(); const side = _v1.crossVectors(p, Y_AXIS).normalize(); p.addScaledVector(side, Math.sin(t * 5.5) * .05).normalize(); path.push(p); }
+  addRiver(path, .8);
+  // 二つめの小さな湖（裏側）
+  addLake(new THREE.Vector3(.4, -.3, -.86).normalize(), 1.7);
+  waterRefresh();
+  const land = d => { const vi = PL.nearest(d.x, d.y, d.z); const p = PL.P[vi]; return !waterAt(d) && PL.H[vi] < 1.75 && p !== 6 && p !== 7 && p !== 4; };
+  const randDir = () => { const d = new THREE.Vector3(); capDir(Y_AXIS, -1, d); return d; };
+  const nearFront = r => { const d = new THREE.Vector3(); capDir(front, Math.cos(r), d); return d; };
+  const place = (t, n, gen, st) => { let k = 0, tries = 0; while (k < n && tries++ < n * 30) { const d = gen(); if (!land(d) || !canPlace(t, d)) continue; const def = DEFS[t]; if (nearCount(d, (def.scatter || .5) * .7, x => DEFS[x.t].cat === 'plant' && x.t !== 'grass') > (t === 'grass' ? 2 : 0)) continue; addItem({ t, v: def.variants ? Math.floor(rnd() * def.variants) : 0, st: typeof st === 'function' ? st() : st, d, s: 1 + rr(-def.rnd || 0, def.rnd || 0) }, true); k++; } };
+  // 手前の村
+  const c1 = front.clone().applyAxisAngle(Y_AXIS, -.2).applyAxisAngle(X_AXIS, -.05).normalize();
+  const near = (base, ang, dist) => { const d = base.clone(); const t = new THREE.Vector3(Math.cos(ang), Math.sin(ang), 0); const q = _q1.setFromUnitVectors(Z_AXIS, base); t.applyQuaternion(q); return d.addScaledVector(t, dist / R).normalize(); };
+  const obj = (t, d, v = 0, extra = 0) => { if (!land(d) && t !== 'stones' && t !== 'bridge') return null; return addItem({ t, v, st: 0, d, rot: alignedRot(d) + extra, s: 1 }, true); };
+  camReset(true); camera.position.set(0, 0, 37).applyQuaternion(CAM.q); camera.quaternion.copy(CAM.q);
+  obj('cottage', near(c1, 2.4, 1.3), 0, .3); obj('cottage', near(c1, 3.4, 2.9), 1, -.4);
+  obj('bench', near(c1, -2.2, 1.7), 0, .1);
+  for (let i = 0; i < 3; i++) obj('fence', near(c1, 1.2, 2.2 + i * .9), 0, Math.PI / 2 + .25);
+  obj('rock', near(c1, -1.6, 2.4), 2); obj('rock', near(front, 1, 4.5), 1); obj('rock', near(front, 4, 5), 0);
+  if (lk) { const r = WT.rivers[0]; if (r) { const mid = r.pts[Math.floor(r.pts.length * .55)]; const nx = r.pts[Math.floor(r.pts.length * .55) + 1]; const it = addItem({ t: 'bridge', d: mid, rot: 0, s: .85 }, true); const tdir = nx.clone().sub(mid); tdir.addScaledVector(mid, -tdir.dot(mid)).normalize(); _q1.setFromUnitVectors(Y_AXIS, mid); const lx = _v2.set(1, 0, 0).applyQuaternion(_q1); const side = _v3.crossVectors(mid, tdir).normalize(); it.rot = Math.atan2(_v4.crossVectors(lx, side).dot(mid), lx.dot(side)) + Math.PI / 2; refreshItem(it); it.rot += 0; } }
+  // 植物
+  place('oak', 9, () => nearFront(.8), () => pick([2, 2, 2, 3, 1]));
+  place('sakura', 4, () => nearFront(.7), () => pick([2, 3, 3]));
+  place('pine', 8, () => nearFront(1.1), () => pick([1, 2, 2, 3]));
+  place('oak', 14, randDir, () => pick([1, 2, 2, 3]));
+  place('pine', 16, randDir, () => pick([1, 2, 3]));
+  place('sakura', 5, randDir, () => pick([1, 2, 3]));
+  place('bush', 18, randDir, () => pick([1, 2, 2]));
+  place('bush', 8, () => nearFront(.6), () => pick([1, 2]));
+  place('grass', 260, randDir, () => pick([1, 1, 2, 2, 0]));
+  place('grass', 90, () => nearFront(.65), () => pick([1, 2, 2]));
+  place('flower', 70, () => nearFront(.7), () => pick([1, 2, 2, 2]));
+  place('flower', 60, randDir, () => pick([0, 1, 2, 2]));
+  place('mush', 10, randDir, () => pick([1, 2]));
+  // 水辺
+  for (const L of WT.lakes) { let n = 0; for (let k = 0; k < 120 && n < 9; k++) { const vi = pick(L.verts); const d = dirOf(vi); const dep = L.level - (R + PL.H[vi]); if (dep > .14 && !nearCount(d, .4, x => x.t === 'lily')) { addItem({ t: 'lily', st: pick([1, 2, 2]), d }, true); n++; } else if (dep < .09 && dep > .0 && !nearCount(d, .3, x => x.t === 'reed')) { addItem({ t: 'reed', st: pick([1, 2]), d }, true); n++; } } }
+  // 動物
+  const fl = blooming();
+  for (let i = 0; i < 4; i++) { const f = pick(fl); if (f) addAnimal('butterfly', randomNear(f.d, 1), { instant: true }); }
+  for (let i = 0; i < 3; i++) { const t = pick(matureTrees()); if (t) addAnimal('bird', randomNear(t.d, 2), { instant: true }); }
+  for (let i = 0; i < 3; i++) { let d = nearFront(.5); for (let k = 0; k < 20 && !land(d); k++) d = nearFront(.6); addAnimal('rabbit', d, { instant: true }); }
+  for (const L of WT.lakes) for (let i = 0; i < 2; i++) { for (let k = 0; k < 10; k++) { const vi = pick(L.verts); if (L.level - (R + PL.H[vi]) > .2) { addAnimal('fish', dirOf(vi), { instant: true }); break; } } }
+}
+
+// ================= 毎フレーム =================
+function onResize() {
+  renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight;
+  camera.fov = innerWidth < innerHeight ? 52 : 38; camera.updateProjectionMatrix();
+  const b = new THREE.Vector2(); renderer.getDrawingBufferSize(b); SKY_U.uW.value = b.x; SKY_U.uH.value = b.y;
+  fxPts.material.uniforms.uPx.value = b.y / 2; dockH();
+}
+addEventListener('resize', onResize);
+let STARTED = false, smokeT = 0, autoGrowT = 0, fpsAcc = 0;
+function frame() {
+  const dt = Math.min(clock.getDelta(), 1 / 20); TIME += dt;
+  if (!STARTED) { _q1.setFromAxisAngle(_v1.set(0, 1, 0).applyQuaternion(CAM.qT), -dt * .06); CAM.qT.premultiply(_q1); }
+  camUpdate(dt);
+  if (PENDING_HOVER && !DRAG.stroke && DRAG.mode !== 'cam') { HOVER = pickPlanet(PENDING_HOVER.x, PENDING_HOVER.y); PENDING_HOVER = null; }
+  tickStroke(dt); tickHover();
+  tickGQ(dt); tickPops(dt);
+  tickAnimals(dt, CAM.u);
+  tickEnv(dt, CAM.u, CAM.dist);
+  tickFX(dt); tickWave(dt); tickAudio(dt, CAM.u);
+  // 家のえんとつのけむり
+  smokeT -= dt; if (smokeT <= 0) { smokeT = .9; for (const it of ITEMS) if (it.t === 'cottage' && it.d.dot(CAM.u) > .3 && it._mx) { const m = itemModel(it); const p = new THREE.Vector3(...m.smoke).applyMatrix4(it._mx); FX.smoke(p); } }
+  // えらんだものの輪
+  const x = SEL.it || SEL.a;
+  if (x) { const r = SEL.it ? itemModel(x).r * x.s + .12 : .28; ringAt(selRing, x.d, r, 48, .05, SEL.it ? true : false); selRing.material.opacity = .6 + Math.sin(TIME * 5) * .3; if (SEL.a && (frameNo % 30 === 0)) renderSel(); }
+  if (STARTED) { autoT += dt; if (autoT > 25) { autoT = 0; autoSave(); } if (SET.autoGrow) { autoGrowT += dt; if (autoGrowT > 50) { autoGrowT = 0; grow(true); } } }
+  renderer.render(scene, camera);
+  if (DEV) window.__fps = 1 / dt;
+  requestAnimationFrame(frame);
+}
+
+// ================= はじまり =================
+function showTitle() {
+  const has = !!readSlot('auto');
+  $('#tmenu').innerHTML = (has ? `<button class="big-b pri" data-go="cont">つづきから</button>` : '') + `<button class="big-b ${has ? '' : 'pri'}" data-go="new">あたらしい星</button><button class="big-b" data-go="blank">まっさらな星</button>`;
+  $('#title').classList.remove('hidden');
+  $('#tmenu').onclick = e => {
+    const b = e.target.closest('[data-go]'); if (!b) return; auInit();
+    const g = b.dataset.go;
+    if (g === 'cont') { const s = readSlot('auto'); try { deserialize(s.data); } catch (err) { console.error(err); newWorld(false); } }
+    else if (g === 'blank') newWorld(true);
+    else if (g === 'new') { newWorld(false, Math.floor(Math.random() * 1e6)); }
+    if (g !== 'cont') camReset();
+    start();
+  };
+}
+function start() {
+  STARTED = true; $('#title').classList.add('gone'); setTimeout(() => $('#title').classList.add('hidden'), 800);
+  $('#hud').classList.remove('hidden'); renderCats(); renderTray(); updateHint(); updStats(); updUndoBtns(); applySet(); dockH();
+  if (!readSlot('auto')) { DIRTY = true; }
+  setTimeout(() => toast('ようこそ、ちいさな星へ', 'GROW をおすと、星がすこし育ちます'), 900);
+}
+function boot() {
+  setWaterColor(ENV.water);
+  newWorld(false, 20261124);
+  CAM.distT = 52; CAM.dist = 52;
+  onResize(); applySet();
+  // 道具の絵を先につくっておく
+  for (const k of ['plant', 'obj', 'animal']) for (const t of TOOLS[k]) thumbOf(t);
+  $('#loading').style.opacity = 0; setTimeout(() => $('#loading').remove(), 700);
+  showTitle();
+  requestAnimationFrame(frame);
+}
+try { boot(); } catch (e) { console.error(e); $('#loading').innerHTML = '<div>読み込みに失敗しました<br><small style="font-size:12px">' + esc(e.message) + '</small></div>'; }
+
+</script>
+</body>
+</html>

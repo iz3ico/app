@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>あそびば — じゅうにの扉</title>
+<title>あそびば — じゅうさんの扉</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
@@ -51,6 +51,7 @@ h1{margin:18px 0 0;font-weight:700;font-size:clamp(46px,8vw,78px);letter-spacing
 .gate:nth-child(10){animation-delay:1.35s}
 .gate:nth-child(11){animation-delay:1.5s}
 .gate:nth-child(12){animation-delay:1.65s}
+.gate:nth-child(13){animation-delay:1.8s}
 .arch{position:relative;width:100%;aspect-ratio:4/5;border-radius:999px 999px 18px 18px;padding:10px;
   background:linear-gradient(180deg,rgba(255,243,201,.9),var(--gold) 30%,var(--gold2) 70%,#7a5f2c);
   box-shadow:0 0 0 1px rgba(0,0,0,.6),0 30px 60px -30px rgba(0,0,0,.9),0 0 40px -12px var(--a);transition:box-shadow .5s,transform .5s cubic-bezier(.2,.8,.2,1)}
@@ -105,8 +106,8 @@ footer{position:relative;z-index:1;text-align:center;padding:8px 0 40px}
   <header>
     <div class="orn"><i></i>✦<i></i></div>
     <h1>あそびば</h1>
-    <p class="lead">じゅうにの扉</p>
-    <div class="en">Twelve Gates</div>
+    <p class="lead">じゅうさんの扉</p>
+    <div class="en">Thirteen Gates</div>
   </header>
   <section class="gates" id="gates"></section>
 </main>
@@ -155,6 +156,9 @@ const GAMES=[
   {id:'wrongpotion',title:'WRONG POTION',en:'The Art of Magical Alchemy', rune:'HERBA · ALCHEMIA', accent:'#c9a0e8',
    desc:'古い魔法薬店の店主になる。材料を自由に混ぜ、まちがいから生まれる薬を見つけて売る。',
    path:'wrongpotion/',artifact:'https://claude.ai/artifact/WcJ8jgx3LHYih1JC44rVic', thumb:'__THUMB_wrongpotion__'},
+  {id:'biosphere',title:'LITTLE BIOSPHERE',en:'A Tiny Living Planet', rune:'TERRA · VITA', accent:'#8ee6bd',
+   desc:'てのひらの丸い星。土を盛り、川をひき、花を植えて育てると、ちょうちょや小鳥がやってくる。',
+   path:'biosphere/',artifact:'https://claude.ai/artifact/CYZBKFRQP6KZcFaCuzA1Wc', thumb:'__THUMB_biosphere__'},
 ];
 const LOCAL=location.protocol==='file:'||/github\.io$/.test(location.hostname)||/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 const hrefOf=g=>LOCAL?(location.protocol==='file:'?g.path+'index.html':g.path):g.artifact;
