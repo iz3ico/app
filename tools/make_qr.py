@@ -20,6 +20,7 @@ ITEMS = [  # (ファイル名, タイトル, 小見出し, URL, アクセント�
     ('antique', 'THE ANTIQUE ROOM', '洋館さんぽ', 'https://iz3ico.github.io/app/antique/', (232, 154, 160)),
     ('desktop404', 'DESKTOP 404', 'ホラー', 'https://iz3ico.github.io/app/desktop404/', (159, 180, 200)),
     ('lasttick', 'THE LAST TICK', 'パズル', 'https://iz3ico.github.io/app/lasttick/', (232, 184, 106)),
+    ('wrongpotion', 'WRONG POTION', '調合・経営', 'https://iz3ico.github.io/app/wrongpotion/', (201, 160, 232)),
 ]
 SERIF = '/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc'
 SANS = '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>あそびば — じゅういちの扉</title>
+<title>あそびば — じゅうにの扉</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
@@ -50,6 +50,7 @@ h1{margin:18px 0 0;font-weight:700;font-size:clamp(46px,8vw,78px);letter-spacing
 .gate:nth-child(9){animation-delay:1.2s}
 .gate:nth-child(10){animation-delay:1.35s}
 .gate:nth-child(11){animation-delay:1.5s}
+.gate:nth-child(12){animation-delay:1.65s}
 .arch{position:relative;width:100%;aspect-ratio:4/5;border-radius:999px 999px 18px 18px;padding:10px;
   background:linear-gradient(180deg,rgba(255,243,201,.9),var(--gold) 30%,var(--gold2) 70%,#7a5f2c);
   box-shadow:0 0 0 1px rgba(0,0,0,.6),0 30px 60px -30px rgba(0,0,0,.9),0 0 40px -12px var(--a);transition:box-shadow .5s,transform .5s cubic-bezier(.2,.8,.2,1)}
@@ -76,6 +77,7 @@ h1{margin:18px 0 0;font-weight:700;font-size:clamp(46px,8vw,78px);letter-spacing
 .ttl.latin{font-family:var(--en);font-weight:600;letter-spacing:.14em;text-indent:.14em;white-space:nowrap}
 .ttl.latin.long{white-space:normal;font-size:clamp(20px,2.2vw,26px);letter-spacing:.1em;text-indent:.1em;line-height:1.25}
 .sub{margin-top:6px}
+.plate{width:100%;min-width:0}.ttl,.sub{width:100%;box-sizing:border-box}  /* 扉の幅をこえる題は JS（fitTitles）で文字を小さくする */
 .desc{margin:12px auto 0;max-width:22em;color:var(--sub);font-size:14px;line-height:1.95;letter-spacing:.06em}
 .btn{display:inline-flex;align-items:center;gap:10px;margin-top:18px;padding:10px 26px 10px 30px;border-radius:999px;font-size:14px;letter-spacing:.36em;
   color:#1b1406;background:linear-gradient(180deg,var(--gold3),var(--gold) 60%,var(--gold2));box-shadow:0 0 0 1px rgba(0,0,0,.5),0 6px 20px -8px var(--a);transition:box-shadow .4s,transform .4s}
@@ -103,8 +105,8 @@ footer{position:relative;z-index:1;text-align:center;padding:8px 0 40px}
   <header>
     <div class="orn"><i></i>✦<i></i></div>
     <h1>あそびば</h1>
-    <p class="lead">じゅういちの扉</p>
-    <div class="en">Eleven Gates</div>
+    <p class="lead">じゅうにの扉</p>
+    <div class="en">Twelve Gates</div>
   </header>
   <section class="gates" id="gates"></section>
 </main>
@@ -150,6 +152,9 @@ const GAMES=[
   {id:'lasttick',title:'THE LAST TICK',en:'The Clockmaker’s Room', rune:'TEMPUS · ROTA', accent:'#e8b86a',
    desc:'路地裏の時計修理店。壊れた懐中時計に歯車をはめこみ、止まった時間をもう一度動かす。',
    path:'lasttick/',artifact:'https://claude.ai/artifact/FmeXMvwJfmuC9YUrBdVrQM', thumb:'__THUMB_lasttick__'},
+  {id:'wrongpotion',title:'WRONG POTION',en:'The Art of Magical Alchemy', rune:'HERBA · ALCHEMIA', accent:'#c9a0e8',
+   desc:'古い魔法薬店の店主になる。材料を自由に混ぜ、まちがいから生まれる薬を見つけて売る。',
+   path:'wrongpotion/',artifact:'https://claude.ai/artifact/WcJ8jgx3LHYih1JC44rVic', thumb:'__THUMB_wrongpotion__'},
 ];
 const LOCAL=location.protocol==='file:'||/github\.io$/.test(location.hostname)||/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 const hrefOf=g=>LOCAL?(location.protocol==='file:'?g.path+'index.html':g.path):g.artifact;
@@ -166,6 +171,11 @@ for(const g of GAMES){const a=document.createElement('a');a.className='gate';a.h
   gates.appendChild(a);}
 gates.style.setProperty('--cols',GAMES.length<=4?GAMES.length:Math.ceil(GAMES.length/2));   // 5 枚以上は 2 段（例：3＋2）
 document.getElementById('foot').textContent=GAMES.length+' gates';
+/* 英字の題・副題が扉の幅をこえたら、収まるまで文字を小さくする（列が多いと NEON TRACE / DREAMSCAPE などが隣とぶつかった） */
+function fitTitles(){for(const el of gates.querySelectorAll('.ttl,.sub')){el.style.fontSize='';el.style.letterSpacing='';
+  let fs=parseFloat(getComputedStyle(el).fontSize),n=0;
+  while(el.scrollWidth>el.clientWidth+1&&fs>11&&n++<40){fs-=1;el.style.fontSize=fs+'px';if(n===4)el.style.letterSpacing='.08em';}}}
+fitTitles();addEventListener('resize',fitTitles);if(document.fonts)document.fonts.ready.then(fitTitles);
 
 /* ---- pixel night sky: twinkling stars, a few constellations, rising motes ---- */
 const cv=document.getElementById('sky'),cx=cv.getContext('2d');let W=0,H=0,stars=[],cons=[],motes=[];
