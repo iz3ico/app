@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>あそびば — じゅうさんの扉</title>
+<title>あそびば — じゅうよんの扉</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
@@ -52,6 +52,7 @@ h1{margin:18px 0 0;font-weight:700;font-size:clamp(46px,8vw,78px);letter-spacing
 .gate:nth-child(11){animation-delay:1.5s}
 .gate:nth-child(12){animation-delay:1.65s}
 .gate:nth-child(13){animation-delay:1.8s}
+.gate:nth-child(14){animation-delay:1.95s}
 .arch{position:relative;width:100%;aspect-ratio:4/5;border-radius:999px 999px 18px 18px;padding:10px;
   background:linear-gradient(180deg,rgba(255,243,201,.9),var(--gold) 30%,var(--gold2) 70%,#7a5f2c);
   box-shadow:0 0 0 1px rgba(0,0,0,.6),0 30px 60px -30px rgba(0,0,0,.9),0 0 40px -12px var(--a);transition:box-shadow .5s,transform .5s cubic-bezier(.2,.8,.2,1)}
@@ -106,8 +107,8 @@ footer{position:relative;z-index:1;text-align:center;padding:8px 0 40px}
   <header>
     <div class="orn"><i></i>✦<i></i></div>
     <h1>あそびば</h1>
-    <p class="lead">じゅうさんの扉</p>
-    <div class="en">Thirteen Gates</div>
+    <p class="lead">じゅうよんの扉</p>
+    <div class="en">Fourteen Gates</div>
   </header>
   <section class="gates" id="gates"></section>
 </main>
@@ -159,6 +160,9 @@ const GAMES=[
   {id:'biosphere',title:'LITTLE BIOSPHERE',en:'A Tiny Living Planet', rune:'TERRA · VITA', accent:'#8ee6bd',
    desc:'てのひらの丸い星。土を盛り、川をひき、花を植えて育てると、ちょうちょや小鳥がやってくる。',
    path:'biosphere/',artifact:'https://claude.ai/artifact/CYZBKFRQP6KZcFaCuzA1Wc', thumb:'__THUMB_biosphere__'},
+  {id:'blackrun',title:'BLACK//RUN',en:'One Button, Two Colors', rune:'NOX · LUX', accent:'#f2f2f2',
+   desc:'白と黒だけの世界を、小さな四角がどこまでも走る。跳んで、よけて、記録をのばせ。',
+   path:'blackrun/',artifact:'https://claude.ai/artifact/9tT2Bwi2oL4zTgMCdaAwaz', thumb:'__THUMB_blackrun__'},
 ];
 const LOCAL=location.protocol==='file:'||/github\.io$/.test(location.hostname)||/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 const hrefOf=g=>LOCAL?(location.protocol==='file:'?g.path+'index.html':g.path):g.artifact;

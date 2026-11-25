@@ -22,6 +22,7 @@ ITEMS = [  # (ファイル名, タイトル, 小見出し, URL, アクセント�
     ('lasttick', 'THE LAST TICK', 'パズル', 'https://iz3ico.github.io/app/lasttick/', (232, 184, 106)),
     ('wrongpotion', 'WRONG POTION', '調合・経営', 'https://iz3ico.github.io/app/wrongpotion/', (201, 160, 232)),
     ('biosphere', 'LITTLE BIOSPHERE', '星を育てる箱庭', 'https://iz3ico.github.io/app/biosphere/', (142, 230, 189)),
+    ('blackrun', 'BLACK//RUN', 'ランナー', 'https://iz3ico.github.io/app/blackrun/', (40, 40, 40)),
 ]
 SERIF = '/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc'
 SANS = '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'
