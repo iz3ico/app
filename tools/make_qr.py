@@ -24,6 +24,7 @@ ITEMS = [  # (ファイル名, タイトル, 小見出し, URL, アクセント�
     ('biosphere', 'LITTLE BIOSPHERE', '星を育てる箱庭', 'https://iz3ico.github.io/app/biosphere/', (142, 230, 189)),
     ('blackrun', 'BLACK//RUN', 'ランナー', 'https://iz3ico.github.io/app/blackrun/', (40, 40, 40)),
     ('skybound', 'SKYBOUND', 'アクション', 'https://iz3ico.github.io/app/skybound/', (176, 132, 52)),
+    ('gemgallery', 'GEM GALLERY', '宝石鑑賞', 'https://iz3ico.github.io/app/gemgallery/', (120, 132, 176)),
 ]
 SERIF = '/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc'
 SANS = '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'

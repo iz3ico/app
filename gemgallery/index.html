@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>GEM GALLERY</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Jost:wght@300;400&display=swap" rel="stylesheet">
+<style>
+/*
+VOICE: a silent, high-end museum. Nothing speaks louder than the stone.
+IDEA: the white exhibition hall itself; UI is wall-text on a gallery label.
+PICTURE: the gemstone, centred, under its own spotlight.
+COLOUR and TYPE: white, warm marble, graphite greys; Cormorant Garamond names, Jost labels.
+LAYOUT: logo top-left, label bottom-left, plate navigation bottom-centre, hints bottom-right.
+*/
+:root{--g1:#5d5d5d;--g2:#8e8e8e;--g3:#b4b4b4;--line:rgba(0,0,0,.09)}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;height:100%;background:#f3f2f0;overflow:hidden;-webkit-tap-highlight-color:transparent}
+body{font:300 13px/1.5 Jost,"Helvetica Neue",Arial,sans-serif;color:var(--g2);user-select:none;-webkit-user-select:none}
+canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab;outline:none}
+canvas#c.drag{cursor:grabbing}
+.ui{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity 2.4s ease 1.2s}
+.ui.on{opacity:1}
+.ui button,.ui .hit{pointer-events:auto}
+.logo{position:absolute;left:max(34px,env(safe-area-inset-left));top:max(28px,env(safe-area-inset-top));font:400 12px/1 Jost,sans-serif;letter-spacing:.42em;color:var(--g2);text-transform:uppercase}
+.logo b{font-weight:400;color:var(--g1)}
+.label{position:absolute;left:max(34px,env(safe-area-inset-left));bottom:max(30px,env(safe-area-inset-bottom));transition:opacity .7s ease,transform .7s ease}
+.label.out{opacity:0;transform:translateY(6px)}
+.no{font:300 12px/1 Jost,sans-serif;letter-spacing:.14em;color:var(--g3);margin-bottom:10px}
+.name{font:300 46px/1 "Cormorant Garamond",Georgia,serif;color:var(--g1);letter-spacing:.01em}
+.nav{position:absolute;left:50%;bottom:max(26px,env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;align-items:center;gap:6px}
+.nav .count{font:300 12px/1 Jost,sans-serif;letter-spacing:.16em;color:var(--g2);min-width:76px;text-align:center}
+.nav .count i{font-style:normal;color:var(--g3)}
+button{appearance:none;border:0;background:none;padding:0;margin:0;color:var(--g2);cursor:pointer;width:44px;height:44px;display:grid;place-items:center;border-radius:50%;transition:color .3s,background .3s}
+button:hover{color:var(--g1);background:rgba(0,0,0,.035)}
+button:focus-visible{outline:1px solid var(--g3);outline-offset:2px}
+button svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.1;stroke-linecap:round;stroke-linejoin:round}
+button.off{color:var(--g3)}
+.hints{position:absolute;right:max(30px,env(safe-area-inset-right));bottom:max(26px,env(safe-area-inset-bottom));display:flex;align-items:center;gap:14px}
+.hints .txt{font:300 12px/1.6 Jost,sans-serif;color:var(--g3);text-align:right;letter-spacing:.04em}
+.tools{display:flex;gap:2px}
+#intro{position:fixed;inset:0;background:#f6f5f3;display:grid;place-items:center;z-index:5;transition:opacity 2.2s ease;cursor:pointer}
+#intro.gone{opacity:0;pointer-events:none}
+#intro .in{text-align:center}
+#intro h1{margin:0;font:300 13px/1 Jost,sans-serif;letter-spacing:.62em;color:var(--g1);text-indent:.62em}
+#intro .rule{width:46px;height:1px;background:var(--g3);margin:26px auto}
+#intro p{margin:0;font:300 italic 21px/1.3 "Cormorant Garamond",Georgia,serif;color:var(--g2)}
+#intro .enter{margin-top:46px;font:300 11px/1 Jost,sans-serif;letter-spacing:.34em;color:var(--g3);text-transform:uppercase;transition:color .6s}
+#intro.ready .enter{color:var(--g2)}
+#intro.ready:hover .enter{color:var(--g1)}
+#intro .bar{width:120px;height:1px;background:var(--line);margin:18px auto 0;overflow:hidden}
+#intro .bar i{display:block;height:100%;width:0;background:var(--g3);transition:width .4s}
+#intro.ready .bar{opacity:0;transition:opacity 1s}
+#err{position:fixed;inset:auto 0 40%;text-align:center;color:var(--g2);font:300 14px Jost,sans-serif;display:none;z-index:6}
+@media (max-width:700px){
+  .logo{font-size:11px;letter-spacing:.34em}
+  .name{font-size:36px}
+  .label{bottom:calc(max(26px,env(safe-area-inset-bottom)) + 58px)}
+  .nav{left:max(18px,env(safe-area-inset-left));transform:none}
+  .hints{right:max(14px,env(safe-area-inset-right))}
+  .hints .txt{display:none}
+  .hints .txt.m{display:block;position:fixed;right:max(18px,env(safe-area-inset-right));top:max(25px,env(safe-area-inset-top));font-size:11px;white-space:nowrap}
+}
+@media (min-width:701px){.hints .txt.m{display:none}}
+@media (prefers-reduced-motion:reduce){.label,.ui,#intro{transition:none}}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<canvas id="c" tabindex="0" aria-label="Gemstone viewer. Drag to rotate, scroll to zoom."></canvas>
+<div class="ui" id="ui">
+  <div class="logo">Gem <b>Gallery</b></div>
+  <div class="label" id="label"><div class="no" id="no">No. 01</div><div class="name" id="name">Diamond</div></div>
+  <div class="nav">
+    <button id="prev" aria-label="Previous exhibit"><svg viewBox="0 0 24 24"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg></button>
+    <div class="count" id="count">01 <i>/ 05</i></div>
+    <button id="next" aria-label="Next exhibit"><svg viewBox="0 0 24 24"><path d="M9.5 5.5 16 12l-6.5 6.5"/></svg></button>
+  </div>
+  <div class="hints">
+    <div class="txt" id="hint">Drag to rotate · Scroll to zoom<br>Space auto-rotate · R reset</div>
+    <div class="txt m">Drag to rotate · Pinch to zoom</div>
+    <div class="tools">
+      <button id="auto" aria-label="Toggle slow rotation" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.05-4.95"/><path d="M19.2 4.6v3.2h-3.2"/></svg></button>
+      <button id="reset" aria-label="Reset view"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.8"/><circle cx="12" cy="12" r="1.2"/></svg></button>
+      <button id="snd" aria-label="Sound on or off" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M4.5 9.5h3l4-3.5v12l-4-3.5h-3z"/><path class="w" d="M15 9.2a4 4 0 0 1 0 5.6M17.4 7a7 7 0 0 1 0 10"/></svg></button>
+    </div>
+  </div>
+</div>
+<div id="intro"><div class="in"><h1>Gem Gallery</h1><div class="rule"></div><p>A quiet hall of five stones</p><div class="bar"><i id="bar"></i></div><div class="enter" id="enter">Preparing the hall</div></div></div>
+<div id="err">This gallery needs WebGL 2. Please open it in a recent desktop or mobile browser.</div>
+<script>
+// ---- GEM GEOMETRY: every cut is a convex polyhedron defined by facet planes (n·x <= d) ----
+const GEOM = (() => {
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const nrm = a => { const l = Math.hypot(a[0], a[1], a[2]); return [a[0] / l, a[1] / l, a[2] / l]; };
+  const n2 = a => { const l = Math.hypot(a[0], a[1]); return [a[0] / l, a[1] / l]; };
+  const d2 = (a, b) => a[0] * b[0] + a[1] * b[1];
+  const s2 = (a, b) => [a[0] - b[0], a[1] - b[1]];
+  const sg = x => (x < 0 ? -1 : 1);
+
+  const plane = (n, p) => { n = nrm(n); return { n, d: dot(n, p) }; };
+  // nh: horizontal outward direction [x,z]; up=+1 crown, -1 pavilion; pt: 3D point on the plane
+  const tilted = (nh, tanA, up, pt) => {
+    const a = Math.atan(tanA), s = Math.sin(a), c = Math.cos(a);
+    return plane([nh[0] * s, up * c, nh[1] * s], pt);
+  };
+  const heightOn = (p, X) => (p.d - p.n[0] * X[0] - p.n[2] * X[1]) / p.n[1];
+
+  // girdle outlines, parameter t in [0, 2PI)
+  const OUT = {
+    round: () => ({ P: t => [Math.cos(t), Math.sin(t)], N: t => [Math.cos(t), Math.sin(t)] }),
+    ellipse: (a, b) => ({ P: t => [a * Math.cos(t), b * Math.sin(t)], N: t => n2([Math.cos(t) / a, Math.sin(t) / b]) }),
+    squircle: (a, b, p) => {
+      const P = t => { const c = Math.cos(t), s = Math.sin(t); return [a * sg(c) * Math.abs(c) ** (2 / p), b * sg(s) * Math.abs(s) ** (2 / p)]; };
+      return { P, N: t => { const [x, z] = P(t); return n2([sg(x) * Math.abs(x / a) ** (p - 1) / a, sg(z) * Math.abs(z / b) ** (p - 1) / b]); } };
+    }
+  };
+
+  // Brilliant-style cut on any convex outline. Units: girdle radius ~1.
+  function brilliant(O, o) {
+    const { table = .57, crown = .30, depth = .86, girdle = .05, star = .5, lg = .77, m = 8, nG = 32, rot = 0 } = o;
+    const g = girdle / 2, H = g + crown, T = k => rot + k * 2 * Math.PI / m;
+    const pl = [plane([0, 1, 0], [0, H, 0])];
+    const bez = [], mains = [];
+    for (let k = 0; k < m; k++) {
+      const t = T(k), p = O.P(t), n = O.N(t), C = [p[0] * table, p[1] * table];
+      bez[k] = tilted(n, crown / d2(s2(p, C), n), 1, [p[0], g, p[1]]);
+      mains[k] = tilted(n, (depth - g) / d2(p, n), -1, [p[0], -g, p[1]]);
+      pl.push(bez[k], mains[k]);
+    }
+    for (let k = 0; k < m; k++) {
+      const k1 = (k + 1) % m, tm = T(k + .5), pm = O.P(tm), nm = O.N(tm);
+      // star tip on the ridge between neighbouring bezels
+      const rs = table + star * (1 - table), X = [pm[0] * rs, pm[1] * rs];
+      const y = Math.min(heightOn(bez[k], X), heightOn(bez[k1], X));
+      const Ck = O.P(T(k)), Ck1 = O.P(T(k + 1));
+      const M = [(Ck[0] + Ck1[0]) * table / 2, (Ck[1] + Ck1[1]) * table / 2];
+      pl.push(tilted(nm, (H - y) / d2(s2(X, M), nm), 1, [X[0], y, X[1]]));
+      // lower-girdle tip on the ridge between neighbouring pavilion mains
+      const rl = 1 - lg, Xl = [pm[0] * rl, pm[1] * rl];
+      const yl = Math.max(heightOn(mains[k], Xl), heightOn(mains[k1], Xl));
+      for (const q of [.25, .75]) {
+        const tu = T(k + q), pu = O.P(tu), nu = O.N(tu);
+        pl.push(tilted(nu, (y - g) / d2(s2(pu, X), nu), 1, [pu[0], g, pu[1]]));       // upper girdle
+        pl.push(tilted(nu, (-g - yl) / d2(s2(pu, Xl), nu), -1, [pu[0], -g, pu[1]]));  // lower girdle
+      }
+    }
+    for (let j = 0; j < nG; j++) {
+      const t = rot + j * 2 * Math.PI / nG, p = O.P(t), n = O.N(t);
+      pl.push(plane([n[0], 0, n[1]], [p[0], 0, p[1]]));
+    }
+    return pl;
+  }
+
+  // Step cut (emerald cut): octagonal outline, concentric rows of facets
+  function stepCut(o) {
+    const { A = 1, B = .7, c = .22, girdle = .04, crownRows, pavRows } = o;
+    const g = girdle / 2, r2 = Math.SQRT1_2;
+    const E = [[[1, 0], A], [[-1, 0], A], [[0, 1], B], [[0, -1], B]];
+    for (const sx of [1, -1]) for (const sz of [1, -1]) E.push([[sx * r2, sz * r2], (A + B - c) * r2]);
+    const pl = [];
+    for (const [m, e] of E) pl.push(plane([m[0], 0, m[1]], [m[0] * e, 0, m[1] * e]));
+    let h = g, dl = 0;
+    for (const [w, ang] of crownRows) {
+      const ta = Math.tan(ang * Math.PI / 180);
+      for (const [m, e] of E) pl.push(tilted(m, ta, 1, [m[0] * (e - dl), h, m[1] * (e - dl)]));
+      h += w * ta; dl += w;
+    }
+    pl.push(plane([0, 1, 0], [0, h, 0]));
+    h = -g; dl = 0;
+    for (const [w, ang] of pavRows) {
+      const ta = Math.tan(ang * Math.PI / 180);
+      for (const [m, e] of E) pl.push(tilted(m, ta, -1, [m[0] * (e - dl), h, m[1] * (e - dl)]));
+      h -= w * ta; dl += w;
+    }
+    return pl;
+  }
+
+  // Build the polyhedron: each plane's face = big square clipped by every other plane.
+  function solid(planes) {
+    const EPS = 1e-9, faces = [];
+    for (let i = 0; i < planes.length; i++) {
+      const { n, d } = planes[i];
+      const u = nrm(Math.abs(n[1]) < .9 ? cross([0, 1, 0], n) : cross([1, 0, 0], n)), w = cross(n, u);
+      const c = [n[0] * d, n[1] * d, n[2] * d], S = 6;
+      let poly = [[1, 1], [-1, 1], [-1, -1], [1, -1]].map(([a, b]) => [c[0] + (u[0] * a + w[0] * b) * S, c[1] + (u[1] * a + w[1] * b) * S, c[2] + (u[2] * a + w[2] * b) * S]);
+      for (let j = 0; j < planes.length && poly.length >= 3; j++) {
+        if (j === i) continue;
+        const q = planes[j], out = [];
+        for (let k = 0; k < poly.length; k++) {
+          const a = poly[k], b = poly[(k + 1) % poly.length];
+          const da = dot(q.n, a) - q.d, db = dot(q.n, b) - q.d;
+          if (da <= EPS) out.push(a);
+          if ((da <= EPS) !== (db <= EPS)) { const t = da / (da - db); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]); }
+        }
+        poly = out.filter((p, k) => { const r = out[(k + 1) % out.length]; return Math.hypot(p[0] - r[0], p[1] - r[1], p[2] - r[2]) > 1e-7; });
+      }
+      if (poly.length < 3) continue;
+      let area = 0;
+      for (let k = 1; k < poly.length - 1; k++) area += dot(cross(sub(poly[k], poly[0]), sub(poly[k + 1], poly[0])), n) / 2;
+      if (area > 1e-7) faces.push({ n, d, poly, area });
+    }
+    // centre the stone on its bounding box
+    const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+    for (const f of faces) for (const p of f.poly) for (let a = 0; a < 3; a++) { lo[a] = Math.min(lo[a], p[a]); hi[a] = Math.max(hi[a], p[a]); }
+    const ctr = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];
+    const pos = [], nor = [], fid = [], pls = [];
+    faces.forEach((f, i) => {
+      pls.push([f.n[0], f.n[1], f.n[2], f.d - dot(f.n, ctr)]);
+      for (let k = 1; k < f.poly.length - 1; k++) for (const p of [f.poly[0], f.poly[k], f.poly[k + 1]]) {
+        pos.push(p[0] - ctr[0], p[1] - ctr[1], p[2] - ctr[2]); nor.push(...f.n); fid.push(i);
+      }
+    });
+    return { polys: faces.map(f => f.poly.map(p => [p[0] - ctr[0], p[1] - ctr[1], p[2] - ctr[2]])), norms: faces.map(f => f.n), planes: pls, pos: new Float32Array(pos), nor: new Float32Array(nor), fid: new Float32Array(fid), size: sub(hi, lo), faces: faces.length };
+  }
+
+  const CUTS = {
+    diamond: () => brilliant(OUT.round(), { table: .57, crown: .30, depth: .86, girdle: .05, star: .5, lg: .77, nG: 32 }),
+    sapphire: () => brilliant(OUT.ellipse(1, .76), { table: .55, crown: .30, depth: 1.02, girdle: .06, star: .48, lg: .72, nG: 40 }),
+    emerald: () => stepCut({ A: 1, B: .7, c: .2, girdle: .05, crownRows: [[.085, 42], [.085, 32], [.085, 22]], pavRows: [[.13, 52], [.13, 45], [.13, 40], [9, 34]] }),
+    morganite: () => brilliant(OUT.ellipse(1, .7), { table: .6, crown: .26, depth: .95, girdle: .06, star: .45, lg: .7, nG: 40 }),
+    amethyst: () => brilliant(OUT.squircle(1, 1, 3.4), { table: .56, crown: .32, depth: 1.0, girdle: .06, star: .52, lg: .74, nG: 40 })
+  };
+  return { CUTS, solid };
+})();
+if (typeof module !== 'undefined') module.exports = GEOM;
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const $ = id => document.getElementById(id);
+const DEV = location.hash === '#dev';
+const TOUCH = matchMedia('(pointer:coarse)').matches;
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const ease = t => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+/* ------------------------------------------------------------------ exhibits */
+const EXHIBITS = [
+  { key: 'diamond', name: 'Diamond', ior: [2.404, 2.419, 2.459], abs: [.002, .002, .005], scat: [0, 0, 0],
+    envPow: 2.6, envGain: 1.6, head: .03, body: .22, caustic: [1, 1, 1], rainbow: .85, causticI: 1.15, tilt: 1.22 },
+  { key: 'sapphire', name: 'Sapphire', ior: [1.761, 1.769, 1.785], abs: [6.8, 2.25, .32], scat: [0, .0006, .003],
+    envPow: 1.7, envGain: 1.0, head: .1, body: .45, caustic: [.25, .42, 1], rainbow: .1, causticI: .9, tilt: 1.18 },
+  { key: 'emerald', name: 'Emerald', ior: [1.574, 1.579, 1.588], abs: [7.6, .82, 1.85], scat: [.0002, .0045, .0025],
+    envPow: 1.6, envGain: 1.05, head: .14, body: .5, caustic: [.25, 1, .5], rainbow: .05, causticI: .8, tilt: 1.15 },
+  { key: 'morganite', name: 'Morganite', ior: [1.579, 1.585, 1.594], abs: [.05, .46, .4], scat: [.0015, .0008, .0008],
+    envPow: 1.7, envGain: 1.0, head: .12, body: .45, caustic: [1, .62, .55], rainbow: .15, causticI: 1, tilt: 1.18 },
+  { key: 'amethyst', name: 'Amethyst', ior: [1.543, 1.548, 1.556], abs: [.72, 3.4, .52], scat: [.0012, 0, .0018],
+    envPow: 1.7, envGain: 1.0, head: .12, body: .45, caustic: [.62, .32, 1], rainbow: .1, causticI: .9, tilt: 1.18, size: .9 }
+];
+const SPACING = 5.5, PED_Z = -1.2, GEM_Y = 1.17, GEM_R = .046, PED_H = 1.05;
+EXHIBITS.forEach((e, i) => { e.pos = new THREE.Vector3((i - 2) * SPACING, GEM_Y, PED_Z); });
+
+/* ------------------------------------------------------------------ renderer */
+const canvas = $('c');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
+  if (!renderer.capabilities.isWebGL2) throw new Error('webgl2');
+} catch (e) { $('err').style.display = 'block'; $('intro').style.display = 'none'; throw e; }
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.14;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false;
+
+const MAXPR = Math.min(window.devicePixelRatio || 1, TOUCH ? 2 : 2);
+let pr = Math.min(MAXPR, TOUCH ? 1.5 : 1.75);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xf1f0ee);
+const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, .02, 80);
+let baseFov = 30;
+
+const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 });
+const composer = new EffectComposer(renderer, rt);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), .16, .1, 2.6);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  camera.aspect = w / h;
+  baseFov = camera.fov = w / h < .8 ? 44 : 30;
+  camera.updateProjectionMatrix();
+  renderer.setPixelRatio(pr); composer.setPixelRatio(pr);
+  renderer.setSize(w, h, false); composer.setSize(w, h);
+}
+addEventListener('resize', resize);
+resize();
+
+const progress = v => { $('bar').style.width = (v * 100).toFixed(0) + '%'; };
+const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
+
+/* ------------------------------------------------------------------ textures */
+function makeNoise(seed) {
+  const G = 256, R = new Float32Array(G * G);
+  let s = seed >>> 0;
+  for (let i = 0; i < G * G; i++) { s = (s * 1664525 + 1013904223) >>> 0; R[i] = s / 4294967296; }
+  const vn = (x, y) => {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const a = R[(xi & 255) + ((yi & 255) << 8)], b = R[((xi + 1) & 255) + ((yi & 255) << 8)];
+    const c = R[(xi & 255) + (((yi + 1) & 255) << 8)], d = R[((xi + 1) & 255) + (((yi + 1) & 255) << 8)];
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  };
+  return (x, y, oct = 5) => { let f = 0, amp = .5, fr = 1; for (let o = 0; o < oct; o++) { f += vn(x * fr, y * fr) * amp; fr *= 2.03; amp *= .5; } return f; };
+}
+
+// White marble slabs: 2x2 slabs per texture tile, each with its own vein direction, fine grout.
+function marbleTexture() {
+  const N = 1024, cv = document.createElement('canvas'); cv.width = cv.height = N;
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(N, N), D = img.data;
+  const fbm = makeNoise(7), fbm2 = makeNoise(31);
+  const H = N / 2;
+  for (let sy = 0; sy < 2; sy++) for (let sx = 0; sx < 2; sx++) {
+    const ang = [.55, 2.2, 1.25, 2.75][sy * 2 + sx], ca = Math.cos(ang), sa = Math.sin(ang), off = (sx * 3 + sy * 7) * 13.7;
+    for (let y = 0; y < H; y++) for (let x = 0; x < H; x++) {
+      const u = x / H * 2.6 + off, v = y / H * 2.6 + off * .7;
+      const w = fbm(u * .55, v * .55), w2 = fbm2(u * 1.8, v * 1.8, 4);
+      const t = (u * ca + v * sa) * .62 + w * 3.4 + w2 * .55;
+      const s = Math.abs(Math.sin(t * Math.PI * .5));
+      const t2 = (u * sa - v * ca) * .9 + fbm2(u * .8 + 3, v * .8, 4) * 4.5;
+      const s2 = Math.abs(Math.sin(t2 * Math.PI * .5));
+      let vein = Math.pow(1 - s, 40) * .22 + Math.pow(1 - s, 10) * .07 + Math.pow(1 - s, 3) * .025 + Math.pow(1 - s2, 70) * .1 * (w2 > .5 ? 1 : .3);
+      vein *= .5 + w2 * .9;
+      const cloud = (fbm2(u * .7 + 9, v * .7, 4) - .5) * .045;
+      let base = .955 + cloud;
+      const gx = Math.min(x, H - 1 - x), gy = Math.min(y, H - 1 - y), g = Math.min(gx, gy);
+      const grout = g < 1 ? .86 : g < 2 ? .94 : 1;
+      const r = (base - vein * .92) * grout, gg = (base - vein * .95 - .004) * grout, b = (base - vein * 1.0 - .012) * grout;
+      const i = ((sy * H + y) * N + sx * H + x) * 4;
+      D[i] = clamp(r, 0, 1) * 255; D[i + 1] = clamp(gg, 0, 1) * 255; D[i + 2] = clamp(b, 0, 1) * 255; D[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  return tex;
+}
+
+function radialTexture(stops) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+  const ctx = cv.getContext('2d'), g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  stops.forEach(([o, c]) => g.addColorStop(o, c));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(cv);
+}
+
+// Caustic: light focused through the stone onto the pedestal top
+function causticTexture(seed) {
+  const N = 256, cv = document.createElement('canvas'); cv.width = cv.height = N;
+  const ctx = cv.getContext('2d'); let s = seed;
+  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, N, N);
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 46; i++) {
+    const a = rnd() * Math.PI * 2, r0 = 6 + rnd() * 20, r1 = 40 + rnd() * 80, w = .02 + rnd() * .05;
+    const g = ctx.createLinearGradient(128 + Math.cos(a) * r0, 128 + Math.sin(a) * r0, 128 + Math.cos(a) * r1, 128 + Math.sin(a) * r1);
+    const k = .12 + rnd() * .3;
+    g.addColorStop(0, `rgba(255,255,255,0)`); g.addColorStop(.25, `rgba(255,255,255,${k})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(128, 128);
+    ctx.arc(128, 128, r1, a - w / 2, a + w / 2); ctx.closePath(); ctx.fill();
+  }
+  for (let i = 0; i < 60; i++) {
+    const a = rnd() * 6.283, r = 10 + rnd() * 70, x = 128 + Math.cos(a) * r, y = 128 + Math.sin(a) * r, rr = 1 + rnd() * 3.5;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rr * 2);
+    g.addColorStop(0, `rgba(255,255,255,${.25 + rnd() * .5})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(x - rr * 2, y - rr * 2, rr * 4, rr * 4);
+  }
+  const g = ctx.createRadialGradient(128, 128, 0, 128, 128, 34);
+  g.addColorStop(0, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, N, N);
+  return new THREE.CanvasTexture(cv);
+}
+
+/* ------------------------------------------------------------------ gallery */
+const HALL = { x: 18, zb: -5, zf: 7, h: 5.4 };
+const M = {};
+function buildHall() {
+  const pm = new THREE.PMREMGenerator(renderer);
+  const roomEnv = pm.fromScene(new RoomEnvironment(renderer), .03).texture;
+  pm.dispose();
+  scene.environment = roomEnv;
+
+  const marble = marbleTexture();
+  marble.repeat.set(2 * HALL.x / 2.4, (HALL.zf - HALL.zb) / 2.4);
+  M.floor = new THREE.MeshPhysicalMaterial({ map: marble, roughness: .2, clearcoat: .55, clearcoatRoughness: .1, envMapIntensity: .55 });
+  M.wall = new THREE.MeshStandardMaterial({ color: 0xf2f1ee, roughness: .96, envMapIntensity: .45 });
+  M.ceil = new THREE.MeshStandardMaterial({ color: 0xf6f5f3, roughness: .98, envMapIntensity: .4 });
+  M.gap = new THREE.MeshStandardMaterial({ color: 0xc4c1bc, roughness: 1, envMapIntensity: .2 });
+  M.sky = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, .995, .985).multiplyScalar(2.4) });
+  M.ped = new THREE.MeshPhysicalMaterial({ color: 0xf6f5f2, roughness: .38, clearcoat: .35, clearcoatRoughness: .25, envMapIntensity: .5 });
+  M.felt = new THREE.MeshStandardMaterial({ color: 0xd8d4ce, roughness: 1, envMapIntensity: .25 });
+  M.ring = new THREE.MeshStandardMaterial({ color: 0x3a3a3c, roughness: .55, metalness: .3 });
+  M.lens = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, .97, .92).multiplyScalar(14) });
+
+  const W = HALL.x * 2, D = HALL.zf - HALL.zb, cz = (HALL.zf + HALL.zb) / 2;
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), M.floor);
+  floor.rotation.x = -Math.PI / 2; floor.position.z = cz; floor.receiveShadow = true; scene.add(floor);
+
+  const wall = (w, h, x, y, z, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), M.wall); m.position.set(x, y, z); m.rotation.y = ry; m.receiveShadow = true; scene.add(m); return m; };
+  wall(W, HALL.h, 0, HALL.h / 2, HALL.zb, 0);
+  wall(W, HALL.h, 0, HALL.h / 2, HALL.zf, Math.PI);
+  wall(D, HALL.h, -HALL.x, HALL.h / 2, cz, Math.PI / 2);
+  wall(D, HALL.h, HALL.x, HALL.h / 2, cz, -Math.PI / 2);
+
+  // shadow gap at the base of each wall, vertical reveals on the long walls
+  const box = (w, h, d, x, y, z, mat) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); scene.add(m); return m; };
+  box(W, .018, .01, 0, .009, HALL.zb + .004, M.gap); box(W, .018, .01, 0, .009, HALL.zf - .004, M.gap);
+  box(.01, .018, D, -HALL.x + .004, .009, cz, M.gap); box(.01, .018, D, HALL.x - .004, .009, cz, M.gap);
+  for (let i = -3; i <= 3; i++) {
+    const x = (i + .5) * SPACING;
+    if (Math.abs(x) < HALL.x - 1) { box(.012, HALL.h, .006, x, HALL.h / 2, HALL.zb + .002, M.gap); box(.012, HALL.h, .006, x, HALL.h / 2, HALL.zf - .002, M.gap); }
+  }
+
+  // ceiling with recessed daylight coves
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W, D), M.ceil);
+  ceil.rotation.x = Math.PI / 2; ceil.position.set(0, HALL.h, cz); scene.add(ceil);
+  for (const z of [-3.1, 1.9, 5.0]) {
+    const w = z === 1.9 ? 2.2 : 1.1;
+    const sky = new THREE.Mesh(new THREE.PlaneGeometry(W - 3, w), M.sky);
+    sky.rotation.x = Math.PI / 2; sky.position.set(0, HALL.h - .002, z); scene.add(sky);
+    for (const s of [-1, 1]) { const r = box(W - 3, .18, .02, 0, HALL.h - .09, z + s * (w / 2 + .01), M.wall); r.castShadow = false; }
+  }
+
+  // pedestals + spotlights
+  const prof = [[0, 0], [.272, 0], [.272, .014], [.262, .022], [.248, .05], [.243, .12], [.243, PED_H - .07], [.25, PED_H - .035], [.268, PED_H - .012], [.27, PED_H - .004], [.264, PED_H], [0, PED_H]]
+    .map(([r, y]) => new THREE.Vector2(r, y));
+  const pedGeo = new THREE.LatheGeometry(prof, 120);
+  const feltGeo = new THREE.CircleGeometry(.246, 96);
+  const shadowTex = radialTexture([[0, 'rgba(0,0,0,1)'], [.35, 'rgba(0,0,0,.55)'], [1, 'rgba(0,0,0,0)']]);
+  const poolTex = radialTexture([[0, 'rgba(255,255,255,1)'], [.5, 'rgba(255,255,255,.4)'], [1, 'rgba(255,255,255,0)']]);
+  EXHIBITS.forEach((e, i) => {
+    const p = new THREE.Mesh(pedGeo, M.ped); p.position.set(e.pos.x, 0, e.pos.z); p.castShadow = p.receiveShadow = true; scene.add(p);
+    const f = new THREE.Mesh(feltGeo, M.felt); f.rotation.x = -Math.PI / 2; f.position.set(e.pos.x, PED_H + .0008, e.pos.z); f.receiveShadow = true; scene.add(f);
+    // soft contact shadow of the floating stone
+    const sh = new THREE.Mesh(new THREE.CircleGeometry(.075, 48), new THREE.MeshBasicMaterial({ color: 0x000000, alphaMap: shadowTex, transparent: true, opacity: .2, depthWrite: false }));
+    sh.rotation.x = -Math.PI / 2; sh.position.set(e.pos.x, PED_H + .0015, e.pos.z - .03); sh.scale.set(1, 1.25, 1); scene.add(sh);
+    // caustic pattern thrown by the stone
+    const cm = new THREE.ShaderMaterial({
+      uniforms: { map: { value: causticTexture(17 + i * 101) }, uCol: { value: new THREE.Vector3(...e.caustic) }, uI: { value: e.causticI }, uRb: { value: e.rainbow }, uA: { value: 0 } },
+      vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+      fragmentShader: `uniform sampler2D map;uniform vec3 uCol;uniform float uI,uRb,uA;varying vec2 vUv;
+        vec3 hue(float h){return clamp(abs(mod(h*6.+vec3(0,4,2),6.)-3.)-1.,0.,1.);}
+        void main(){vec2 p=vUv-.5;float a=atan(p.y,p.x);float r=length(p);
+          float c=cos(uA),s=sin(uA);vec2 q=mat2(c,-s,s,c)*p+.5;float v=texture2D(map,q).r;
+          vec3 col=mix(uCol,hue(a*1.59+r*5.+uA*.7),uRb)*v*uI*smoothstep(.5,.2,r);
+          gl_FragColor=vec4(col,1.);}`,
+      transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
+    });
+    const cs = new THREE.Mesh(new THREE.PlaneGeometry(.34, .34), cm);
+    cs.rotation.x = -Math.PI / 2; cs.position.set(e.pos.x, PED_H + .002, e.pos.z - .045); scene.add(cs);
+    e.shadow = sh; e.causticMesh = cs; e.causticMat = cm;
+
+    // exhibition spotlight from the ceiling, slightly in front of the stone
+    const sp = new THREE.SpotLight(0xfff6ea, 62, 0, .12, .75, 2);
+    sp.position.set(e.pos.x, HALL.h - .08, e.pos.z + 1.55);
+    sp.target.position.copy(e.pos).setY(PED_H); scene.add(sp, sp.target);
+    e.spotPos = sp.position.clone();
+    const can = new THREE.Mesh(new THREE.CylinderGeometry(.075, .075, .06, 32, 1, true), M.ring);
+    can.position.copy(sp.position).setY(HALL.h - .03); scene.add(can);
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(.045, 32), M.lens);
+    lens.rotation.x = Math.PI / 2; lens.position.copy(sp.position).setY(HALL.h - .055); scene.add(lens);
+    // a faint pool of light on the floor around the pedestal
+    const pool = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.8), new THREE.MeshBasicMaterial({ color: 0xfff3e2, alphaMap: poolTex, transparent: true, opacity: .1, depthWrite: false, blending: THREE.AdditiveBlending }));
+    pool.rotation.x = -Math.PI / 2; pool.position.set(e.pos.x, .002, e.pos.z + .25); scene.add(pool);
+  });
+
+  // soft daylight from the ceiling coves
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xdcd6cc, .85));
+  const sun = new THREE.DirectionalLight(0xfffaf2, 1.25);
+  sun.position.set(5, 11, 7); sun.target.position.set(0, 0, -1);
+  sun.castShadow = true;
+  Object.assign(sun.shadow.camera, { left: -20, right: 20, top: 9, bottom: -9, near: 1, far: 30 });
+  sun.shadow.mapSize.set(2048, 2048); sun.shadow.radius = 7; sun.shadow.blurSamples = 16; sun.shadow.bias = -.0005; sun.shadow.normalBias = .02;
+  scene.add(sun, sun.target);
+}
+
+/* ------------------------------------------------------------------ gem shader */
+const MAXP = 100;
+const GEM_VS = `
+out vec3 vPos; out vec3 vN;
+void main(){ vPos = position; vN = normal; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+const GEM_FS = `
+precision highp float;
+#define MAXP ${MAXP}
+uniform vec4 uPl[MAXP];
+uniform int uN, uBounce;
+uniform samplerCube uEnv;
+uniform mat3 uRot;
+uniform vec3 uCam, uToCam, uToBody, uIor3, uAbs, uScat;
+uniform float uIor, uEnvGain, uEnvPow, uHead, uBody, uExposure;
+uniform vec2 uHeadCos, uBodyCos;
+uniform vec3 uLDir[4], uLCol[4];
+uniform float uLSharp[4];
+in vec3 vPos; in vec3 vN;
+layout(location = 0) out highp vec4 fragColor;
+
+float fres(float ci, float n1, float n2){
+  float st = n1 / n2 * sqrt(max(0., 1. - ci * ci));
+  if (st >= 1.) return 1.;
+  float ct = sqrt(1. - st * st);
+  float rs = (n1 * ci - n2 * ct) / (n1 * ci + n2 * ct);
+  float rp = (n1 * ct - n2 * ci) / (n1 * ct + n2 * ci);
+  return .5 * (rs * rs + rp * rp);
+}
+// gallery seen from the stone: rendered cube map + sharp exhibition lights + the visitor's own silhouette
+vec3 envW(vec3 d){
+  vec3 c = textureLod(uEnv, d, 0.).rgb;
+  c = (pow(clamp(c, 0., 1.), vec3(uEnvPow)) + max(c - 1., vec3(0.)) * .4) * uEnvGain;
+  c *= mix(1., uHead, smoothstep(uHeadCos.x, uHeadCos.y, dot(d, uToCam)));
+  c *= mix(1., uBody, smoothstep(uBodyCos.x, uBodyCos.y, dot(d, uToBody)));
+  for (int k = 0; k < 4; k++) c += uLCol[k] * pow(max(dot(d, uLDir[k]), 0.), uLSharp[k]);
+  return c;
+}
+vec3 envO(vec3 dObj){ return envW(normalize(uRot * dObj)); }
+
+void main(){
+  vec3 N = normalize(vN);
+  vec3 V = normalize(vPos - uCam);
+  float ci = clamp(-dot(V, N), 0., 1.);
+  float F = fres(ci, 1., uIor);
+  vec3 col = F * envO(reflect(V, N));
+  vec3 d = refract(V, N, 1. / uIor);
+  vec3 p = vPos;
+  vec3 thr = vec3(1. - F);
+  for (int b = 0; b < 12; b++) {
+    if (b >= uBounce) break;
+    float tm = 1e5; vec3 ne = vec3(0., 1., 0.);
+    for (int i = 0; i < MAXP; i++) {
+      if (i >= uN) break;
+      vec4 q = uPl[i];
+      float dn = dot(q.xyz, d);
+      if (dn > 1e-4) { float t = (q.w - dot(q.xyz, p)) / dn; if (t < tm) { tm = t; ne = q.xyz; } }
+    }
+    tm = clamp(tm, 0., 4.);
+    p += d * tm;
+    vec3 att = exp(-uAbs * tm);
+    col += uScat * tm * thr;
+    thr *= att;
+    float c2 = dot(d, ne);
+    if (1. - uIor * uIor * (1. - c2 * c2) > 0.) {
+      float Fo = fres(c2, uIor, 1.);
+      vec3 dr = refract(d, -ne, uIor3.r), dg = refract(d, -ne, uIor3.g), db = refract(d, -ne, uIor3.b);
+      vec3 e = vec3(dot(dr, dr) > .5 ? envO(dr).r : 0., envO(dg).g, dot(db, db) > .5 ? envO(db).b : 0.);
+      col += thr * (1. - Fo) * e;
+      thr *= Fo;
+    }
+    d = reflect(d, ne);
+    if (max(thr.r, max(thr.g, thr.b)) < .012) break;
+  }
+  col += thr * envO(d) * .5;
+  fragColor = vec4(col * uExposure, 1.);
+}`;
+
+const qTmp = new THREE.Quaternion(), vTmp = new THREE.Vector3(), mTmp = new THREE.Matrix4();
+function buildGems() {
+  EXHIBITS.forEach((e, i) => {
+    const s = GEOM.solid(GEOM.CUTS[e.key]());
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(s.pos, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(s.nor, 3));
+    g.computeBoundingSphere();
+    const pl = s.planes.map(p => new THREE.Vector4(...p));
+    while (pl.length < MAXP) pl.push(new THREE.Vector4(0, 1, 0, 9));
+    const env = new THREE.WebGLCubeRenderTarget(TOUCH ? 256 : 384, { type: THREE.HalfFloatType, generateMipmaps: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+    const mat = new THREE.ShaderMaterial({
+      glslVersion: THREE.GLSL3, vertexShader: GEM_VS, fragmentShader: GEM_FS,
+      uniforms: {
+        uPl: { value: pl }, uN: { value: s.planes.length }, uBounce: { value: TOUCH ? 6 : 9 },
+        uEnv: { value: env.texture }, uRot: { value: new THREE.Matrix3() }, uCam: { value: new THREE.Vector3() },
+        uToCam: { value: new THREE.Vector3(0, 0, 1) }, uToBody: { value: new THREE.Vector3(0, 0, 1) }, uBody: { value: e.body }, uBodyCos: { value: new THREE.Vector2(.8, .9) }, uIor: { value: e.ior[1] }, uIor3: { value: new THREE.Vector3(...e.ior) },
+        uAbs: { value: new THREE.Vector3(...e.abs) }, uScat: { value: new THREE.Vector3(...e.scat) },
+        uEnvGain: { value: e.envGain }, uEnvPow: { value: e.envPow }, uHead: { value: e.head }, uHeadCos: { value: new THREE.Vector2(.9, .97) },
+        uExposure: { value: 1 },
+        uLDir: { value: [0, 1, 2, 3].map(() => new THREE.Vector3(0, 1, 0)) },
+        uLCol: { value: [0, 1, 2, 3].map(() => new THREE.Vector3()) },
+        uLSharp: { value: [2400, 90, 700, 1400] }
+      }
+    });
+    const mesh = new THREE.Mesh(g, mat);
+    mesh.scale.setScalar(GEM_R * (e.size || 1));
+    mesh.position.copy(e.pos);
+    // default exhibition pose: table tipped towards the visitor
+    e.q0 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), e.tilt);
+    mesh.quaternion.copy(e.q0);
+    scene.add(mesh);
+    e.mesh = mesh; e.mat = mat; e.env = env;
+    // exhibition lights as the stone sees them
+    const L = mat.uniforms;
+    L.uLDir.value[0].copy(e.spotPos).sub(e.pos).normalize(); L.uLCol.value[0].set(1, .96, .9).multiplyScalar(95);
+    L.uLDir.value[1].set(.15, 1, -.35).normalize(); L.uLCol.value[1].set(1, 1, 1).multiplyScalar(2.2);
+    L.uLDir.value[2].set(-.8, .55, .25).normalize(); L.uLCol.value[2].set(1, .98, .95).multiplyScalar(9);
+    L.uLDir.value[3].set(.7, .45, -.55).normalize(); L.uLCol.value[3].set(.95, .97, 1).multiplyScalar(14);
+  });
+  // render each stone's surroundings once (gems hidden): the hall is static
+  renderer.shadowMap.needsUpdate = true;
+  EXHIBITS.forEach(e => { e.mesh.visible = false; e.causticMesh.visible = false; });
+  EXHIBITS.forEach(e => {
+    const cc = new THREE.CubeCamera(.03, 60, e.env);
+    cc.position.copy(e.pos); scene.add(cc); cc.update(renderer, scene); scene.remove(cc);
+  });
+  EXHIBITS.forEach(e => { e.mesh.visible = true; e.causticMesh.visible = true; });
+}
+
+function updateGemUniforms() {
+  for (const e of EXHIBITS) {
+    const m = e.mesh, U = e.mat.uniforms;
+    m.updateMatrixWorld();
+    U.uRot.value.setFromMatrix4(mTmp.makeRotationFromQuaternion(m.quaternion));
+    U.uCam.value.copy(camera.position); m.worldToLocal(U.uCam.value);
+    vTmp.copy(camera.position).sub(e.pos); const dist = vTmp.length();
+    U.uToCam.value.copy(vTmp).normalize();
+    const ang = Math.atan(.13 / dist);
+    U.uHeadCos.value.set(Math.cos(ang * 1.35), Math.cos(ang * .75));
+    // the visitor's shoulders and body, below and behind the eyes
+    vTmp.copy(camera.position).sub(e.pos); vTmp.y -= .42; const db = vTmp.length();
+    U.uToBody.value.copy(vTmp).normalize();
+    const ab = Math.atan(.3 / db);
+    U.uBodyCos.value.set(Math.cos(ab * 1.4), Math.cos(ab * .7));
+    // caustic turns with the stone
+    const fx = vTmp.set(1, 0, 0).applyQuaternion(m.quaternion);
+    e.causticMat.uniforms.uA.value = Math.atan2(fx.z, fx.x);
+  }
+}
+
+/* ------------------------------------------------------------------ view + controls */
+const VIEW = { free: null, idx: 0, dist: .46, distGoal: .46, dist0: .46, auto: true, from: null, t: 1, dur: 2.6, dirC: new THREE.Vector3(0, .2, 1).normalize() };
+const camPos = i => EXHIBITS[i].pos.clone().addScaledVector(VIEW.dirC, VIEW.dist);
+let transit = null;
+
+function go(i, instant) {
+  i = (i + EXHIBITS.length) % EXHIBITS.length;
+  if (i === VIEW.idx && !instant && !transit) return;
+  const fromPos = camera.position.clone(), fromTgt = transit ? transit.tgt.clone() : EXHIBITS[VIEW.idx].pos.clone();
+  const span = Math.abs(i - VIEW.idx);
+  VIEW.idx = i; VIEW.distGoal = VIEW.dist0; resetAnim = null; spin.set(0, 0);
+  if (instant) { transit = null; intro = null; VIEW.dist = VIEW.dist0; camera.fov = baseFov; camera.updateProjectionMatrix(); setLabel(i); return; }
+  transit = { t: 0, dur: 2.4 + span * .45, fromPos, fromTgt, tgt: fromTgt.clone(), span };
+  setLabel(i);
+  AU.chime(i);
+}
+
+function setLabel(i) {
+  const L = $('label');
+  L.classList.add('out');
+  clearTimeout(setLabel.t);
+  setLabel.t = setTimeout(() => {
+    $('name').textContent = EXHIBITS[i].name;
+    $('no').textContent = 'No. ' + String(i + 1).padStart(2, '0');
+    $('count').innerHTML = String(i + 1).padStart(2, '0') + ' <i>/ ' + String(EXHIBITS.length).padStart(2, '0') + '</i>';
+    L.classList.remove('out');
+  }, transit ? 900 : 10);
+}
+
+// rotation by dragging (trackball about the camera's axes), inertia, pinch & wheel zoom
+const ptrs = new Map();
+let drag = null, spin = new THREE.Vector2(), pinch0 = 0, resetAnim = null;
+const axisY = new THREE.Vector3(0, 1, 0), axisR = new THREE.Vector3(), qa = new THREE.Quaternion(), qb = new THREE.Quaternion();
+function rotateActive(dx, dy) {
+  const m = EXHIBITS[VIEW.idx].mesh;
+  axisR.set(1, 0, 0).applyQuaternion(camera.quaternion);
+  qa.setFromAxisAngle(axisY, dx); qb.setFromAxisAngle(axisR, dy);
+  m.quaternion.premultiply(qa).premultiply(qb).normalize();
+}
+canvas.addEventListener('pointerdown', ev => {
+  canvas.setPointerCapture(ev.pointerId);
+  ptrs.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+  if (ptrs.size === 1) { drag = { x: ev.clientX, y: ev.clientY, t: performance.now() }; spin.set(0, 0); resetAnim = null; canvas.classList.add('drag'); AU.touch(); }
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); drag = null; }
+});
+canvas.addEventListener('pointermove', ev => {
+  if (!ptrs.has(ev.pointerId)) return;
+  ptrs.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+  if (ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
+    if (pinch0 > 0) { VIEW.distGoal = clamp(VIEW.distGoal * pinch0 / d, .2, .95); pinch0 = d; }
+    return;
+  }
+  if (!drag) return;
+  const k = 4.2 / Math.max(innerHeight, 400);
+  const dx = (ev.clientX - drag.x) * k, dy = (ev.clientY - drag.y) * k;
+  const now = performance.now(), dt = Math.max(8, now - drag.t) / 1000;
+  rotateActive(dx, dy);
+  spin.set(dx / dt, dy / dt).multiplyScalar(.5).add(spin.clone().multiplyScalar(.5));
+  drag.x = ev.clientX; drag.y = ev.clientY; drag.t = now;
+});
+const endPtr = ev => {
+  ptrs.delete(ev.pointerId);
+  if (ptrs.size === 0) { if (drag && performance.now() - drag.t > 90) spin.set(0, 0); drag = null; canvas.classList.remove('drag'); }
+  pinch0 = 0;
+};
+canvas.addEventListener('pointerup', endPtr);
+canvas.addEventListener('pointercancel', endPtr);
+canvas.addEventListener('wheel', ev => { ev.preventDefault(); VIEW.distGoal = clamp(VIEW.distGoal * Math.exp(ev.deltaY * .0012), .2, .95); }, { passive: false });
+
+function setAuto(v) { VIEW.auto = v; $('auto').classList.toggle('off', !v); $('auto').setAttribute('aria-pressed', v); }
+function doReset() {
+  const m = EXHIBITS[VIEW.idx].mesh;
+  resetAnim = { t: 0, from: m.quaternion.clone(), to: EXHIBITS[VIEW.idx].q0.clone() };
+  spin.set(0, 0); VIEW.distGoal = VIEW.dist0; AU.tick();
+}
+$('prev').onclick = () => { go(VIEW.idx - 1); };
+$('next').onclick = () => { go(VIEW.idx + 1); };
+$('auto').onclick = () => { setAuto(!VIEW.auto); AU.tick(); };
+$('reset').onclick = doReset;
+$('snd').onclick = () => AU.toggle();
+addEventListener('keydown', ev => {
+  if (!started) return;
+  if (ev.key === 'ArrowRight') go(VIEW.idx + 1);
+  else if (ev.key === 'ArrowLeft') go(VIEW.idx - 1);
+  else if (ev.key === ' ') { ev.preventDefault(); setAuto(!VIEW.auto); AU.tick(); }
+  else if (ev.key === 'r' || ev.key === 'R') doReset();
+  else if (ev.key === 'm' || ev.key === 'M') AU.toggle();
+  else if (ev.key === '+' || ev.key === '=') VIEW.distGoal = clamp(VIEW.distGoal * .85, .2, .95);
+  else if (ev.key === '-') VIEW.distGoal = clamp(VIEW.distGoal / .85, .2, .95);
+});
+if (TOUCH) $('hint').innerHTML = 'Drag to rotate · Pinch to zoom';
+
+/* ------------------------------------------------------------------ audio */
+const AU = (() => {
+  let ctx = null, master, music, sfx, rev, on = true, chordI = 0, nextNote = 0, nextChord = 0, pads = [];
+  try { on = localStorage.getItem('gemgallery_sound') !== 'off'; } catch (e) {}
+  const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+  // D major / B minor colours, slow
+  const CHORDS = [[50, 57, 64, 66, 69], [47, 54, 62, 66, 69], [43, 50, 59, 62, 66], [45, 52, 57, 61, 64], [42, 49, 57, 61, 64], [43, 50, 57, 62, 66]];
+  const MEL = [[74, 76, 78, 81], [74, 78, 81, 83], [71, 74, 78, 79], [73, 76, 81, 76], [73, 76, 78, 81], [74, 78, 79, 81]];
+  function impulse(sec) {
+    const n = ctx.sampleRate * sec, b = ctx.createBuffer(2, n, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); let lp = 0; for (let i = 0; i < n; i++) { lp += (Math.random() * 2 - 1 - lp) * .35; d[i] = lp * Math.pow(1 - i / n, 2.6); } }
+    return b;
+  }
+  function start() {
+    if (ctx) return;
+    try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+    master = ctx.createGain(); master.gain.value = 0;
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -20; comp.ratio.value = 3;
+    master.connect(comp).connect(ctx.destination);
+    rev = ctx.createConvolver(); rev.buffer = impulse(5.5);
+    const revG = ctx.createGain(); revG.gain.value = .9; rev.connect(revG).connect(master);
+    music = ctx.createGain(); music.gain.value = .55; music.connect(master);
+    sfx = ctx.createGain(); sfx.gain.value = .7; sfx.connect(master);
+    const air = ctx.createBufferSource(); air.buffer = impulse(4); air.loop = true;
+    const af = ctx.createBiquadFilter(); af.type = 'bandpass'; af.frequency.value = 900; af.Q.value = .6;
+    const ag = ctx.createGain(); ag.gain.value = .012; air.connect(af).connect(ag).connect(music); air.start();
+    const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = .05; lg.gain.value = 500; lfo.connect(lg).connect(af.frequency); lfo.start();
+    nextChord = ctx.currentTime + .1; nextNote = ctx.currentTime + 3.5;
+    setInterval(schedule, 250);
+    apply(true);
+  }
+  function apply(fade) { if (!ctx) return; const t = ctx.currentTime; master.gain.cancelScheduledValues(t); master.gain.setValueAtTime(master.gain.value, t); master.gain.linearRampToValueAtTime(on ? .8 : 0, t + (fade ? 4 : .4)); if (on && ctx.state === 'suspended') ctx.resume(); }
+  function pad(ch, t0, dur) {
+    for (const m of ch) for (const det of [-6, 6]) {
+      const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = mtof(m); o.detune.value = det + (Math.random() - .5) * 4;
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 700 + Math.random() * 300; f.Q.value = .4;
+      const g = ctx.createGain(); const a = .018 / ch.length * (m < 55 ? 1.6 : 1);
+      g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(a, t0 + 5); g.gain.setValueAtTime(a, t0 + dur - 1); g.gain.linearRampToValueAtTime(0, t0 + dur + 5);
+      const pan = ctx.createStereoPanner(); pan.pan.value = (Math.random() - .5) * .8;
+      o.connect(f).connect(g).connect(pan); pan.connect(music); const s = ctx.createGain(); s.gain.value = .6; pan.connect(s).connect(rev);
+      o.start(t0); o.stop(t0 + dur + 5.2);
+    }
+  }
+  function piano(m, t0, vel = .5, bus = music) {
+    const f0 = mtof(m), out = ctx.createGain(); out.gain.value = vel * .05;
+    const pan = ctx.createStereoPanner(); pan.pan.value = clamp((m - 72) / 30, -.6, .6);
+    out.connect(pan); pan.connect(bus); const s = ctx.createGain(); s.gain.value = .8; pan.connect(s).connect(rev);
+    [[1, 1, 4.5], [2.002, .42, 2.6], [3.006, .2, 1.6], [4.013, .1, 1.1], [5.03, .05, .8]].forEach(([r, a, d]) => {
+      const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f0 * r;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(a, t0 + .006); g.gain.exponentialRampToValueAtTime(.0005, t0 + d * (1.2 - m / 200));
+      o.connect(g).connect(out); o.start(t0); o.stop(t0 + d * 1.3);
+    });
+  }
+  function schedule() {
+    if (!ctx || !on) return;
+    const now = ctx.currentTime;
+    if (nextChord < now + 1) { pad(CHORDS[chordI % CHORDS.length], nextChord, 13); chordI++; nextChord += 14; }
+    if (nextNote < now + 1) {
+      const mel = MEL[(chordI + CHORDS.length - 1) % CHORDS.length];
+      const m = mel[Math.floor(Math.random() * mel.length)];
+      piano(m, nextNote, .35 + Math.random() * .35);
+      if (Math.random() < .35) piano(mel[Math.floor(Math.random() * mel.length)] - 12, nextNote + .45 + Math.random() * .3, .3);
+      nextNote += 2.6 + Math.random() * 4.2;
+    }
+  }
+  function bell(f, a, t0) {
+    for (const [r, k, d] of [[1, 1, 2.6], [2.76, .35, 1.2], [5.4, .12, .5]]) {
+      const o = ctx.createOscillator(); o.frequency.value = f * r; const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(a * k, t0 + .004); g.gain.exponentialRampToValueAtTime(.0001, t0 + d);
+      o.connect(g); g.connect(sfx); const s = ctx.createGain(); s.gain.value = 1.2; g.connect(s).connect(rev); o.start(t0); o.stop(t0 + d + .1);
+    }
+  }
+  return {
+    start, get on() { return on; },
+    toggle() { on = !on; try { localStorage.setItem('gemgallery_sound', on ? 'on' : 'off'); } catch (e) {} $('snd').classList.toggle('off', !on); $('snd').setAttribute('aria-pressed', on); $('snd').querySelector('.w').style.opacity = on ? 1 : 0; if (!ctx && on) start(); apply(false); },
+    sync() { $('snd').classList.toggle('off', !on); $('snd').querySelector('.w').style.opacity = on ? 1 : 0; $('snd').setAttribute('aria-pressed', on); },
+    chime(i) { if (!ctx || !on) return; const t = ctx.currentTime + .05; bell(mtof([86, 81, 83, 88, 85][i % 5]), .02, t); bell(mtof([93, 88, 90, 95, 92][i % 5]), .012, t + .32); },
+    tick() { if (!ctx || !on) return; bell(2200, .008, ctx.currentTime + .01); },
+    touch() { if (!ctx || !on) return; const t = ctx.currentTime; if (t - (this._lt || 0) < .6) return; this._lt = t; bell(3100, .0045, t + .005); }
+  };
+})();
+
+/* ------------------------------------------------------------------ loop */
+let started = false, last = performance.now(), frames = [], qualityT = 0, intro = null;
+function frame(now) {
+  requestAnimationFrame(frame);
+  let dt = Math.min(.05, (now - last) / 1000); last = now;
+  // adaptive resolution: decided before drawing so the canvas never flashes
+  frames.push(dt); qualityT += dt;
+  if (frames.length > 40) frames.shift();
+  if (qualityT > 1.5 && frames.length >= 40) {
+    const avg = frames.reduce((a, b) => a + b, 0) / frames.length;
+    if (avg > .026 && pr > .75) { pr = Math.max(.75, pr - .25); resize(); qualityT = 0; }
+    else if (avg < .0135 && pr < MAXPR) { pr = Math.min(MAXPR, pr + .25); resize(); qualityT = -4; }
+    else qualityT = 0;
+  }
+  step(dt, now / 1000);
+  composer.render(dt);
+}
+function step(dt, t) {
+  // stones: the idle ones turn slowly on their table axis, the active one follows the visitor
+  EXHIBITS.forEach((e, i) => {
+    const m = e.mesh;
+    if (i !== VIEW.idx) { qa.setFromAxisAngle(axisY, dt * .14); m.quaternion.multiply(qa); return; }
+    if (resetAnim) { resetAnim.t = Math.min(1, resetAnim.t + dt / 1.1); m.quaternion.slerpQuaternions(resetAnim.from, resetAnim.to, ease(resetAnim.t)); if (resetAnim.t >= 1) resetAnim = null; return; }
+    if (!drag && spin.lengthSq() > 1e-6) { rotateActive(spin.x * dt, spin.y * dt); spin.multiplyScalar(Math.exp(-dt * 3.2)); }
+    if (VIEW.auto && !drag) { qa.setFromAxisAngle(axisY, dt * .2); m.quaternion.multiply(qa); }
+  });
+  // camera
+  VIEW.dist += (VIEW.distGoal - VIEW.dist) * (1 - Math.exp(-dt * 7));
+  const tgtB = EXHIBITS[VIEW.idx].pos, posB = camPos(VIEW.idx);
+  if (VIEW.free) { camera.position.copy(VIEW.free[0]); camera.lookAt(VIEW.free[1]); }
+  else if (intro) {
+    intro.t = Math.min(1, intro.t + dt / intro.dur);
+    const k = ease(intro.t);
+    camera.position.lerpVectors(intro.pos, posB, k);
+    vTmp.lerpVectors(intro.tgt, tgtB, ease(Math.min(1, intro.t * 1.15)));
+    camera.lookAt(vTmp);
+    if (intro.t >= 1) intro = null;
+  } else if (transit) {
+    transit.t = Math.min(1, transit.t + dt / transit.dur);
+    const k = ease(transit.t), arc = Math.sin(Math.PI * k);
+    camera.position.lerpVectors(transit.fromPos, posB, k);
+    camera.position.y += arc * (.3 + .1 * transit.span); camera.position.z += arc * (2.4 + .8 * transit.span);
+    camera.fov = baseFov + arc * 16; camera.updateProjectionMatrix();
+    transit.tgt.lerpVectors(transit.fromTgt, tgtB, ease(clamp(transit.t * 1.08 - .04, 0, 1)));
+    camera.lookAt(transit.tgt);
+    if (transit.t >= 1) { transit = null; camera.fov = baseFov; camera.updateProjectionMatrix(); }
+  } else {
+    camera.position.copy(posB);
+    camera.lookAt(tgtB);
+  }
+  updateGemUniforms();
+}
+
+/* ------------------------------------------------------------------ boot */
+async function boot() {
+  progress(.1); await nextFrame();
+  buildHall(); progress(.55); await nextFrame();
+  buildGems(); progress(.85); await nextFrame();
+  // warm up shaders before the visitor enters
+  go(0, true); step(0, 0);
+  renderer.compile(scene, camera);
+  composer.render(0);
+  progress(1);
+  AU.sync();
+  const I = $('intro');
+  I.classList.add('ready');
+  $('enter').textContent = TOUCH ? 'Tap to enter' : 'Click to enter';
+  const enter = () => {
+    if (started) return; started = true;
+    AU.start();
+    I.classList.add('gone'); $('ui').classList.add('on');
+    intro = { t: 0, dur: 5.5, pos: new THREE.Vector3(-4.4, 1.75, 5.2), tgt: new THREE.Vector3(-8, 1.0, -2.5) };
+    canvas.focus();
+  };
+  I.addEventListener('click', enter);
+  addEventListener('keydown', e => { if (!started && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); enter(); } });
+  // the hall is visible (static) behind the intro card until entry
+  camera.position.set(-4.4, 1.75, 5.2); camera.lookAt(-8, 1, -2.5);
+  requestAnimationFrame(t => { last = t; frame(t); });
+  if (DEV) window.__dev = { go, VIEW, EXHIBITS, camera, enter, setPR: v => { pr = v; resize(); }, step, render: () => composer.render(0), freezeQuality: () => { qualityT = -1e9; }, cam: (p, t) => { VIEW.free = p ? [new THREE.Vector3(...p), new THREE.Vector3(...t)] : null; }, setAuto };
+}
+boot();
+</script>
+</body>
+</html>
