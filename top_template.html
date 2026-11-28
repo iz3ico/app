@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>あそびば — じゅうろくの扉</title>
+<title>あそびば — じゅうななの扉</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
@@ -55,6 +55,7 @@ h1{margin:18px 0 0;font-weight:700;font-size:clamp(46px,8vw,78px);letter-spacing
 .gate:nth-child(14){animation-delay:1.95s}
 .gate:nth-child(15){animation-delay:2.1s}
 .gate:nth-child(16){animation-delay:2.25s}
+.gate:nth-child(17){animation-delay:2.4s}
 .arch{position:relative;width:100%;aspect-ratio:4/5;border-radius:999px 999px 18px 18px;padding:10px;
   background:linear-gradient(180deg,rgba(255,243,201,.9),var(--gold) 30%,var(--gold2) 70%,#7a5f2c);
   box-shadow:0 0 0 1px rgba(0,0,0,.6),0 30px 60px -30px rgba(0,0,0,.9),0 0 40px -12px var(--a);transition:box-shadow .5s,transform .5s cubic-bezier(.2,.8,.2,1)}
@@ -109,8 +110,8 @@ footer{position:relative;z-index:1;text-align:center;padding:8px 0 40px}
   <header>
     <div class="orn"><i></i>✦<i></i></div>
     <h1>あそびば</h1>
-    <p class="lead">じゅうろくの扉</p>
-    <div class="en">Sixteen Gates</div>
+    <p class="lead">じゅうななの扉</p>
+    <div class="en">Seventeen Gates</div>
   </header>
   <section class="gates" id="gates"></section>
 </main>
@@ -171,6 +172,9 @@ const GAMES=[
   {id:'gemgallery',title:'GEM GALLERY',en:'A Silent Museum', rune:'GEMMA · LUX', accent:'#dfe6ff',
    desc:'白い美術館に、五つの宝石。まわして、近づいて、光が石のなかで遊ぶのを好きなだけ眺める。',
    path:'gemgallery/',artifact:'https://claude.ai/artifact/DALCKbzCmY2VdyDyiP7bDM', thumb:'__THUMB_gemgallery__'},
+  {id:'deepsmile',title:'DEEP SMILE',en:'Five Minutes Below', rune:'MARE · RISUS', accent:'#d6cc8f',
+   desc:'深海へおりる鉄のケージ。逃げられない五分間、暗闇の底で巨大な何かが笑っている。',
+   path:'deepsmile/',artifact:'https://claude.ai/artifact/VX9fuaF6GrQFjwvDAi4z7L', thumb:'__THUMB_deepsmile__'},
 ];
 const LOCAL=location.protocol==='file:'||/github\.io$/.test(location.hostname)||/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 const hrefOf=g=>LOCAL?(location.protocol==='file:'?g.path+'index.html':g.path):g.artifact;
